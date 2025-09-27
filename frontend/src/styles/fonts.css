@@ -1,0 +1,41 @@
+/* src/styles/fonts.css
+   تأكد أن الملفات داخل: frontend/public/fonts
+   وسيتم الوصول لها عبر /fonts/... أثناء التطوير والإنتاج
+*/
+
+/* عربي (NeoSans) */
+@font-face {
+  font-family: "AppArabic";
+  src:
+    url("/fonts/NeoSans.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* لاتيني (Hanserd) */
+@font-face {
+  font-family: "AppLatin";
+  src:
+    url("/fonts/hanserd.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* متغيرات ستاك لكل لغة */
+:root {
+  --font-ar: "AppArabic", "Noto Sans Arabic", "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-en: "AppLatin", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-de: "AppLatin", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* الخط الفعّال وقت التشغيل */
+  --font-base: var(--font-ar);     /* افتراضياً عربي */
+  --font-heading: var(--font-base);
+}
+
+html, body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

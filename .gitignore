@@ -1,0 +1,32 @@
+# Python virtual environments
+venv/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Django local database
+*.sqlite3
+
+# Uploaded media (keep outside version control)
+media/
+
+# Node packages and caches
+node_modules/
+frontend/node_modules/
+frontend/node_modules/.cache/
+
+# Build outputs and coverage reports
+build/
+dist/
+coverage/
+
+# Logs and temp files
+*.log
+project_tree.txt
+temp_vite.txt
+
+# Environment files and OS cruft
+.env*
+.DS_Store
+Thumbs.db

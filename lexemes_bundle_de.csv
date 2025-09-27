@@ -1,0 +1,92 @@
+term,ingredient_name,allergen_codes
+# --- Pizza / Dough / Cheese ---
+pizza,pizza,
+pizzateig,teig,A
+teig,teig,A
+mehl,weizenmehl,A
+weizen,weizen,A
+weizengrieß,weizengrieß,A
+grieß,grieß,A
+semola,grieß,A
+panade,panade,A
+mozzarella,mozzarella,G
+parmesan,parmesan,G
+pecorino,pecorino,G
+gouda,gouda,G
+käse,käse,G
+sahne,sahne,G
+rahm,rahm,G
+milch,milch,G
+butter,butter,G
+joghurt,joghurt,G
+crème fraîche,crème fraîche,G
+ei,ei,C
+eier,eier,C
+mayonnaise,mayonnaise,C
+aioli,aioli,C
+pesto,pesto,H,G
+pinienkerne,pinienkerne,H
+basilikum,basilikum,
+tomatensauce,tomatensauce,
+salami,salami,
+schinken,schinken,
+prosciutto,prosciutto,
+peperoni,peperoni,
+salami-pizza,salami,
+quattro formaggi,käsemix,G
+# --- Desserts / Pastry / Cakes ---
+dessert,dessert,
+tiramisu,tiramisu,C,G
+mascarpone,mascarpone,G
+sahnecreme,sahnecreme,G
+obers,obers,G
+buttercreme,buttercreme,G
+pudding,pudding,G
+creme brûlée,creme brûlée,C,G
+baiser,baiser,C
+meringue,meringue,C
+kuchen,kuchen,A,C,G
+biskuit,biskuit,A,C
+biscuit,biskuit,A,C
+brioche,brioche,A,C,G
+blätterteig,blätterteig,A
+mürbeteig,mürbeteig,A
+strudel,strudel,A
+waffel,waffel,A,C,G
+pfannkuchen,pfannkuchen,A,C,G
+palatschinken,pfannkuchen,A,C,G
+# --- Chocolate / Cocoa ---
+schokolade,schokolade,G
+vollmilchschokolade,schokolade,G
+kuvertüre,kuvertüre,G
+kakao,kakao,
+nutella,haselnusscreme,H,G
+nougat,nougat,H,G
+# --- Nuts / Peanuts / Seeds / Soy ---
+nuss,nüsse,H
+nüsse,nüsse,H
+mandel,mandel,H
+haselnuss,haselnuss,H
+walnuss,walnuss,H
+pistazie,pistazie,H
+cashew,cashew,H
+macadamia,macadamia,H
+erdnuss,erdnuss,E
+peanut,erdnuss,E
+sesam,sesam,K
+tahini,tahini,K
+soja,soja,F
+tofu,tofu,F
+sojamilch,sojamilch,F,G
+# --- Misc helpers often seen in menus ---
+pane,pane,A
+buns,buns,A
+brioche-bun,brioche,A,C,G
+gnocchi,gnocchi,A
+tarte,tarte,A,C,G
+crepe,crepe,A,C,G
+mousse,mousse,G
+ricotta,ricotta,G
+quark,quark,G
+labneh,labneh,G
+kefir,kefir,G
