@@ -1,0 +1,94 @@
+version: "3.9"
+
+name: ibla_backend_stack
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ibla_db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: ibla_redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    # ملاحظة: إن كان لديك Dockerfile مخصص للباكند، غيّر build للسياق المناسب.
+    # إن لم يكن لديك Dockerfile بعد، يمكن مؤقتًا استخدام صورة Python الرسمية.
+    image: python:3.12-slim
+    container_name: ibla_web
+    restart: unless-stopped
+    working_dir: /app
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}  # backend.settings.dev أو prod
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      # تمرير إعدادات قاعدة البيانات إلى Django (تُستخدم في settings/prod.py)
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      # مفاتيح إضافية (اختياري)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GLOBAL_LEXICON_OWNER_ID: ${GLOBAL_LEXICON_OWNER_ID}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app:cached
+    command: >
+      bash -lc "
+        pip install --upgrade pip &&
+        pip install -r requirements.txt ||
+        (test -f pyproject.toml && pip install .) || true &&
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+
+  # اختياري: pgAdmin للاطلاع على قاعدة البيانات (فعّل الكتلة أدناه عند الحاجة)
+  # pgadmin:
+  #   image: dpage/pgadmin4:8
+  #   container_name: ibla_pgadmin
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   ports:
+  #     - "5050:80"
+
+volumes:
+  postgres_data:
+  redis_data:
