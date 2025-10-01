@@ -1,170 +1,133 @@
-// src/services/axios.js
-// -----------------------------------------------------------------------------
-// عميل Axios موحّد للتعامل مع الـ API (متوافق مع Vite).
-// - لا يرسل Authorization للطلبات العامة (/public/* أو /api/public/*).
-// - يضيف Authorization تلقائياً لغير العامة إذا وُجد التوكن في sessionStorage.
-// - مهلة افتراضية أطول، وتمديد إضافي لاستدعاء توليد أكواد الحساسية.
-// - قابل للضبط عبر متغيرات بيئة Vite:
-//     VITE_API_BASE_URL   مثال: http://127.0.0.1:8000/api  أو  /api  (للبروكسي)
-//     VITE_API_ORIGIN     مثال: http://127.0.0.1:8000     (يُستخدم للأصول/toAbsolute)
-// -----------------------------------------------------------------------------
+// frontend/src/services/axios.js
+import axios from "axios";
 
-import axios from 'axios';
-
-// ==== قراءة البيئة وفق Vite ====
-const ENV = (typeof import.meta !== 'undefined' && import.meta.env) || {};
-
-// إن وُضع VITE_API_BASE_URL نستخدمه كما هو (قد يكون مطلقاً أو نسبياً "/api")
-// وإلا نبني من VITE_API_ORIGIN (أو localhost) + "/api"
-const API_BASE = (() => {
-  const raw = ENV.VITE_API_BASE_URL;
-  if (typeof raw === 'string' && raw.trim()) {
-    return raw.replace(/\/+$/, '');
-  }
-  const origin = (ENV.VITE_API_ORIGIN || 'http://localhost:8000').replace(/\/+$/, '');
-  return `${origin}/api`;
-})();
-
-// أصل الخادم لاستخدامه في toAbsolute (لروابط الصور مثلاً)
-const API_ORIGIN = (() => {
-  if (ENV.VITE_API_ORIGIN) return ENV.VITE_API_ORIGIN.replace(/\/+$/, '');
-  try {
-    if (/^https?:\/\//i.test(API_BASE)) return new URL(API_BASE).origin.replace(/\/+$/, '');
-  } catch {}
-  return 'http://localhost:8000';
-})();
-
-// ==== إنشاء نسخة Axios خاصة بنا ====
-const instance = axios.create({
-  baseURL: API_BASE,     // كل المسارات النسبية تُركّب على هذا الأساس
-  timeout: 90000,        // مهلة افتراضية 90 ثانية
-  headers: { 'Content-Type': 'application/json' },
+// ==== مصدر الحقيقة لجميع طلبات الـ API ====
+// يمر عبر Nginx على نفس الدومين: http(s)://<host>/api/ -> Django
+const api = axios.create({
+  baseURL: "/api",
+  timeout: 15000,
+  withCredentials: false,
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
 });
 
-// ==== أدوات مساعدة ====
-
-// قراءة التوكن من التخزين (نفضّل sessionStorage)
-function getToken() {
+// قراءة التوكن من التخزين (ندعم أكثر من اسم مفتاح تحسبًا لاختلافات سابقة)
+function readAccess() {
   return (
-    sessionStorage.getItem('token') ||
-    sessionStorage.getItem('access') ||
-    sessionStorage.getItem('access_token') ||
-    ''
+    window.localStorage.getItem("access") ||
+    window.localStorage.getItem("token") ||
+    window.localStorage.getItem("accessToken") ||
+    ""
   );
 }
-
-// استخراج المسار كـ pathname مطلق لقرار "عام/غير عام"
-function getRequestPath(config) {
-  const url = config?.url || '';
+function readRefresh() {
+  return (
+    window.localStorage.getItem("refresh") ||
+    window.localStorage.getItem("refreshToken") ||
+    ""
+  );
+}
+function saveAccess(token) {
+  if (token) {
+    window.localStorage.setItem("access", token);
+  }
+}
+function logoutAndGoLogin() {
   try {
-    // ابنِ base مطلق حتى إن كان baseURL نسبياً (/api)
-    const base = config?.baseURL || API_BASE;
-    const baseAbs = /^https?:\/\//i.test(base)
-      ? base
-      : (typeof window !== 'undefined' ? `${window.location.origin}${base}` : `http://localhost${base}`);
-    const u = new URL(url, baseAbs);
-    return u.pathname || '';
-  } catch {
-    return String(url || '');
-  }
+    window.localStorage.removeItem("access");
+    window.localStorage.removeItem("refresh");
+    window.localStorage.removeItem("token");
+    window.localStorage.removeItem("accessToken");
+    window.localStorage.removeItem("userRole");
+  } catch {}
+  // اترك المسار كما تستعمله في مشروعك
+  window.location.href = "/login";
 }
 
-// تحديد إن كان الطلب عاماً (لا يحتاج توكن)
-function isPublicRequest(config) {
-  const p = getRequestPath(config);
-  return p.startsWith('/api/public/') || p.startsWith('/public/');
+// ----- Request interceptor: يحقن Authorization تلقائيًا -----
+api.interceptors.request.use(
+  (config) => {
+    const access = readAccess();
+    if (access && !config.headers?.Authorization) {
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${access}`,
+      };
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ----- Response interceptor: يحدّث التوكن عند 401 مرة واحدة ثم يعيد المحاولة -----
+let isRefreshing = false;
+let pendingQueue = [];
+
+function processQueue(error, token = null) {
+  pendingQueue.forEach((p) => {
+    if (error) p.reject(error);
+    else p.resolve(token);
+  });
+  pendingQueue = [];
 }
 
-// إزالة أي رؤوس Authorization من كونفيغ الطلب
-function stripAuth(config) {
-  if (!config) return config;
-  config.headers = config.headers || {};
-  delete config.headers.Authorization;
-  delete config.headers.authorization;
-  if (config.headers.common) {
-    delete config.headers.common.Authorization;
-    delete config.headers.common.authorization;
-  }
-  return config;
-}
+api.interceptors.response.use(
+  (resp) => resp,
+  async (error) => {
+    const original = error.config;
 
-// ==== Interceptors ====
-
-// الطلبات: أضف التوكن لغير العام، واحذف الهيدر للعام
-instance.interceptors.request.use((config) => {
-  const pub = isPublicRequest(config);
-  config.__isPublic = pub;
-
-  if (pub) {
-    stripAuth(config);
-  } else {
-    const token = getToken();
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
-
-  // مهلة أطول تلقائيًا لاستدعاء توليد أكواد الحساسية
-  try {
-    const path = getRequestPath(config);
-    if (
-      path.endsWith('/dishes/batch-generate-allergen-codes/') ||
-      path.includes('/dishes/batch-generate-allergen-codes')
-    ) {
-      const LONG_TIMEOUT = 120000; // 120 ثانية
-      config.timeout = Math.max(config.timeout || 0, LONG_TIMEOUT);
-    }
-  } catch {
-    /* تجاهل */
-  }
-
-  return config;
-});
-
-// hook اختياري عند 401 لطلبات غير عامة
-let onUnauthorized = null;
-export function setOnUnauthorized(fn) {
-  onUnauthorized = typeof fn === 'function' ? fn : null;
-}
-
-// الردود: استدعِ onUnauthorized عند 401 لغير العام + لوج للمهلات
-instance.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    const status = err?.response?.status;
-    const cfg = err?.config || {};
-
-    // لوج مفيد عند انقضاء المهلة
-    if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
-      // eslint-disable-next-line no-console
-      console.warn('Axios timeout:', {
-        url: cfg?.url,
-        timeout: cfg?.timeout,
-        baseURL: cfg?.baseURL,
-        message: err?.message,
-      });
+    // 403 -> صلاحيات غير كافية (أبقِ الرسالة كما هي في الواجهة)
+    if (error?.response?.status === 403) {
+      return Promise.reject(error);
     }
 
-    if (status === 401 && onUnauthorized && !cfg.__isPublic) {
-      try { onUnauthorized(); } catch { /* تجاهل */ }
+    // معالجة 401 لتحديث التوكن
+    if (error?.response?.status === 401 && !original?._retry) {
+      original._retry = true;
+
+      const refresh = readRefresh();
+      if (!refresh) {
+        logoutAndGoLogin();
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // انتظر نتيجة تحديث جارية
+        return new Promise((resolve, reject) => {
+          pendingQueue.push({
+            resolve: (token) => {
+              original.headers.Authorization = `Bearer ${token}`;
+              resolve(api(original));
+            },
+            reject,
+          });
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const { data } = await api.post("/token/refresh/", { refresh });
+        const newAccess = data?.access;
+        if (!newAccess) throw new Error("refresh failed");
+
+        saveAccess(newAccess);
+        processQueue(null, newAccess);
+        original.headers.Authorization = `Bearer ${newAccess}`;
+        return api(original);
+      } catch (e) {
+        processQueue(e, null);
+        logoutAndGoLogin();
+        return Promise.reject(e);
+      } finally {
+        isRefreshing = false;
+      }
     }
-    return Promise.reject(err);
+
+    return Promise.reject(error);
   }
 );
 
-// تحويل أي مسار نسبي إلى رابط مطلق على أصل الـAPI (لصور مثلاً)
-export const toAbsolute = (url) =>
-  url ? (url.startsWith('http') ? url : `${API_ORIGIN.replace(/\/+$/, '')}${url}`) : '';
-
-// نقاط نهاية إصدار/تحديث التوكن (للتوافق)
-export const TOKEN_ENDPOINTS = {
-  obtain: [`${API_BASE}/auth/token/`, `${API_ORIGIN}/api/token/`],
-  refresh: [`${API_BASE}/auth/token/refresh/`, `${API_ORIGIN}/api/token/refresh/`],
-};
-
-// التصدير الافتراضي
-export default instance;
-
-// تصدير اختياري للفحص أو الاستخدامات الأخرى
-export { API_BASE, API_ORIGIN };
+export default api;

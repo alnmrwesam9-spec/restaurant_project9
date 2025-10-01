@@ -1,95 +1,85 @@
 services:
   db:
-    image: postgres:16-alpine
     container_name: ibla_db
+    image: postgres:16
     restart: unless-stopped
-    env_file: .env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ibla_db}
-      POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_password}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+    env_file:
+      - .env
     ports:
       - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
-    image: redis:7-alpine
     container_name: ibla_redis
+    image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   web:
-    image: python:3.12-slim
+    # اسم الخدمة = web لأن nginx يـ proxy على http://web:8000
     container_name: ibla_web
-    restart: unless-stopped
+    image: python:3.12-slim
     working_dir: /app
-    env_file: .env
-    environment:
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-backend.settings.dev}
-      PYTHONDONTWRITEBYTECODE: 1
-      PYTHONUNBUFFERED: 1
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
     volumes:
-      - ./:/app:cached
+      - ./:/app
+      - static_data:/app/backend/staticfiles
       - media_data:/app/media
-      - static_data:/app/backend/staticfiles   # ← هنا التوحيد
     expose:
       - "8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     command: >
-      bash -lc "
-        pip install --upgrade pip &&
-        pip install -r requirements.txt &&
+      sh -c "
+        pip install --no-cache-dir -r requirements.txt &&
         python manage.py migrate &&
         python manage.py collectstatic --noinput &&
-        python manage.py runserver 0.0.0.0:8000
+        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3
       "
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+  frontend_builder:
     container_name: ibla_frontend_builder
+    image: node:20-alpine
+    working_dir: /app
+    restart: unless-stopped
     volumes:
-      - frontend_build:/dist
+      - ./frontend:/app
+      - frontend_dist:/app/dist
     command: >
-      sh -c "rm -rf /dist/* && cp -r /app/dist/* /dist/ && tail -f /dev/null"
+      sh -c "npm ci && npm run build && tail -f /dev/null"
 
   nginx:
-    image: nginx:1.27-alpine
     container_name: ibla_nginx
+    image: nginx:1.27
+    restart: unless-stopped
     depends_on:
       - web
-      - frontend
+      - frontend_builder
     ports:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - frontend_build:/usr/share/nginx/html:ro
+      - frontend_dist:/usr/share/nginx/html:ro
+      - static_data:/app/backend/staticfiles:ro
       - media_data:/app/media:ro
-      - static_data:/app/backend/staticfiles:ro   # ← وهنا أيضاً
 
 volumes:
-  postgres_data: {}
-  redis_data: {}
-  media_data: {}
-  static_data: {}
-  frontend_build: {}
+  pg_data:
+  static_data:
+  media_data:
+  frontend_dist:

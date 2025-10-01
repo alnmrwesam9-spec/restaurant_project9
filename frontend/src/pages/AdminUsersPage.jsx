@@ -1,3 +1,4 @@
+// frontend/src/pages/AdminUsersPage.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../services/axios';
 import { useNavigate } from 'react-router-dom';
@@ -33,18 +34,17 @@ import { useTranslation } from 'react-i18next';
 /* ألوان IBLA */
 const COLORS = {
   primary: '#2bbdbe',
-  primary2:'#2bd9c1',  // للتدرّج
-  danger:  '#ee3029',
-  warn:    '#000000ff',
+  primary2: '#2bd9c1', // للتدرّج
+  danger: '#ee3029',
+  warn: '#000000ff',
   success: '#28a745',
-  text:    '#1f2937',
-  border:  '#e5e7eb',
-  bg:      '#f1f5f9',
-  chipBg:  '#eef9f9',
+  text: '#1f2937',
+  border: '#e5e7eb',
+  bg: '#f1f5f9',
+  chipBg: '#eef9f9',
 };
 
 /* سويتش Aqua (تدرّج + وهج) */
-/* سويتش Aqua مضبوط (لا يطلع برا ويمشي للنهاية) */
 const AquaSwitch = (props) => (
   <Switch
     disableRipple
@@ -73,7 +73,6 @@ const AquaSwitch = (props) => (
         height: 22,
         boxSizing: 'border-box',
         backgroundColor: '#fff',
-        // ظل خفيف بدون حلقة خارجية (حتى ما يطلع برّا التراك)
       },
       '& .MuiSwitch-track': {
         borderRadius: 26 / 2,
@@ -84,7 +83,6 @@ const AquaSwitch = (props) => (
     }}
   />
 );
-
 
 /* زرّ Pill خفيف */
 const PillButton = (props) => (
@@ -102,13 +100,13 @@ const PillButton = (props) => (
       boxShadow: 'none',
       display: 'inline-flex',
       alignItems: 'center',
-      columnGap: '8px',                 // ✅ مسافة مضمونة بين الأيقونة والنص
+      columnGap: '8px',
       '&:hover': { borderColor: COLORS.primary, backgroundColor: COLORS.chipBg },
 
-      // ✅ اضبط هوامش الأيقونة بما يناسب RTL/LTR
+      // اضبط هوامش الأيقونة بما يناسب RTL/LTR
       '& .MuiButton-startIcon': {
         margin: 0,
-        marginInlineStart: '8px',       // يعمل RTL/LTR
+        marginInlineStart: '8px',
         marginInlineEnd: 0,
       },
       '& .MuiButton-endIcon': {
@@ -117,13 +115,14 @@ const PillButton = (props) => (
         marginInlineStart: 0,
       },
 
-      // ✅ حجم أيقونة لطيف ومتناسق
+      // حجم أيقونة لطيف ومتناسق
       '& .MuiSvgIcon-root': { fontSize: 18 },
 
       ...props.sx,
     }}
   />
 );
+
 /* ثيم (زوايا خفيفة جدًا) */
 const theme = createTheme({
   direction: 'rtl',
@@ -131,7 +130,7 @@ const theme = createTheme({
     primary: { main: COLORS.primary },
     success: { main: COLORS.success },
     warning: { main: COLORS.warn },
-    error:   { main: COLORS.danger },
+    error: { main: COLORS.danger },
     background: { default: COLORS.bg, paper: '#fff' },
   },
   typography: { fontFamily: 'inherit' },
@@ -188,7 +187,12 @@ const AdminUsersPage = () => {
         setError('');
       } catch (err) {
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
-        setError(t('load_users_failed') || 'Failed to load users.');
+        // تحسين الرسالة في حال 403
+        if (err?.response?.status === 403) {
+          setError(t('forbidden') || 'لا تملك صلاحية عرض المستخدمين.');
+        } else {
+          setError(t('load_users_failed') || 'فشل في تحميل المستخدمين.');
+        }
       }
     };
     fetchUsers();
@@ -221,7 +225,7 @@ const AdminUsersPage = () => {
   const handleToggleActive = async (userId, isActive) => {
     const user = users.find((u) => u.id === userId);
     if (user?.username === 'admin') {
-      setError(t('cannot_deactivate_admin') || 'Cannot deactivate built-in admin.');
+      setError(t('cannot_deactivate_admin') || 'لا يمكن تعطيل حساب المشرف المدمج.');
       return;
     }
     try {
@@ -230,7 +234,7 @@ const AdminUsersPage = () => {
       setUsers(Array.isArray(res.data) ? res.data : []);
       setError('');
     } catch {
-      setError(t('error_updating_status') || 'Error updating status.');
+      setError(t('error_updating_status') || 'حدث خطأ عند تحديث الحالة.');
     }
   };
 
@@ -328,7 +332,13 @@ const AdminUsersPage = () => {
 
                       <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                         <Chip
-                          label={(t('role') || 'الدور') + ': ' + (t(user.role) || user.role || (isAdmin ? (t('admin') || 'مسؤول') : (t('user') || 'مستخدم')))}
+                          label={
+                            (t('role') || 'الدور') +
+                            ': ' +
+                            (t(user.role) ||
+                              user.role ||
+                              (isAdmin ? (t('admin') || 'مسؤول') : (t('user') || 'مستخدم')))
+                          }
                           size="small"
                           sx={{
                             borderRadius: 12,
@@ -353,25 +363,23 @@ const AdminUsersPage = () => {
                     {/* Right controls */}
                     <Stack direction="row" alignItems="center" spacing={1.2}>
                       {isAdmin ? (
-                        // ✅ تظهر شارة "محمي" مرة واحدة فقط هنا
-                       <Chip
-  label={
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {t('protected') || 'محمي'}
-      <LockOutlinedIcon sx={{ fontSize: 16 }} />
-    </Box>
-  }
-  size="small"
-  sx={{
-    borderRadius: 12,
-    bgcolor: COLORS.warn,
-    color: '#fff',
-    fontWeight: 1000,
-    px: 1,
-    '& .MuiChip-label': { display: 'flex', alignItems: 'center', px: 0 },
-  }}
-/>
-
+                        <Chip
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {t('protected') || 'محمي'}
+                              <LockOutlinedIcon sx={{ fontSize: 16 }} />
+                            </Box>
+                          }
+                          size="small"
+                          sx={{
+                            borderRadius: 12,
+                            bgcolor: COLORS.warn,
+                            color: '#fff',
+                            fontWeight: 1000,
+                            px: 1,
+                            '& .MuiChip-label': { display: 'flex', alignItems: 'center', px: 0 },
+                          }}
+                        />
                       ) : (
                         <Tooltip title={t('toggle_activation') || 'تفعيل/تعطيل'}>
                           <Box>
