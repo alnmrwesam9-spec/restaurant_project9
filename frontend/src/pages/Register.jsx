@@ -1,11 +1,3 @@
-// src/pages/RegisterPage.jsx
-// -----------------------------------------------------------------------------
-// Arcana-style Register Page
-// - Left: clean light panel with brand + Register form
-// - Right: dark glossy card with watermark + marketing copy
-// - Preserves register logic + auto login after register
-// -----------------------------------------------------------------------------
-
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
@@ -24,6 +16,8 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 
+import api from "../services/axios"; // ✅ العميل الموحّد (baseURL = /api في الإنتاج)
+
 export default function RegisterPage({ onLogin }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -39,7 +33,7 @@ export default function RegisterPage({ onLogin }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // RTL
+  // RTL setup
   const isRTL = useMemo(() => i18n.language === "ar", [i18n.language]);
   useEffect(() => {
     document.dir = isRTL ? "rtl" : "ltr";
@@ -55,26 +49,50 @@ export default function RegisterPage({ onLogin }) {
     setSubmitting(true);
     setError("");
     try {
-      await axios.post("http://127.0.0.1:8000/api/register/", {
+      // ✅ أهم نقطة: مسار نسبي عبر Nginx، بدون أي http://127.0.0.1:8000
+      await api.post("/register/", {
         ...formData,
         role: "owner",
       });
 
-      const loginRes = await axios.post(
-        "http://127.0.0.1:8000/api/auth/token/",
-        {
-          username: formData.username,
-          password: formData.password,
-        }
-      );
+      // بعد التسجيل: اطلب JWT
+      const loginRes = await api.post("/token/", {
+        username: formData.username,
+        password: formData.password,
+      });
 
-      const token = loginRes.data.access;
-      localStorage.setItem("token", token);
-      onLogin(token);
+      const access = loginRes?.data?.access;
+      const refresh = loginRes?.data?.refresh;
+      if (!access) throw new Error("Missing access token after register");
+
+      // وحّد التخزين مع صفحة تسجيل الدخول
+      sessionStorage.setItem("token", access);
+      sessionStorage.setItem("role", "user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+
+      // حدّث الهيدر الافتراضي للعميل
+      api.defaults.headers.common.Authorization = `Bearer ${access}`;
+
+      onLogin?.(access);
       navigate("/menus");
     } catch (err) {
       console.error(err);
-      setError(t("register_error") || "Registration failed.");
+      // رسائل أنسب للمستخدم
+      if (axios.isAxiosError && axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 400 || status === 422) {
+          setError(t("register_error") || "فشل في التسجيل، تحقق من البيانات.");
+        } else if (status === 403) {
+          setError(t("forbidden") || "غير مخوّل لإتمام العملية.");
+        } else if (status >= 500) {
+          setError(t("server_down") || "مشكلة في الخادم، حاول لاحقًا.");
+        } else {
+          setError(t("network_error") || "مشكلة شبكة، تحقق من الاتصال.");
+        }
+      } else {
+        setError(t("register_error") || "فشل في التسجيل.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +144,7 @@ export default function RegisterPage({ onLogin }) {
           </Stack>
 
           <Typography variant="h4" fontWeight={800} sx={{ mb: 2 }}>
-            {t("register") || "Register"}
+            {t("register") || "تسجيل حساب جديد"}
           </Typography>
 
           {/* Language */}
@@ -152,7 +170,7 @@ export default function RegisterPage({ onLogin }) {
             <TextField
               fullWidth
               margin="normal"
-              label={t("username") || "Username"}
+              label={t("username") || "الاسم"}
               name="username"
               value={formData.username}
               onChange={handleChange}
@@ -161,7 +179,7 @@ export default function RegisterPage({ onLogin }) {
             <TextField
               fullWidth
               margin="normal"
-              label={t("email") || "Email"}
+              label={t("email") || "البريد الإلكتروني"}
               type="email"
               name="email"
               value={formData.email}
@@ -171,7 +189,7 @@ export default function RegisterPage({ onLogin }) {
             <TextField
               fullWidth
               margin="normal"
-              label={t("first_name") || "First Name"}
+              label={t("first_name") || "الاسم الأول"}
               name="first_name"
               value={formData.first_name}
               onChange={handleChange}
@@ -180,7 +198,7 @@ export default function RegisterPage({ onLogin }) {
             <TextField
               fullWidth
               margin="normal"
-              label={t("last_name") || "Last Name"}
+              label={t("last_name") || "اسم العائلة"}
               name="last_name"
               value={formData.last_name}
               onChange={handleChange}
@@ -189,7 +207,7 @@ export default function RegisterPage({ onLogin }) {
             <TextField
               fullWidth
               margin="normal"
-              label={t("password") || "Password"}
+              label={t("password") || "كلمة المرور"}
               type="password"
               name="password"
               value={formData.password}
@@ -199,7 +217,7 @@ export default function RegisterPage({ onLogin }) {
             <TextField
               fullWidth
               margin="normal"
-              label={t("confirm_password") || "Confirm Password"}
+              label={t("confirm_password") || "أعد كتابة كلمة المرور"}
               type="password"
               name="password2"
               value={formData.password2}
@@ -222,19 +240,19 @@ export default function RegisterPage({ onLogin }) {
                 "&:hover": { bgcolor: "#000" },
               }}
             >
-              {submitting ? (t("loading") || "Loading…") : (t("register") || "Register")}
+              {submitting ? (t("loading") || "جاري المعالجة…") : (t("register") || "تسجيل حساب جديد")}
             </Button>
           </Box>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            {(t("have_account") || "Already have an account?")}{" "}
-            <Link to="/login">{t("sign_in") || "Sign in"}</Link>
+            {(t("have_account") || "هل لديك حساب بالفعل؟")}{" "}
+            <Link to="/login">{t("sign_in") || "تسجيل الدخول"}</Link>
           </Typography>
 
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
             <Divider sx={{ flex: 1 }} />
             <Typography variant="caption" color="text.secondary">
-              {t("fast_register") || "Fast register soon…"}
+              {t("fast_register") || "تسجيل سريع (قريبًا)"}
             </Typography>
             <Divider sx={{ flex: 1 }} />
           </Stack>
@@ -267,7 +285,6 @@ export default function RegisterPage({ onLogin }) {
             overflow: "hidden",
           }}
         >
-          {/* Watermark */}
           <Typography
             aria-hidden
             sx={{
@@ -291,14 +308,14 @@ export default function RegisterPage({ onLogin }) {
               IBLATECH
             </Typography>
             <Typography variant="h4" fontWeight={800}>
-              {t("create_account") || "Create your account"}
+              {t("create_account") || "أنشئ حسابك"}
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.85, maxWidth: 520 }}>
               {t("register_intro") ||
-                "One dashboard to manage your menus, dishes, prices and languages."}
+                "لوحة واحدة لإدارة القوائم والأطباق والأسعار واللغات."}
             </Typography>
             <Typography variant="caption" sx={{ opacity: 0.7 }}>
-              {t("join_now") || "Join restaurants already using our digital menus."}
+              {t("join_now") || "انضم للمطاعم التي تستخدم قوائمنا الرقمية."}
             </Typography>
           </Stack>
         </Paper>
