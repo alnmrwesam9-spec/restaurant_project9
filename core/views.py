@@ -1,4 +1,3 @@
-# core/views.py
 # ============================================================
 # واجهات REST الخاصة بالتطبيق
 # ============================================================
@@ -46,7 +45,6 @@ from .serializers import (
 from core.services.allergen_rules import generate_for_dishes as rule_generate_for_dishes
 from core.services.allergen_rules import normalize_text as _norm
 
-# LLM
 # LLM
 from core.services.llm_ingest import (
     LLMConfig,
@@ -150,6 +148,38 @@ def _sync_dish_allergen_rows_from_codes(dish: Dish, codes_str: str, *, source: s
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+
+
+# ←↓↓ إضافات التصحيح ↓↓→
+class WhoAmI(APIView):
+    """
+    GET /api/auth/whoami
+    يعيد معلومات المستخدم الحالي إذا كان موثقًا.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        u = request.user
+        data = {
+            "id": getattr(u, "id", None),
+            "username": getattr(u, "username", ""),
+            "email": getattr(u, "email", ""),
+            "is_staff": getattr(u, "is_staff", False),
+            "role": getattr(u, "role", None),
+            "is_authenticated": bool(u.is_authenticated),
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def ping(request):
+    """
+    GET /api/ping
+    فحص سريع للتأكد من أن الـ API يعمل.
+    """
+    return Response({"ok": True, "ping": "pong"}, status=status.HTTP_200_OK)
+# ←↑↑ إضافات التصحيح ↑↑→
 
 
 class UserListAdminView(generics.ListAPIView):

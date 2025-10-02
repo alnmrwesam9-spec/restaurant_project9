@@ -124,15 +124,51 @@ def _build_explanation_de_from_codes(codes: list[str]) -> str:
 
 # ----------------------------- Profile -----------------------------
 class ProfileSerializer(serializers.ModelSerializer):
-    # مهم: إرجاع avatar كـ URL مطلق
-    avatar = AbsoluteImageURLField(required=False, allow_null=True)
-    username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.EmailField(source='user.email', read_only=True)
+    # حقل رفع الصورة
+    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
+    # رابط جاهز للواجهة
+    photo_url = serializers.SerializerMethodField()
+    # أسماء بديلة (إن احتاجت الواجهة القديمة)
+    avatar = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
-        fields = ['id', 'username', 'email', 'display_name', 'avatar']
+        # لو عندك حقول إضافية اتركها – الأهم وجود photo/ photo_url
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "phone",
+            "photo",        # للرفع
+            "photo_url",    # للعرض
+            "avatar",       # aliases اختيارية
+            "avatar_url",
+        ]
 
+    def _abs(self, url: str):
+        request = self.context.get("request")
+        if request and url:
+            try:
+                return request.build_absolute_uri(url)
+            except Exception:
+                return url
+        return url
+
+    def get_photo_url(self, obj):
+        f = getattr(obj, "photo", None)
+        if not f:
+            return None
+        try:
+            return self._abs(f.url)
+        except Exception:
+            return None
+
+    def get_avatar(self, obj):
+        return self.get_photo_url(obj)
+
+    def get_avatar_url(self, obj):
+        return self.get_photo_url(obj)
 
 # ===================== Auth =====================
 class RegisterSerializer(serializers.ModelSerializer):

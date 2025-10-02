@@ -1,88 +1,98 @@
 # core/urls.py
-# -----------------------------------------------
-# تعريف مسارات (URLs) واجهة REST الخاصة بتطبيق core
-# -----------------------------------------------
+from django.urls import path, re_path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from rest_framework_nested.routers import NestedDefaultRouter  # pyright: ignore[reportMissingImports]
-
-# ✅ واجهات SimpleJWT
-from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
-
-# ✅ View مخصّص لإصدار التوكن مع role
-from .serializers import MyTokenObtainPairView
-
-# 👇 نستورد views كوحدة واحدة لتفادي أخطاء "cannot import name"
 from . import views
+from .views import WhoAmI, ping
 
-app_name = "core"
+# ------ v2 viewsets كدوال as_view ------
+dish_list = views.DishViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+dish_detail = views.DishViewSet.as_view({
+    "get": "retrieve",
+    "put": "update",
+    "patch": "partial_update",
+    "delete": "destroy",
+})
 
-# -----------------------------------------------
-# v2 Routers (ViewSets)
-# -----------------------------------------------
-router_v2 = DefaultRouter()
-router_v2.register(r"dishes", views.DishViewSet, basename="v2-dishes")
-# Endpoint عام لقراءة/إدارة سجلات الحساسية مع ?dish=<id>
-router_v2.register(r"dish-allergens", views.DishAllergenViewSet, basename="v2-dish-allergens")
+dishprice_list = views.DishPriceViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+dishprice_detail = views.DishPriceViewSet.as_view({
+    "get": "retrieve",
+    "put": "update",
+    "patch": "partial_update",
+    "delete": "destroy",
+})
 
-# أسعار الطبق + حساسيّاته (nested): /v2/dishes/<dish_pk>/...
-nested_v2 = NestedDefaultRouter(router_v2, r"dishes", lookup="dish")
-nested_v2.register(r"prices", views.DishPriceViewSet, basename="v2-dish-prices")
-nested_v2.register(r"allergens", views.DishAllergenViewSet, basename="v2-dish-allergens-nested")
+dishallergen_list = views.DishAllergenViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+dishallergen_detail = views.DishAllergenViewSet.as_view({
+    "get": "retrieve",
+    "put": "update",
+    "patch": "partial_update",
+    "delete": "destroy",
+})
+dishallergen_bulk_confirm = views.DishAllergenViewSet.as_view({"post": "bulk_confirm"})
+dishallergen_add_codes    = views.DishAllergenViewSet.as_view({"post": "add_codes"})
 
-# -----------------------------------------------
-# قائمة جميع المسارات
-# -----------------------------------------------
 urlpatterns = [
-    # ---------- Auth / JWT ----------
-    path("token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
-    path("register/", views.RegisterView.as_view(), name="register"),
 
-    # ---------- Users (Admin) ----------
-    path("users/", views.UserListAdminView.as_view(), name="users-list"),
-    path("users/<int:pk>/", views.UserDetailAdminView.as_view(), name="users-detail"),
+    # ---------- Auth ----------
+    re_path(r"^auth/login/?$",   TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    re_path(r"^auth/refresh/?$", TokenRefreshView.as_view(),    name="token_refresh"),
+    re_path(r"^auth/whoami/?$",  WhoAmI.as_view(),              name="whoami"),
 
-    # ---------- Menus / Sections / Dishes (CBVs القديمة) ----------
-    path("menus/", views.MenuListCreateView.as_view(), name="menu-list-create"),
-    path("menus/<int:pk>/", views.MenuDetailView.as_view(), name="menu-detail"),
-    path("menus/<int:pk>/publish/", views.MenuPublishView.as_view(), name="menu-publish"),
-    path("menus/<int:pk>/unpublish/", views.MenuUnpublishView.as_view(), name="menu-unpublish"),
+    # ---------- Users / Profile ----------
+    re_path(r"^users/?$",              views.UserListAdminView.as_view(),   name="user_list_admin"),
+    re_path(r"^users/(?P<pk>\d+)/?$",  views.UserDetailAdminView.as_view(), name="user_detail_admin"),
+    re_path(r"^me/profile/?$",         views.MeProfileView.as_view(),       name="me_profile"),
 
-    path("sections/", views.SectionListCreateView.as_view(), name="section-list-create"),   # ?menu=<id>
-    path("dishes/",   views.DishListCreateView.as_view(),   name="dish-list-create"),       # ?section=<id>
-    path("dishes/<int:pk>/", views.DishDetailView.as_view(), name="dish-detail"),
+        # فحص سريع أن /api/ يعمل
+    re_path(r"^ping/?$", ping, name="ping"),
 
-    # ---------- التوليد والقاموس ----------
-    path(
-        "dishes/batch-generate-allergen-codes/",
-        views.batch_generate_allergen_codes,
-        name="batch-generate-allergen-codes",
-    ),
-    path(  # حفظ مقترحات LLM في القاموس (المستخدم في الواجهة الأمامية)
-        "lexicon/llm-add/",
-        views.llm_add_terms_to_lexicon,
-        name="lexicon-llm-add",
-    ),
-    path(  # Batch Upsert آمن للقاموس
-        "dictionary/batch-upsert-lexemes/",
-        views.dictionary_batch_upsert_lexemes,
-        name="dictionary-batch-upsert-lexemes",
-    ),
+    # ---------- Menus / Sections / Dishes (v1) ----------
+    re_path(r"^menus/?$",                     views.MenuListCreateView.as_view(), name="menu_list_create"),
+    re_path(r"^menus/(?P<pk>\d+)/?$",         views.MenuDetailView.as_view(),      name="menu_detail"),
+    re_path(r"^menus/(?P<pk>\d+)/publish/?$",   views.MenuPublishView.as_view(),   name="menu_publish"),
+    re_path(r"^menus/(?P<pk>\d+)/unpublish/?$", views.MenuUnpublishView.as_view(), name="menu_unpublish"),
+
+    re_path(r"^sections/?$",              views.SectionListCreateView.as_view(), name="section_list_create"),
+
+    re_path(r"^dishes/?$",                views.DishListCreateView.as_view(),    name="dish_list_create"),
+    re_path(r"^dishes/(?P<pk>\d+)/?$",    views.DishDetailView.as_view(),        name="dish_detail"),
 
     # ---------- Public menu ----------
-    path("public/menus/<slug:public_slug>/", views.PublicMenuView.as_view(), name="public-menu"),
+    re_path(r"^public/menus/(?P<public_slug>[-a-zA-Z0-9_]+)/?$",
+            views.PublicMenuView.as_view(), name="public_menu"),
 
-    # ---------- Per-menu display settings ----------
-    path("menus/<int:menu_id>/display-settings/", views.MenuDisplaySettingsDetail.as_view(), name="menu-display-settings"),
+    # ---------- Menu display settings ----------
+    re_path(r"^menus/(?P<menu_id>\d+)/display-settings/?$",
+            views.MenuDisplaySettingsDetail.as_view(), name="menu_display_settings"),
 
-    # ---------- Me profile ----------
-    path("me/profile/", views.MeProfileView.as_view(), name="me-profile"),
+    # ---------- Rules/LLM & Dictionary ----------
+    re_path(r"^dishes/batch-generate-allergen-codes/?$",
+            views.batch_generate_allergen_codes, name="batch_generate_allergen_codes"),
+    re_path(r"^dictionary/batch-upsert-lexemes/?$",
+            views.dictionary_batch_upsert_lexemes, name="dictionary_batch_upsert_lexemes"),
+    re_path(r"^dictionary/llm-add-terms/?$",
+            views.llm_add_terms_to_lexicon, name="llm_add_terms_to_lexicon"),
+    re_path(r"^llm-direct-codes/?$", views.llm_direct_codes, name="llm_direct_codes"),
 
-    # ---------- v2 (ViewSets) ----------
-    path("v2/", include(router_v2.urls)),
-    path("v2/", include(nested_v2.urls)),
-    path("dishes/llm-direct-codes/", views.llm_direct_codes, name="dishes-llm-direct-codes"),
+    # ---------- v2: dishes + nested prices/allergens ----------
+    re_path(r"^v2/dishes/?$",                   dish_list,   name="v2_dish_list"),
+    re_path(r"^v2/dishes/(?P<pk>\d+)/?$",       dish_detail, name="v2_dish_detail"),
+
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/prices/?$",                   dishprice_list,   name="v2_dishprice_list"),
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/prices/(?P<pk>\d+)/?$",       dishprice_detail, name="v2_dishprice_detail"),
+
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/?$",                dishallergen_list,   name="v2_dishallergen_list"),
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/(?P<pk>\d+)/?$",    dishallergen_detail, name="v2_dishallergen_detail"),
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/bulk_confirm/?$",   dishallergen_bulk_confirm, name="v2_dishallergen_bulk_confirm"),
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/add_codes/?$",      dishallergen_add_codes,    name="v2_dishallergen_add_codes"),
 ]

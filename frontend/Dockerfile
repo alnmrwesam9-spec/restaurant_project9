@@ -1,6 +1,13 @@
-FROM node:20-alpine AS build
+# frontend/Dockerfile
+FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+
+# تثبيت التبعيات
+COPY package.json package-lock.json* ./
+RUN npm ci || npm install
+
+# شفرة الواجهة
 COPY . .
-RUN npm run build
+
+# أمر التشغيل الفعلي يُحدّد من docker-compose (نبني ثم ننام)
+CMD ["sh", "-c", "npm ci || npm install && npm run build && sleep infinity"]
