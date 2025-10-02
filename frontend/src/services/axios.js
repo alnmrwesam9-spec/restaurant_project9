@@ -1,3 +1,4 @@
+// frontend/src/services/axios.js
 import axios from "axios";
 
 // قاعدة الـ API: نقرأ VITE_API_BASE أو نستخدم "/api" افتراضيًا
@@ -23,18 +24,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// تعامل مع 401 وحاول تجديد الـ token عبر SimpleJWT القياسي
+// تعامل مع 401، مع استثناء مسارات التوكن (login/refresh)
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const { response, config } = error;
     if (!response) return Promise.reject(error);
 
-    if (response.status === 401) {
+    // لا تحاول تجديد/إعادة توجيه عند فشل /token/ أو /token/refresh/
+    const url = (config?.url || "").toString();
+    const isTokenEndpoint =
+      url.endsWith("/token/") || url.endsWith("/token/refresh/") ||
+      url.includes("/token/?") || url.includes("/token/refresh/?");
+
+    if (response.status === 401 && !isTokenEndpoint) {
       const refresh = window.localStorage.getItem("refresh_token");
       if (refresh) {
         try {
-          // المسار القياسي الصحيح: /token/refresh/
           const { data } = await axios.post(`${API_BASE}/token/refresh/`, { refresh });
           if (data?.access) {
             window.localStorage.setItem("access_token", data.access);
@@ -50,6 +56,7 @@ api.interceptors.response.use(
       window.localStorage.removeItem("refresh_token");
       if (onUnauthorizedCb) onUnauthorizedCb();
     }
+
     return Promise.reject(error);
   }
 );

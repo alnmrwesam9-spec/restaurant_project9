@@ -1,20 +1,24 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+
+// ================= Helpers =================
+const norm = (v) => (v ?? '').toString().toLowerCase();
 
 function isAdminFromClaims(decoded) {
   if (!decoded || typeof decoded !== 'object') return false;
 
+  // 1) أدوار مباشرة
   const directRole =
     decoded.role ??
     decoded.user?.role ??
     (Array.isArray(decoded.roles) ? decoded.roles[0] : undefined);
-
   if (typeof directRole === 'string') {
     const r = directRole.toLowerCase();
     if (['admin', 'administrator', 'superadmin', 'role_admin'].includes(r)) return true;
   }
 
+  // 2) أعلام شائعة في Django/DRF
   if (
     decoded.is_admin === true ||
     decoded.isAdmin === true ||
@@ -26,6 +30,7 @@ function isAdminFromClaims(decoded) {
     return true;
   }
 
+  // 3) مجموعات/صلاحيات: قد تكون array of strings أو objects
   const arrToStrings = (arr) =>
     (Array.isArray(arr) ? arr : [])
       .map((x) => (typeof x === 'string' ? x : x?.name || x?.codename || ''))
@@ -45,45 +50,39 @@ function isAdminFromClaims(decoded) {
   return false;
 }
 
+// ================ Component ================
 export default function AdminRoute({ token, children }) {
-  const location = useLocation();
-  const navigate  = useNavigate();
-
-  // اقرأ التوكن من props ثم من التخزين
-  const authToken =
-    token || sessionStorage.getItem('token') || localStorage.getItem('token');
-
-  // استنتج الحالة بشكل ثابت لكل رندر (بدون returns مبكرة)
-  const { isAuthed, isAdmin } = React.useMemo(() => {
-    if (!authToken) return { isAuthed: false, isAdmin: false };
-    try {
-      const decoded = jwtDecode(authToken);
-      let admin = isAdminFromClaims(decoded);
-      if (!admin) {
-        const role = (sessionStorage.getItem('role') || localStorage.getItem('role') || '').toLowerCase();
-        admin = role === 'admin';
-      }
-      return { isAuthed: true, isAdmin: admin };
-    } catch {
-      return { isAuthed: false, isAdmin: false };
-    }
-  }, [authToken]);
-
-  // نفّذ التحويل هنا دائماً (الهُوكس تُستدعى في كل رندر)
-  React.useEffect(() => {
-    if (!isAuthed) {
-      navigate('/', { replace: true, state: { from: location } });
-      return;
-    }
-    if (!isAdmin) {
-      navigate('/menus', { replace: true });
-    }
-  }, [isAuthed, isAdmin, navigate, location]);
-
-  // أثناء التحويل اعرض لا شيء (أو Loader)
-  if (!isAuthed || !isAdmin) {
-    return null;
+  // 0) لو الدور مخزّن مسبقًا بشكل صريح
+  const storedRole = norm(sessionStorage.getItem('role') || localStorage.getItem('role'));
+  if (storedRole === 'admin') {
+    return children;
   }
 
-  return <>{children}</>;
+  // 1) اجلب التوكن من أكثر من مصدر
+  const authToken =
+    token ||
+    sessionStorage.getItem('token') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('token');
+
+  if (!authToken) return <Navigate to="/" replace />;
+
+  // 2) فكّ الـJWT وحكم
+  try {
+    const decoded = jwtDecode(authToken);
+
+    const admin = isAdminFromClaims(decoded);
+    if (admin) return children;
+
+    // 3) fallback أخير (حالات غريبة)
+    const flags = ['is_staff', 'is_superuser', 'is_admin', 'isAdmin'];
+    for (const k of flags) {
+      if (decoded?.[k] === true || decoded?.user?.[k] === true) return children;
+    }
+
+    // ليس أدمن → إلى قوائم المالك
+    return <Navigate to="/menus" replace />;
+  } catch {
+    return <Navigate to="/" replace />;
+  }
 }

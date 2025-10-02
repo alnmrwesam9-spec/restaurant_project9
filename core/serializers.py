@@ -123,29 +123,45 @@ def _build_explanation_de_from_codes(codes: list[str]) -> str:
 
 
 # ----------------------------- Profile -----------------------------
+from rest_framework import serializers
+
 class ProfileSerializer(serializers.ModelSerializer):
-    # حقل رفع الصورة
+    # صورة البروفايل (رفع/قراءة)
     photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
-    # رابط جاهز للواجهة
     photo_url = serializers.SerializerMethodField()
-    # أسماء بديلة (إن احتاجت الواجهة القديمة)
-    avatar = serializers.SerializerMethodField()
-    avatar_url = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()      # alias للواجهة القديمة
+    avatar_url = serializers.SerializerMethodField()  # alias للواجهة القديمة
+
+    # حقول من نموذج User (قراءة/كتابة بأمان)
+    first_name = serializers.CharField(
+        source="user.first_name", required=False, allow_blank=True
+    )
+    last_name = serializers.CharField(
+        source="user.last_name", required=False, allow_blank=True
+    )
+    email = serializers.EmailField(
+        source="user.email", required=False, allow_blank=True
+    )
+
+    # حقل phone اختياري؛ لا نفترض وجوده في الموديل
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
+        from .models import Profile  # استيراد متأخر لتفادي دوائر الاستيراد
         model = Profile
-        # لو عندك حقول إضافية اتركها – الأهم وجود photo/ photo_url
         fields = [
             "id",
-            "first_name",
-            "last_name",
+            # من User:
+            "first_name", "last_name", "email",
+            # من Profile:
             "phone",
-            "photo",        # للرفع
-            "photo_url",    # للعرض
-            "avatar",       # aliases اختيارية
+            "photo",        # رفع
+            "photo_url",    # عرض
+            "avatar",       # aliases للواجهة
             "avatar_url",
         ]
 
+    # --- Helpers ---
     def _abs(self, url: str):
         request = self.context.get("request")
         if request and url:
@@ -169,6 +185,39 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def get_avatar_url(self, obj):
         return self.get_photo_url(obj)
+
+    # --- write logic ---
+    def update(self, instance, validated_data):
+        # بيانات user المتداخلة من الحقول ذات الـsource ("user.first_name" ..)
+        user_data = validated_data.pop("user", {})
+
+        # phone إن أُرسل ونموذج Profile يدعمه
+        if "phone" in validated_data and hasattr(instance, "phone"):
+            instance.phone = validated_data.get("phone")
+
+        # photo إن أُرسلت
+        if "photo" in validated_data:
+            instance.photo = validated_data["photo"]
+
+        instance.save()
+
+        # تحديث حقول User (إن وُجدت)
+        u = instance.user
+        changed = False
+        if isinstance(user_data, dict):
+            if "first_name" in user_data:
+                u.first_name = user_data["first_name"] or ""
+                changed = True
+            if "last_name" in user_data:
+                u.last_name = user_data["last_name"] or ""
+                changed = True
+            if "email" in user_data:
+                u.email = user_data["email"] or ""
+                changed = True
+        if changed:
+            u.save(update_fields=["first_name", "last_name", "email"])
+
+        return instance
 
 # ===================== Auth =====================
 class RegisterSerializer(serializers.ModelSerializer):
