@@ -56,8 +56,9 @@ from core.llm_clients.openai_client import openai_caller
 
 # نموذج القاموس
 from core.dictionary_models import KeywordLexeme
+from django.contrib.auth import get_user_model
 
-
+User = get_user_model()
 # ============================================================
 # Helpers
 # ============================================================
@@ -1031,6 +1032,21 @@ def llm_direct_codes(request):
         return Response({"ok": True, **res}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"ok": False, "error": str(e)}, status=status.HTTP_200_OK)
+
+
+# ============================================================
+class RegisterView(generics.CreateAPIView):
+    """
+    إنشاء مستخدم جديد. نُثبت الدور دائماً إلى 'owner' بغض النظر عن المدخل.
+    """
+    serializer_class = RegisterSerializer
+    queryset = User.objects.all()
+    permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        # نغلق أي محاولة لتمرير role من الواجهة ونثبته لمالك مطعم
+        serializer.save(role="owner")
+
 
 
 
