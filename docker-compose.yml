@@ -1,5 +1,4 @@
-version: "3.9"
-
+# docker-compose.yml (fixed)
 services:
   ibla_db:
     container_name: ibla_db
@@ -35,13 +34,14 @@ services:
       ibla_db:
         condition: service_healthy
     volumes:
-      # طابقنا مسارات collectstatic/media الفعلية
-      - staticfiles:/app/backend/backend/staticfiles
-      - media:/app/backend/backend/media
+      # يجب أن تكون قابلة للكتابة (بدون :ro) لأن Django سيكتب هنا
+      - staticfiles:/app/backend/staticfiles
+      - media:/app/backend/media
     expose:
       - "8000"
     command: >
       sh -c "
+        mkdir -p /app/backend/media/avatars &&
         python manage.py migrate &&
         python manage.py collectstatic --noinput &&
         gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 90
@@ -66,8 +66,9 @@ services:
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - frontend_dist:/usr/share/nginx/html:ro
-      - staticfiles:/app/backend/backend/staticfiles:ro
-      - media:/app/backend/backend/media:ro
+      # نفس المسارات التي يقرأ منها nginx alias والـ settings في Django
+      - staticfiles:/app/backend/staticfiles:ro
+      - media:/app/backend/media:ro
 
 volumes:
   pg_data:
