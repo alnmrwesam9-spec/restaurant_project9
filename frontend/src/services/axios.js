@@ -1,64 +1,128 @@
-// frontend/src/services/axios.js
-import axios from "axios";
+// src/services/axios.js
+// axios instance + JWT interceptors (attach token, auto-refresh, map 401/403)
+// ---------------------------------------------------------------------------
 
-// قاعدة الـ API: نقرأ VITE_API_BASE أو نستخدم "/api" افتراضيًا
-const API_BASE =
-  (import.meta.env.VITE_API_BASE && import.meta.env.VITE_API_BASE.trim()) ||
-  "/api";
+import axios from 'axios';
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: '/api',
   withCredentials: false,
-  headers: { "Content-Type": "application/json" },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-let onUnauthorizedCb = null;
-export function setOnUnauthorized(fn) {
-  onUnauthorizedCb = typeof fn === "function" ? fn : null;
-}
+// Helpers ----------------------------------------------------------
+export const getAccess = () => localStorage.getItem('access_token');
+export const getRefresh = () => localStorage.getItem('refresh_token');
 
-// أضف Authorization إن وُجد access_token
+export const setAccess = (t) => {
+  if (t) localStorage.setItem('access_token', t);
+  else localStorage.removeItem('access_token');
+};
+export const setRefresh = (t) => {
+  if (t) localStorage.setItem('refresh_token', t);
+  else localStorage.removeItem('refresh_token');
+};
+
+// عند بدء التشغيل، لو فيه توكن خزّله بالهيدر
+const bootAccess = getAccess();
+if (bootAccess) api.defaults.headers.common.Authorization = `Bearer ${bootAccess}`;
+
+// Interceptors -----------------------------------------------------
+let isRefreshing = false;
+let pendingQueue = [];
+
+const flushQueue = (err, token = null) => {
+  pendingQueue.forEach((p) => (err ? p.reject(err) : p.resolve(token)));
+  pendingQueue = [];
+};
+
+// request: أرفق الـ Authorization إن وجد
 api.interceptors.request.use((config) => {
-  const token = window.localStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = getAccess();
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// تعامل مع 401، مع استثناء مسارات التوكن (login/refresh)
+// response: جرّب refresh مرة واحدة على 401
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    const { response, config } = error;
-    if (!response) return Promise.reject(error);
+    const { config, response } = error;
+    const status = response?.status;
 
-    // لا تحاول تجديد/إعادة توجيه عند فشل /token/ أو /token/refresh/
-    const url = (config?.url || "").toString();
-    const isTokenEndpoint =
-      url.endsWith("/token/") || url.endsWith("/token/refresh/") ||
-      url.includes("/token/?") || url.includes("/token/refresh/?");
+    // 403: رجّع خطأ مضبوط برسالة مفهومة
+    if (status === 403) {
+      return Promise.reject({
+        ...error,
+        friendly: 'forbidden',
+      });
+    }
 
-    if (response.status === 401 && !isTokenEndpoint) {
-      const refresh = window.localStorage.getItem("refresh_token");
-      if (refresh) {
-        try {
-          const { data } = await axios.post(`${API_BASE}/token/refresh/`, { refresh });
-          if (data?.access) {
-            window.localStorage.setItem("access_token", data.access);
-            const retry = { ...config };
-            retry.headers = { ...retry.headers, Authorization: `Bearer ${data.access}` };
-            return api.request(retry);
-          }
-        } catch (_) {
-          // سقوط للـ logout
-        }
+    // 401: نحاول نعمل refresh مرة واحدة
+    if (status === 401 && !config.__isRetryRequest) {
+      if (isRefreshing) {
+        // نضيف الطلب للطابور ليتعاد بعد نجاح الـ refresh
+        return new Promise((resolve, reject) => {
+          pendingQueue.push({
+            resolve: (token) => {
+              config.headers.Authorization = `Bearer ${token}`;
+              config.__isRetryRequest = true;
+              resolve(api(config));
+            },
+            reject,
+          });
+        });
       }
-      window.localStorage.removeItem("access_token");
-      window.localStorage.removeItem("refresh_token");
-      if (onUnauthorizedCb) onUnauthorizedCb();
+
+      config.__isRetryRequest = true;
+      isRefreshing = true;
+
+      try {
+        const refresh = getRefresh();
+        if (!refresh) throw new Error('No refresh token');
+
+        const { data } = await api.post('/token/refresh/', { refresh });
+        const newAccess = data?.access;
+        if (!newAccess) throw new Error('No access from refresh');
+
+        // خزّن التوكن الجديد و أعد الطلبات المعلّقة
+        setAccess(newAccess);
+        api.defaults.headers.common.Authorization = `Bearer ${newAccess}`;
+        flushQueue(null, newAccess);
+
+        // أعد تنفيذ الطلب الأصلي
+        config.headers.Authorization = `Bearer ${newAccess}`;
+        return api(config);
+      } catch (err) {
+        flushQueue(err, null);
+        // نظّف واعِد توجيه للّوجين من عند الراوتر (أو اترك الصفحة تتعامل)
+        setAccess(null);
+        setRefresh(null);
+        sessionStorage.removeItem('role');
+        sessionStorage.removeItem('token');
+        return Promise.reject({
+          ...error,
+          friendly: 'unauthorized',
+        });
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     return Promise.reject(error);
   }
 );
+
+// whoami: مفيدة للحراس
+export async function whoAmI() {
+  try {
+    const { data } = await api.get('/auth/whoami');
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 export default api;

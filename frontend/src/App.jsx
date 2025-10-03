@@ -1,14 +1,16 @@
 // src/App.js
-// -----------------------------------------------
-// ملف الراوتر الرئيسي لتطبيق React (محدّث):
-// - "/"        → LoginPage
-// - "/menus"   → MenusPage (محمي بـ PrivateRoute)
-// - "/admin/users" → AdminUsersPage (محمي بـ AdminRoute)
-// - ضبط Authorization عند الإقلاع وبعد تسجيل الدخول
+// --------------------------------------------------------------
+// Router setup (merged):
+// - RootRedirect يحسم الوجهة من "/":
+//     unauthenticated  => LoginPage
+//     admin            => /admin/users
+//     owner/user       => /menus
+// - يحافظ على جميع مسارات المشروع القديمة
+// - يهيّئ Axios Authorization عند الإقلاع وبعد تسجيل الدخول
 // - onUnauthorized (401) ينظف الجلسة ويعيد إلى "/"
-// -----------------------------------------------
+// --------------------------------------------------------------
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import api, { setOnUnauthorized } from './services/axios';
 import { jwtDecode } from 'jwt-decode';
@@ -40,32 +42,50 @@ import MenuPublicSettings from './pages/MenuPublicSettings';
 // 🌐 صفحة عرض عامة (للقوائم العامة)
 import PublicMenuPage from './pages/PublicMenuPage';
 
-function App() {
+// أداة مساعدة: فحص صلاحية JWT إن أمكن
+function isJwtValidMaybe(token) {
+  if (!token) return false;
+  try {
+    const { exp } = jwtDecode(token);
+    // إذا لا يوجد exp نعتبره صالح (لبعض الباك إند)
+    return !exp || exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+// أداة مساعدة: تحديد هل التوكن يدل على أدمن
+function isAdminFromToken(token) {
+  try {
+    const d = jwtDecode(token);
+    return d?.role === 'admin' || d?.is_staff === true || d?.is_superuser === true;
+  } catch {
+    return false;
+  }
+}
+
+export default function App() {
   const [token, setToken] = useState(null);
 
-  // عند تحميل التطبيق: اقرأ التوكن من Session فقط واضبط الهيدر
+  // 🔐 عند تحميل التطبيق: حاول إيجاد توكن صالح من أي مصدر منطقي
   useEffect(() => {
-    // نظّف مفاتيح قديمة غير مستخدمة
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-
+    const accessFromLocal = localStorage.getItem('access_token');
     const tokenFromSession = sessionStorage.getItem('token');
 
-    const isValid = tokenFromSession
-      ? (() => {
-          try {
-            const { exp } = jwtDecode(tokenFromSession);
-            return !exp || exp * 1000 > Date.now();
-          } catch {
-            return false;
-          }
-        })()
-      : false;
+    const chosen =
+      (isJwtValidMaybe(accessFromLocal) && accessFromLocal) ||
+      (isJwtValidMaybe(tokenFromSession) && tokenFromSession) ||
+      null;
 
-    if (isValid) {
-      setToken(tokenFromSession);
-      api.defaults.headers.common.Authorization = `Bearer ${tokenFromSession}`;
+    if (chosen) {
+      setToken(chosen);
+      api.defaults.headers.common.Authorization = `Bearer ${chosen}`;
     } else {
+      // تنظيف إذا فشل
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('role');
       delete api.defaults.headers.common.Authorization;
@@ -75,7 +95,6 @@ function App() {
     // 401 عالميًا → تنظيف والعودة للدخول
     setOnUnauthorized(() => {
       try {
-        // نظّف كل شيء
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('token');
@@ -90,14 +109,14 @@ function App() {
     });
   }, []);
 
-  // يُستدعى من صفحات الدخول/التسجيل بعد نجاح المصادقة
+  // ✅ يُستدعى من صفحات الدخول/التسجيل بعد نجاح المصادقة
   const handleLogin = (accessToken) => {
     setToken(accessToken);
     api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-    // التخزين يتم داخل صفحة الدخول نفسها (local/session)
+    // التخزين (local/session) يتم داخل LoginPage/Register حسب اختيارك
   };
 
-  // تسجيل الخروج
+  // 🚪 تسجيل الخروج
   const handleLogout = () => {
     try {
       localStorage.removeItem('access_token');
@@ -112,43 +131,51 @@ function App() {
     }
   };
 
-  // الهدف بعد التوثيق: أدمن → /admin/users، غير ذلك → /menus
-  const targetAfterAuth = (() => {
+  // 🎯 الوجهة بعد التوثيق
+  const targetAfterAuth = useMemo(() => {
     if (!token) return null;
-    try {
-      const d = jwtDecode(token);
-      const isAdmin =
-        d?.role === 'admin' || d?.is_staff === true || d?.is_superuser === true;
-      return isAdmin ? '/admin/users' : '/menus';
-    } catch {
-      return '/menus';
+
+    // أولاً حاول من التوكن نفسه
+    if (isAdminFromToken(token)) return '/admin/users';
+
+    // إن لم يتوفر الدور داخل JWT نعتمد التخزين
+    const role =
+      (sessionStorage.getItem('role') || localStorage.getItem('role') || '')
+        .toLowerCase();
+    return role === 'admin' ? '/admin/users' : '/menus';
+  }, [token]);
+
+  // 🧭 RootRedirect: يستخدم حالة التطبيق + التخزين لتقرير الوجهة عند "/"
+  function RootRedirect() {
+    const storedToken =
+      localStorage.getItem('access_token') || sessionStorage.getItem('token');
+
+    const effectiveToken = token || storedToken;
+
+    if (!isJwtValidMaybe(effectiveToken)) {
+      // غير موثق -> نعرض صفحة الدخول مباشرة مع onLogin
+      return <LoginPage onLogin={handleLogin} />;
     }
-  })();
+
+    // موثق -> وجه حسب الدور
+    const role =
+      (sessionStorage.getItem('role') || localStorage.getItem('role') || '')
+        .toLowerCase();
+    const goAdmin = isAdminFromToken(effectiveToken) || role === 'admin';
+    return <Navigate to={goAdmin ? '/admin/users' : '/menus'} replace />;
+  }
 
   return (
     <Router>
       <Routes>
-        {/* 📌 الجذر: صفحة الدخول */}
-        <Route
-          path="/"
-          element={
-            token ? (
-              <Navigate to={targetAfterAuth} replace />
-            ) : (
-              <LoginPage onLogin={handleLogin} />
-            )
-          }
-        />
+        {/* 📌 الجذر: يقرر الوجهة تلقائيًا */}
+        <Route path="/" element={<RootRedirect />} />
 
-        {/* التسجيل */}
+        {/* التسجيل: إذا كنت موثقًا نحولك لوجهتك، وإلا نعرض Register */}
         <Route
           path="/register"
           element={
-            token ? (
-              <Navigate to={targetAfterAuth} replace />
-            ) : (
-              <Register onLogin={handleLogin} />
-            )
+            token ? <Navigate to={targetAfterAuth || '/menus'} replace /> : <Register onLogin={handleLogin} />
           }
         />
 
@@ -200,7 +227,7 @@ function App() {
           }
         />
 
-        {/* تقارير (إن أردتها محمية ضعها داخل PrivateRoute) */}
+        {/* 📊 تقارير (إن أردتها محمية لفّها بـ PrivateRoute) */}
         <Route path="/reports" element={<ReportsDashboard />} />
 
         {/* 🛡️ مسارات لوحة الأدمن */}
@@ -269,5 +296,3 @@ function App() {
     </Router>
   );
 }
-
-export default App;
