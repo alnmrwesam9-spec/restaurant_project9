@@ -89,11 +89,13 @@ USE_I18N = True
 USE_TZ = True
 
 # ملفات ثابتة / ميديا
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'backend' / 'staticfiles'
+BACKEND_DIR = Path(__file__).resolve().parent.parent  # => /app/backend
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'backend' / 'media'
+STATIC_URL  = '/static/'
+MEDIA_URL   = '/media/'
+
+STATIC_ROOT = BACKEND_DIR / 'staticfiles'  # => /app/backend/staticfiles
+MEDIA_ROOT  = BACKEND_DIR / 'media'        # => /app/backend/media
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

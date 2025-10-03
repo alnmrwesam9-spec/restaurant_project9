@@ -52,9 +52,9 @@ urlpatterns = [
     # ---------- Users / Profile ----------
     re_path(r"^users/?$",              views.UserListAdminView.as_view(),   name="user_list_admin"),
     re_path(r"^users/(?P<pk>\d+)/?$",  views.UserDetailAdminView.as_view(), name="user_detail_admin"),
-    re_path(r"^me/profile/?$",         views.MeProfileView.as_view(),       name="me_profile"),
+    re_path(r"^me/profile/?$", views.MeProfileAPIView.as_view(), name="me_profile"),
 
-        # فحص سريع أن /api/ يعمل
+      # فحص سريع أن /api/ يعمل
     re_path(r"^ping/?$", ping, name="ping"),
 
     # تسجيل مستخدم جديد

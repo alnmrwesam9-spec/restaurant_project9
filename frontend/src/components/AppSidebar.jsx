@@ -1,8 +1,18 @@
 // src/components/AppSidebar.jsx
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Box, Drawer, Avatar, Typography, IconButton, Button,
-  List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip
+  Box,
+  Drawer,
+  Avatar,
+  Typography,
+  IconButton,
+  Button,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Tooltip,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import ImageIcon from "@mui/icons-material/Image";
@@ -11,27 +21,88 @@ import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import { keyframes } from "@mui/system";
 import { useTranslation } from "react-i18next";
+import api from "../services/axios"; // نفس الانستانس الذي يضيف Authorization تلقائياً
 
+// ثوابت العرض
 export const RAIL_WIDTH = 72;
 export const SIDEBAR_WIDTH = 280;
+
+// أفاتار افتراضي عند فشل تحميل الصورة
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'><circle cx='64' cy='64' r='64' fill='%23eee'/><circle cx='64' cy='48' r='22' fill='%23c4c4c4'/><path d='M16 116c8-26 40-30 48-30s40 4 48 30' fill='%23c4c4c4'/></svg>";
 
 export default function AppSidebar({
   mobileOpen,
   onMobileClose,
   collapsed,
   onToggleCollapsed,
-  profile,
   menus = [],
   selectedMenuId,
   onSelectMenu,
   onPickImport,
-  onUploadAvatar,
   isRTL = false,
 }) {
   const { t } = useTranslation();
   const side = isRTL ? "right" : "left";
-  const displayName = profile?.display_name || "User";
-  const avatarSrc = profile?.avatar || undefined;
+
+  // الحالة المحلية للملف الشخصي + الانشغال بالرفع
+  const [profile, setProfile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  // جلب الملف الشخصي لعرض الاسم والصورة
+  useEffect(() => {
+    let on = true;
+    (async () => {
+      try {
+        const { data } = await api.get("/me/profile/");
+        if (on) setProfile(data);
+      } catch (e) {
+        console.warn("fetch profile failed", e);
+      }
+    })();
+    return () => {
+      on = false;
+    };
+  }, []);
+
+  // رفع الأفاتار: FormData + PATCH ثم نحدث الحالة مباشرةً من استجابة الـ PATCH
+  const saveAvatar = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("avatar", file); // IMPORTANT: اسم الحقل كما يتوقعه الباكند
+
+      const { data } = await api.patch("/me/profile/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // نحدّث الحالة مباشرة من الاستجابة بدون إعادة جلب
+      setProfile((prev) => ({ ...(prev || {}), ...(data || {}) }));
+    } catch (err) {
+      console.error(err);
+      alert(t("errors.upload_failed") || "تعذر حفظ الصورة. جرّب لاحقًا.");
+    } finally {
+      setBusy(false);
+      // تنظيف قيمة input لتمكين رفع نفس الملف مرة أخرى إن لزم
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  // حدث اختيار الملف
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    await saveAvatar(file);
+  };
+
+  // حساب الحقول المستعملة في الواجهة
+  const displayName =
+    profile?.display_name || profile?.username || (t("user") || "User");
+
+  // عرض الصورة: نستخدم فقط profile.avatar_url
+  const avatarSrc = profile?.avatar_url || undefined;
+
   const initial = (displayName || "U").trim()[0]?.toUpperCase() || "U";
   const accent = (theme) => theme.palette.primary.main;
 
@@ -41,17 +112,28 @@ export default function AppSidebar({
     100% { transform: scaleY(1); opacity: 1; }
   `;
 
+  // ترويسة الشريط (وضع العرض الكامل)
   const HeaderFull = (
     <Box
       sx={{
-        px: 2, pt: 2, pb: 1.5,
+        px: 2,
+        pt: 2,
+        pb: 1.5,
         display: "flex",
         alignItems: "center",
         gap: 1.25,
         backdropFilter: "blur(10px)",
       }}
     >
-      <Avatar src={avatarSrc} sx={{ width: 44, height: 44, fontWeight: 700 }}>
+      <Avatar
+        src={avatarSrc}
+        imgProps={{
+          onError: (e) => {
+            e.currentTarget.src = DEFAULT_AVATAR;
+          },
+        }}
+        sx={{ width: 44, height: 44, fontWeight: 700 }}
+      >
         {!avatarSrc ? initial : null}
       </Avatar>
 
@@ -60,19 +142,30 @@ export default function AppSidebar({
           {displayName}
         </Typography>
 
+        {/* زر تغيير الصورة: نستخدم label + input مخفي */}
         <Button
           size="small"
           variant="text"
           component="label"
           startIcon={<ImageIcon />}
+          disabled={busy}
           sx={{
-            px: 0, minWidth: 0,
+            px: 0,
+            minWidth: 0,
             color: "text.secondary",
-            "&:hover": { color: accent }
+            "&:hover": { color: accent },
           }}
+          title={t("change_photo") || "Change Photo"}
         >
-          {t("change_photo") || "Change Photo"}
-          <input hidden type="file" accept="image/*" onChange={onUploadAvatar} aria-label="upload avatar" />
+          {busy ? t("saving") || "جارٍ الحفظ..." : t("change_photo") || "Change Photo"}
+          <input
+            ref={fileRef}
+            hidden
+            type="file"
+            accept="image/*"
+            onChange={onFile}
+            aria-label="upload avatar"
+          />
         </Button>
       </Box>
 
@@ -86,15 +179,18 @@ export default function AppSidebar({
     </Box>
   );
 
+  // قائمة القوائم
   const MenusList = (
     <>
       <Typography
         variant="caption"
         sx={{
-          px: 2, pt: 1, pb: 0.75,
+          px: 2,
+          pt: 1,
+          pb: 0.75,
           color: "text.secondary",
           fontWeight: 600,
-          letterSpacing: .3
+          letterSpacing: 0.3,
         }}
       >
         {t("my_menus") || "My Menus"}
@@ -108,16 +204,16 @@ export default function AppSidebar({
               <ListItemButton
                 key={m.id}
                 selected={selected}
-                onClick={() => onSelectMenu(m.id)}
-                sx={(theme) => ({
+                onClick={() => onSelectMenu?.(m.id)}
+                sx={() => ({
                   borderRadius: 1.5,
-                  mb: .5,
+                  mb: 0.5,
                   position: "relative",
                   overflow: "hidden",
                   transition: "all .2s ease",
                   "&:hover": {
                     background: "rgba(0,0,0,0.04)",
-                    transform: "translateX(2px)"
+                    transform: "translateX(2px)",
                   },
                   "&.Mui-selected": {
                     background: "rgba(0,0,0,0.02)",
@@ -130,18 +226,21 @@ export default function AppSidebar({
                   <Box
                     sx={{
                       position: "absolute",
-                      top: 6, bottom: 6,
+                      top: 6,
+                      bottom: 6,
                       [isRTL ? "right" : "left"]: 4,
                       width: 3,
                       borderRadius: 1,
                       bgcolor: accent,
                       transformOrigin: "top",
-                      animation: `${slideIn} .2s ease-out`
+                      animation: `${slideIn} .2s ease-out`,
                     }}
                   />
                 )}
 
-                <ListItemIcon sx={{ minWidth: 36, color: selected ? accent : "text.secondary" }}>
+                <ListItemIcon
+                  sx={{ minWidth: 36, color: selected ? accent : "text.secondary" }}
+                >
                   <FolderIcon />
                 </ListItemIcon>
 
@@ -157,10 +256,12 @@ export default function AppSidebar({
                   <Tooltip title={t("badges.published") || "Published"}>
                     <Box
                       sx={{
-                        width: 8, height: 8,
+                        width: 8,
+                        height: 8,
                         borderRadius: "50%",
                         bgcolor: "success.main",
-                        mr: isRTL ? 0 : .5, ml: isRTL ? .5 : 0
+                        mr: isRTL ? 0 : 0.5,
+                        ml: isRTL ? 0.5 : 0,
                       }}
                     />
                   </Tooltip>
@@ -173,6 +274,7 @@ export default function AppSidebar({
     </>
   );
 
+  // زر الاستيراد
   const ImportButton = (
     <Box sx={{ p: 1.5 }}>
       <Button
@@ -193,6 +295,7 @@ export default function AppSidebar({
     </Box>
   );
 
+  // محتوى اللوحة الكاملة
   const FullPanel = (
     <Box
       sx={{
@@ -213,6 +316,7 @@ export default function AppSidebar({
     </Box>
   );
 
+  // Rail (الوضع المضغوط)
   const Rail = (
     <Box
       sx={{
@@ -234,7 +338,15 @@ export default function AppSidebar({
       }}
     >
       <Tooltip title={displayName}>
-        <Avatar src={avatarSrc} sx={{ mt: 1, fontWeight: 700 }}>
+        <Avatar
+          src={avatarSrc}
+          imgProps={{
+            onError: (e) => {
+              e.currentTarget.src = DEFAULT_AVATAR;
+            },
+          }}
+          sx={{ mt: 1, fontWeight: 700 }}
+        >
           {!avatarSrc ? initial : null}
         </Avatar>
       </Tooltip>
@@ -250,7 +362,9 @@ export default function AppSidebar({
     <>
       {/* ثابت على الشاشات الكبيرة */}
       <Box sx={{ display: { xs: "none", md: "block" } }}>
-        {collapsed ? Rail : (
+        {collapsed ? (
+          Rail
+        ) : (
           <Box
             sx={{
               position: "fixed",

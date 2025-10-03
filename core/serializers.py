@@ -22,7 +22,7 @@ from .models import (
 # قاموس القواعد (ملف مستقل)
 from .dictionary_models import KeywordLexeme, NegationCue
 
-User = get_user_model()
+
 
 
 # ===================== أدوات مساعدة عامة =====================
@@ -126,100 +126,36 @@ def _build_explanation_de_from_codes(codes: list[str]) -> str:
 from rest_framework import serializers
 
 class ProfileSerializer(serializers.ModelSerializer):
-    # صورة البروفايل (رفع/قراءة)
-    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
-    photo_url = serializers.SerializerMethodField()
-    avatar = serializers.SerializerMethodField()      # alias للواجهة القديمة
-    avatar_url = serializers.SerializerMethodField()  # alias للواجهة القديمة
+    # حقول للقراءة من User
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
+    last_name  = serializers.CharField(source='user.last_name',  required=False, allow_blank=True)
 
-    # حقول من نموذج User (قراءة/كتابة بأمان)
-    first_name = serializers.CharField(
-        source="user.first_name", required=False, allow_blank=True
-    )
-    last_name = serializers.CharField(
-        source="user.last_name", required=False, allow_blank=True
-    )
-    email = serializers.EmailField(
-        source="user.email", required=False, allow_blank=True
-    )
-
-    # حقل phone اختياري؛ لا نفترض وجوده في الموديل
-    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    # رابط جاهز للصورة
+    avatar_url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        from .models import Profile  # استيراد متأخر لتفادي دوائر الاستيراد
-        model = Profile
+        model  = Profile
         fields = [
-            "id",
-            # من User:
-            "first_name", "last_name", "email",
-            # من Profile:
-            "phone",
-            "photo",        # رفع
-            "photo_url",    # عرض
-            "avatar",       # aliases للواجهة
-            "avatar_url",
+            "id", "username", "email",
+            "first_name", "last_name",
+            "avatar_url", "avatar",   # ← الحقول الموجودة فعليًا
         ]
-
-    # --- Helpers ---
-    def _abs(self, url: str):
-        request = self.context.get("request")
-        if request and url:
-            try:
-                return request.build_absolute_uri(url)
-            except Exception:
-                return url
-        return url
-
-    def get_photo_url(self, obj):
-        f = getattr(obj, "photo", None)
-        if not f:
-            return None
-        try:
-            return self._abs(f.url)
-        except Exception:
-            return None
-
-    def get_avatar(self, obj):
-        return self.get_photo_url(obj)
+        extra_kwargs = {
+            "avatar": {"required": False, "allow_null": True},
+        }
 
     def get_avatar_url(self, obj):
-        return self.get_photo_url(obj)
-
-    # --- write logic ---
-    def update(self, instance, validated_data):
-        # بيانات user المتداخلة من الحقول ذات الـsource ("user.first_name" ..)
-        user_data = validated_data.pop("user", {})
-
-        # phone إن أُرسل ونموذج Profile يدعمه
-        if "phone" in validated_data and hasattr(instance, "phone"):
-            instance.phone = validated_data.get("phone")
-
-        # photo إن أُرسلت
-        if "photo" in validated_data:
-            instance.photo = validated_data["photo"]
-
-        instance.save()
-
-        # تحديث حقول User (إن وُجدت)
-        u = instance.user
-        changed = False
-        if isinstance(user_data, dict):
-            if "first_name" in user_data:
-                u.first_name = user_data["first_name"] or ""
-                changed = True
-            if "last_name" in user_data:
-                u.last_name = user_data["last_name"] or ""
-                changed = True
-            if "email" in user_data:
-                u.email = user_data["email"] or ""
-                changed = True
-        if changed:
-            u.save(update_fields=["first_name", "last_name", "email"])
-
-        return instance
-
+        if not obj.avatar:
+            return None
+        request = self.context.get("request")
+        url = obj.avatar.url
+        return request.build_absolute_uri(url) if request else url
+    
+    
 # ===================== Auth =====================
+User = get_user_model()
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 

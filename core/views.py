@@ -57,6 +57,8 @@ from core.llm_clients.openai_client import openai_caller
 # نموذج القاموس
 from core.dictionary_models import KeywordLexeme
 from django.contrib.auth import get_user_model
+from rest_framework.generics import RetrieveUpdateAPIView
+
 
 User = get_user_model()
 # ============================================================
@@ -216,16 +218,19 @@ class UserDetailAdminView(generics.RetrieveUpdateAPIView):
 # ============================================================
 # Profile
 # ============================================================
-
-class MeProfileView(generics.RetrieveUpdateAPIView):
-    serializer_class = ProfileSerializer
+class MeProfileAPIView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    serializer_class   = ProfileSerializer
+    parser_classes     = [MultiPartParser, FormParser]   # ← مهم لرفع الملفات
 
     def get_object(self):
         profile, _ = Profile.objects.get_or_create(user=self.request.user)
         return profile
 
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["request"] = self.request          # حتى يشتغل avatar_url
+        return ctx
 
 # ============================================================
 # Menus / Sections / Dishes
@@ -1051,3 +1056,4 @@ class RegisterView(generics.CreateAPIView):
 
 
 # ========================= END =========================
+MeProfileView = MeProfileAPIView
