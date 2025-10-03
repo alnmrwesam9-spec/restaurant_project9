@@ -1,6 +1,6 @@
-// src/App.js
+// src/App.jsx
 // --------------------------------------------------------------
-// Router setup (merged):
+// Router setup (merged + enhanced):
 // - RootRedirect يحسم الوجهة من "/":
 //     unauthenticated  => LoginPage
 //     admin            => /admin/users
@@ -8,6 +8,7 @@
 // - يحافظ على جميع مسارات المشروع القديمة
 // - يهيّئ Axios Authorization عند الإقلاع وبعد تسجيل الدخول
 // - onUnauthorized (401) ينظف الجلسة ويعيد إلى "/"
+// - يدعم مفاتيح تخزين متنوعة: access_token/access + refresh_token/refresh
 // --------------------------------------------------------------
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -15,7 +16,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import api, { setOnUnauthorized } from './services/axios';
 import { jwtDecode } from 'jwt-decode';
 
-// 📄 صفحات المستخدم
+/* 📄 صفحات المستخدم */
 import LoginPage from './pages/LoginPage';
 import Register from './pages/Register';
 import MenusPage from './pages/MenusPage';
@@ -23,38 +24,37 @@ import SectionPage from './pages/SectionPage';
 import DishPage from './pages/DishPage';
 import ReportsDashboard from './pages/ReportsDashboard';
 
-// 📄 صفحات الأدمن
+/* 📄 صفحات الأدمن */
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminUserMenusPage from './pages/AdminUserMenusPage';
 import AdminUserDetailsPage from './pages/AdminUserDetailsPage';
 import AdminEditUserPage from './pages/AdminEditUserPage';
 import AdminMenuEditorPage from './pages/AdminMenuEditorPage';
 
-// 🛡️ الحماية والملاحة المشتركة
+/* 🛡️ الحماية والملاحة المشتركة */
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
 import UserNavbar from './components/UserNavbar';
 import AdminNavbar from './components/AdminNavbar';
 
-// ⚙️ إعدادات نشر القائمة
+/* ⚙️ إعدادات نشر القائمة */
 import MenuPublicSettings from './pages/MenuPublicSettings';
 
-// 🌐 صفحة عرض عامة (للقوائم العامة)
+/* 🌐 صفحة عرض عامة (للقوائم العامة) */
 import PublicMenuPage from './pages/PublicMenuPage';
 
-// أداة مساعدة: فحص صلاحية JWT إن أمكن
+/* ------------------------- JWT utils ------------------------- */
 function isJwtValidMaybe(token) {
   if (!token) return false;
   try {
     const { exp } = jwtDecode(token);
-    // إذا لا يوجد exp نعتبره صالح (لبعض الباك إند)
+    // بعض الباك إند لا يرسل exp — نعتبره صالحًا حينها
     return !exp || exp * 1000 > Date.now();
   } catch {
     return false;
   }
 }
 
-// أداة مساعدة: تحديد هل التوكن يدل على أدمن
 function isAdminFromToken(token) {
   try {
     const d = jwtDecode(token);
@@ -64,12 +64,14 @@ function isAdminFromToken(token) {
   }
 }
 
+/* ----------------------------- App --------------------------- */
 export default function App() {
   const [token, setToken] = useState(null);
 
-  // 🔐 عند تحميل التطبيق: حاول إيجاد توكن صالح من أي مصدر منطقي
+  // أثناء الإقلاع: حمّل توكن صالح إن وجد واضبط Authorization
   useEffect(() => {
-    const accessFromLocal = localStorage.getItem('access_token');
+    const accessFromLocal =
+      localStorage.getItem('access_token') || localStorage.getItem('access');
     const tokenFromSession = sessionStorage.getItem('token');
 
     const chosen =
@@ -81,9 +83,11 @@ export default function App() {
       setToken(chosen);
       api.defaults.headers.common.Authorization = `Bearer ${chosen}`;
     } else {
-      // تنظيف إذا فشل
+      // تنظيف شامل عند عدم وجود توكن صالح
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('access');
+      localStorage.removeItem('refresh');
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       sessionStorage.removeItem('token');
@@ -92,11 +96,13 @@ export default function App() {
       setToken(null);
     }
 
-    // 401 عالميًا → تنظيف والعودة للدخول
+    // 401 عالميًا → نظف وأعد التوجيه إلى صفحة الدخول
     setOnUnauthorized(() => {
       try {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
         localStorage.removeItem('token');
         localStorage.removeItem('role');
         sessionStorage.removeItem('token');
@@ -121,6 +127,8 @@ export default function App() {
     try {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('access');
+      localStorage.removeItem('refresh');
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       sessionStorage.removeItem('token');
@@ -148,7 +156,9 @@ export default function App() {
   // 🧭 RootRedirect: يستخدم حالة التطبيق + التخزين لتقرير الوجهة عند "/"
   function RootRedirect() {
     const storedToken =
-      localStorage.getItem('access_token') || sessionStorage.getItem('token');
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('access') ||
+      sessionStorage.getItem('token');
 
     const effectiveToken = token || storedToken;
 
@@ -175,7 +185,11 @@ export default function App() {
         <Route
           path="/register"
           element={
-            token ? <Navigate to={targetAfterAuth || '/menus'} replace /> : <Register onLogin={handleLogin} />
+            token ? (
+              <Navigate to={targetAfterAuth || '/menus'} replace />
+            ) : (
+              <Register onLogin={handleLogin} />
+            )
           }
         />
 
@@ -227,13 +241,15 @@ export default function App() {
           }
         />
 
-        {/* 📊 تقارير (إن أردتها محمية لفّها بـ PrivateRoute) */}
+        {/* 📊 تقارير (كما في القديم: غير محمية—عدّلها إن أردت) */}
         <Route path="/reports" element={<ReportsDashboard />} />
 
         {/* 🛡️ مسارات لوحة الأدمن */}
         <Route
           path="/admin/users"
           element={
+            /* ملاحظة: عنصر Route يحتاج "element="،
+               بعض المحررات قد تصلحها تلقائياً، لكن نكتبها صحيحة هنا */
             <AdminRoute token={token}>
               <>
                 <AdminNavbar onLogout={handleLogout} />

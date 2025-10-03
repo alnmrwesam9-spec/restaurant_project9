@@ -1,54 +1,107 @@
 // src/components/AdminRoute.jsx
-// Route-guard: يسمح فقط للأدمن ويعيد التوجيه للباقين
-// --------------------------------------------------
-import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { whoAmI } from '../services/axios';
+import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import api from '../services/axios';
+import { jwtDecode } from 'jwt-decode';
 
-export default function AdminRoute() {
-  const location = useLocation();
-  const token = localStorage.getItem('access_token') || sessionStorage.getItem('token');
-  const savedRole = (sessionStorage.getItem('role') || localStorage.getItem('role') || '').toLowerCase();
+const styleSpinner = {
+  display: 'grid',
+  placeItems: 'center',
+  height: '60vh',
+  fontFamily: 'system-ui, sans-serif',
+  color: '#555',
+};
 
-  const [role, setRole] = React.useState(savedRole);
-  const [pending, setPending] = React.useState(Boolean(token && !savedRole));
+function validJwt(t) {
+  if (!t) return false;
+  try {
+    const { exp } = jwtDecode(t);
+    return !exp || exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
 
-  React.useEffect(() => {
+function roleFromToken(t) {
+  try {
+    const d = jwtDecode(t);
+    if (d?.role) return String(d.role).toLowerCase();
+    if (d?.is_staff || d?.is_superuser) return 'admin';
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+async function whoAmI() {
+  // نحاول نقطتين محتملتين حسب الباكند عندك
+  try {
+    const { data } = await api.get('/auth/whoami');
+    return data;
+  } catch {
+    try {
+      const { data } = await api.get('/me/profile/');
+      return data;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export default function AdminRoute({ children, token: propToken }) {
+  const [state, setState] = useState({
+    loading: true,
+    allow: false,
+    redirect: '/',
+  });
+
+  useEffect(() => {
     let alive = true;
-    const run = async () => {
-      if (!token) return;
-      if (savedRole) return; // already known
-      setPending(true);
+
+    const stored =
+      propToken ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('access') ||
+      sessionStorage.getItem('token');
+
+    if (!validJwt(stored)) {
+      setState({ loading: false, allow: false, redirect: '/' });
+      return () => { alive = false; };
+    }
+
+    // 1) جرّب من التوكن مباشرة
+    const roleTok = roleFromToken(stored);
+    if (roleTok) {
+      const admin = roleTok === 'admin';
+      setState({ loading: false, allow: admin, redirect: admin ? null : '/menus' });
+      return () => { alive = false; };
+    }
+
+    // 2) جرّب من التخزين
+    const roleLS = (
+      sessionStorage.getItem('role') ||
+      localStorage.getItem('role') ||
+      ''
+    ).toLowerCase();
+
+    if (roleLS) {
+      const admin = roleLS === 'admin';
+      setState({ loading: false, allow: admin, redirect: admin ? null : '/menus' });
+      return () => { alive = false; };
+    }
+
+    // 3) آخرًا، اسأل الباكند بشكل صريح
+    (async () => {
       const me = await whoAmI();
-      const r = (me?.role || (me?.is_staff ? 'admin' : 'owner') || '').toLowerCase();
       if (!alive) return;
-      const finalRole = r === 'admin' ? 'admin' : 'owner';
-      sessionStorage.setItem('role', finalRole);
-      localStorage.setItem('role', finalRole);
-      setRole(finalRole);
-      setPending(false);
-    };
-    run();
-    return () => (alive = false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+      const isAdmin = !!(me?.is_staff || me?.is_superuser || String(me?.role).toLowerCase() === 'admin');
+      setState({ loading: false, allow: isAdmin, redirect: isAdmin ? null : '/menus' });
+    })();
 
-  if (!token) {
-    return <Navigate to="/" state={{ from: location }} replace />;
-  }
+    return () => { alive = false; };
+  }, [propToken]);
 
-  if (pending) {
-    return (
-      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
-        <div>…</div>
-      </div>
-    );
-  }
-
-  // غير أدمن؟ أرسله لصفحة المالك
-  if (role !== 'admin') {
-    return <Navigate to="/menus" replace />;
-  }
-
-  return <Outlet />;
+  if (state.loading) return <div style={styleSpinner}>جارِ التحقق من الصلاحية…</div>;
+  if (!state.allow) return <Navigate to={state.redirect || '/'} replace />;
+  return children;
 }

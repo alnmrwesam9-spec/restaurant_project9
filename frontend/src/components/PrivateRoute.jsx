@@ -1,55 +1,69 @@
 // src/components/PrivateRoute.jsx
-// Route-guard: يضمن المصادقة لصاحب المطعم (owner)
-// ويحول الأدمن تلقائيًا إلى /admin/users
-// -----------------------------------------------
-import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { whoAmI } from '../services/axios';
+import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import api from '../services/axios';
+import { jwtDecode } from 'jwt-decode';
 
-export default function PrivateRoute() {
-  const location = useLocation();
-  const token = localStorage.getItem('access_token') || sessionStorage.getItem('token');
-  const savedRole = (sessionStorage.getItem('role') || localStorage.getItem('role') || '').toLowerCase();
+const styleSpinner = {
+  display: 'grid',
+  placeItems: 'center',
+  height: '60vh',
+  fontFamily: 'system-ui, sans-serif',
+  color: '#555',
+};
 
-  const [role, setRole] = React.useState(savedRole);
-  const [pending, setPending] = React.useState(Boolean(token && !savedRole));
+function validJwt(t) {
+  if (!t) return false;
+  try {
+    const { exp } = jwtDecode(t);
+    return !exp || exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
 
-  React.useEffect(() => {
+async function pingAuth() {
+  try {
+    const { status } = await api.get('/me/profile/');
+    return status >= 200 && status < 300;
+  } catch {
+    try {
+      const { status } = await api.get('/auth/whoami');
+      return status >= 200 && status < 300;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export default function PrivateRoute({ children, token: propToken }) {
+  const [state, setState] = useState({ loading: true, ok: false });
+
+  useEffect(() => {
     let alive = true;
-    const run = async () => {
-      if (!token) return;
-      if (savedRole) return;
-      setPending(true);
-      const me = await whoAmI();
-      const r = (me?.role || (me?.is_staff ? 'admin' : 'owner') || '').toLowerCase();
+
+    const stored =
+      propToken ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('access') ||
+      sessionStorage.getItem('token');
+
+    // إن لم يوجد JWT صالح، لا نضيّع وقت على الشبكة
+    if (!validJwt(stored)) {
+      setState({ loading: false, ok: false });
+      return () => { alive = false; };
+    }
+
+    (async () => {
+      const ok = await pingAuth();
       if (!alive) return;
-      const finalRole = r === 'admin' ? 'admin' : 'owner';
-      sessionStorage.setItem('role', finalRole);
-      localStorage.setItem('role', finalRole);
-      setRole(finalRole);
-      setPending(false);
-    };
-    run();
-    return () => (alive = false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+      setState({ loading: false, ok });
+    })();
 
-  if (!token) {
-    return <Navigate to="/" state={{ from: location }} replace />;
-  }
+    return () => { alive = false; };
+  }, [propToken]);
 
-  if (pending) {
-    return (
-      <div style={{ display: 'grid', placeItems: 'center', height: '60vh' }}>
-        <div>…</div>
-      </div>
-    );
-  }
-
-  // لو أدمن، لا ندخله هنا — نعيد توجيهه للوحة الأدمن
-  if (role === 'admin') {
-    return <Navigate to="/admin/users" replace />;
-  }
-
-  return <Outlet />;
+  if (state.loading) return <div style={styleSpinner}>جارِ التحقق…</div>;
+  if (!state.ok) return <Navigate to="/" replace />;
+  return children;
 }
