@@ -3,6 +3,8 @@ services:
   ibla_db:
     container_name: ibla_db
     image: postgres:16-alpine
+    ports:
+      - "5432:5432"      # ← تعريض المنفذ (Host:Container)
     environment:
       POSTGRES_DB: ${DB_NAME:-ibla_db}
       POSTGRES_USER: ${DB_USER:-ibla_user}
