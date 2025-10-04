@@ -488,18 +488,41 @@ class IngredientSuggestion(models.Model):
 # بروفايل المستخدم (Avatar + اسم عرض)
 # ===========================
 class Profile(models.Model):
-    user   = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    display_name = models.CharField(max_length=120, blank=True, default="")  # <-- مهم
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def __str__(self):
         return self.user.get_username()
 
+
 # إشارات للبروفايل: إنشاء تلقائي + تنظيف صور
 @receiver(post_save, sender=User)
 def ensure_profile_exists(sender, instance, created, **kwargs):
-    """إنشاء بروفايل تلقائيًا لكل مستخدم جديد."""
-    if created:
-        Profile.objects.get_or_create(user=instance)
+    default_display = (
+        (getattr(instance, "get_full_name", lambda: "")() or "").strip()
+        or (getattr(instance, "first_name", "") or "").strip()
+        or (getattr(instance, "username", "") or "").strip()
+        or (getattr(instance, "email", "") or "").strip()
+        or "User"
+    )
+    prof, _ = Profile.objects.get_or_create(
+        user=instance, defaults={"display_name": default_display}
+    )
+    if not getattr(prof, "display_name", None):
+        prof.display_name = default_display
+        prof.save(update_fields=["display_name"])
+
+
+    prof, _ = Profile.objects.get_or_create(
+        user=instance,
+        defaults={"display_name": default_display}
+    )
+
+    # لو موجود لكن display_name فاضي لسبب ما، عالجه
+    if not getattr(prof, "display_name", None):
+        prof.display_name = default_display
+        prof.save(update_fields=["display_name"])
 
 
 @receiver(pre_save, sender=Profile)

@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 from .views import WhoAmI, ping
 from .views import RegisterView  # تأكد من الاستيراد
+from .views import username_available, email_available
 
 # ------ v2 viewsets كدوال as_view ------
 dish_list = views.DishViewSet.as_view({
@@ -58,7 +59,9 @@ urlpatterns = [
     re_path(r"^ping/?$", ping, name="ping"),
 
     # تسجيل مستخدم جديد
-     path('register/', RegisterView.as_view(), name='register'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('auth/username-available/', username_available),
+    path('auth/email-available/', email_available),
 
     # ---------- Menus / Sections / Dishes (v1) ----------
     re_path(r"^menus/?$",                     views.MenuListCreateView.as_view(), name="menu_list_create"),

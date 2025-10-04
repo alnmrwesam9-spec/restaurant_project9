@@ -1051,8 +1051,20 @@ class RegisterView(generics.CreateAPIView):
     def perform_create(self, serializer):
         # نغلق أي محاولة لتمرير role من الواجهة ونثبته لمالك مطعم
         serializer.save(role="owner")
+# ============================================================
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def username_available(request):
+    u = (request.GET.get("username") or "").strip()
+    User = get_user_model()
+    return Response({"available": bool(u and not User.objects.filter(username__iexact=u).exists())})
 
-
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def email_available(request):
+    e = (request.GET.get("email") or "").strip()
+    User = get_user_model()
+    return Response({"available": bool(e and not User.objects.filter(email__iexact=e).exists())})
 
 
 # ========================= END =========================
