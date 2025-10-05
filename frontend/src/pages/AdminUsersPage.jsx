@@ -1,5 +1,5 @@
 // frontend/src/pages/AdminUsersPage.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/axios';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -22,6 +22,11 @@ import {
   ThemeProvider,
   createTheme,
   Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import ListIcon from '@mui/icons-material/List';
@@ -29,9 +34,10 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import InfoIcon from '@mui/icons-material/Info';
 import SearchIcon from '@mui/icons-material/Search';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useTranslation } from 'react-i18next';
 
-/* ألوان IBLA */
+/* ألوان IBLA (كما في الواجهة القديمة) */
 const COLORS = {
   primary: '#2bbdbe',
   primary2: '#2bd9c1', // للتدرّج
@@ -44,7 +50,7 @@ const COLORS = {
   chipBg: '#eef9f9',
 };
 
-/* سويتش Aqua (تدرّج + وهج) */
+/* سويتش Aqua (تدرّج + وهج) — بدون أي تغيير بصري */
 const AquaSwitch = (props) => (
   <Switch
     disableRipple
@@ -59,7 +65,7 @@ const AquaSwitch = (props) => (
         margin: 0,
         transitionDuration: '700ms',
         '&.Mui-checked': {
-          transform: 'translateX(22px)', // 48 - 4 - 22 = 22
+          transform: 'translateX(22px)',
           color: '#fff',
           '& + .MuiSwitch-track': {
             background: `linear-gradient(90deg, ${COLORS.primary2} 0%, ${COLORS.primary} 100%)`,
@@ -84,7 +90,7 @@ const AquaSwitch = (props) => (
   />
 );
 
-/* زرّ Pill خفيف */
+/* زرّ Pill خفيف — كما هو */
 const PillButton = (props) => (
   <Button
     variant="outlined"
@@ -102,8 +108,6 @@ const PillButton = (props) => (
       alignItems: 'center',
       columnGap: '8px',
       '&:hover': { borderColor: COLORS.primary, backgroundColor: COLORS.chipBg },
-
-      // اضبط هوامش الأيقونة بما يناسب RTL/LTR
       '& .MuiButton-startIcon': {
         margin: 0,
         marginInlineStart: '8px',
@@ -114,16 +118,13 @@ const PillButton = (props) => (
         marginInlineEnd: '8px',
         marginInlineStart: 0,
       },
-
-      // حجم أيقونة لطيف ومتناسق
       '& .MuiSvgIcon-root': { fontSize: 18 },
-
       ...props.sx,
     }}
   />
 );
 
-/* ثيم (زوايا خفيفة جدًا) */
+/* الثيم كما في النسخة القديمة */
 const theme = createTheme({
   direction: 'rtl',
   palette: {
@@ -134,7 +135,7 @@ const theme = createTheme({
     background: { default: COLORS.bg, paper: '#fff' },
   },
   typography: { fontFamily: 'inherit' },
-  shape: { borderRadius: 7 }, // زوايا ناعمة
+  shape: { borderRadius: 7 },
   components: {
     MuiCard: {
       styleOverrides: {
@@ -173,11 +174,15 @@ const AdminUsersPage = () => {
   const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [error, setError] = useState('');
 
+  // حالات الحذف (جديدة) — لا تغيّر المظهر العام
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  /* التحميل الأولي */
   useEffect(() => {
     const ctrl = new AbortController();
     const fetchUsers = async () => {
@@ -187,7 +192,6 @@ const AdminUsersPage = () => {
         setError('');
       } catch (err) {
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
-        // تحسين الرسالة في حال 403
         if (err?.response?.status === 403) {
           setError(t('forbidden') || 'لا تملك صلاحية عرض المستخدمين.');
         } else {
@@ -199,29 +203,37 @@ const AdminUsersPage = () => {
     return () => ctrl.abort();
   }, [t]);
 
-  useEffect(() => {
+  /* فلترة وبحث أسرع بـ useMemo — بدون أي تغيير بصري */
+  const filteredUsers = useMemo(() => {
     let list = Array.isArray(users) ? [...users] : [];
-    const q = searchTerm.trim().toLowerCase();
+    const q = (searchTerm || '').trim().toLowerCase();
+
     if (q) {
-      list = list.filter(
-        (u) =>
-          u?.username?.toLowerCase().includes(q) ||
-          u?.email?.toLowerCase().includes(q)
+      list = list.filter((u) =>
+        [u?.username, u?.email, u?.first_name, u?.last_name]
+          .filter(Boolean)
+          .some((x) => String(x).toLowerCase().includes(q))
       );
     }
+
     if (roleFilter !== 'all') {
-      const rf = roleFilter.toLowerCase();
+      const rf = String(roleFilter || '').toLowerCase();
       list = list.filter((u) => {
-        const role = (u?.role || '').toLowerCase();
+        const role = String(u?.role || '').toLowerCase();
         const isAdmin =
-          u?.is_staff === true || u?.is_superuser === true || role === 'admin';
+          u?.username === 'admin' ||
+          u?.is_staff === true ||
+          u?.is_superuser === true ||
+          role === 'admin';
         if (rf === 'admin') return isAdmin;
         return role === rf;
       });
     }
-    setFilteredUsers(list);
+
+    return list;
   }, [users, searchTerm, roleFilter]);
 
+  /* تفعيل/تعطيل — تحديث متفائل مع حماية admin كما في القديم */
   const handleToggleActive = async (userId, isActive) => {
     const user = users.find((u) => u.id === userId);
     if (user?.username === 'admin') {
@@ -229,18 +241,45 @@ const AdminUsersPage = () => {
       return;
     }
     try {
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_active: !isActive } : u)));
       await api.patch(`/users/${userId}/`, { is_active: !isActive });
-      const res = await api.get('/users/');
-      setUsers(Array.isArray(res.data) ? res.data : []);
       setError('');
     } catch {
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_active: isActive } : u)));
       setError(t('error_updating_status') || 'حدث خطأ عند تحديث الحالة.');
     }
   };
 
+  /* مسارات قديمة للحفاظ على السلوك */
   const handleUserMenusClick = (id) => navigate(`/admin/users/${id}/menus`);
   const handleUserDetailsClick = (id) => navigate(`/admin/users/${id}/details`);
   const handleEditUser = (id) => navigate(`/admin/users/${id}/edit`);
+
+  /* فتح/إغلاق مربع حوار الحذف */
+  const openDeleteDialog = (user) => setDeleteTarget(user);
+  const closeDeleteDialog = () => {
+    if (!deleting) setDeleteTarget(null);
+  };
+
+  /* تأكيد الحذف */
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await api.delete(`/users/${deleteTarget.id}/`);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.error ||
+        (t('delete_user_failed') || 'تعذّر حذف المستخدم.');
+      setError(msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -395,7 +434,7 @@ const AdminUsersPage = () => {
 
                   <Divider sx={{ my: 1.25 }} />
 
-                  {/* Actions */}
+                  {/* Actions — كما في الواجهة القديمة + زر حذف جديد بنفس الأسلوب */}
                   <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                     <PillButton startIcon={<InfoIcon />} onClick={() => handleEditUser(user.id)}>
                       {t('full_details') || 'تفاصيل'}
@@ -406,12 +445,68 @@ const AdminUsersPage = () => {
                     <PillButton startIcon={<ListIcon />} onClick={() => handleUserDetailsClick(user.id)}>
                       {t('view_data') || 'البيانات'}
                     </PillButton>
+
+                    {/* زر الحذف — يحافظ على شكل PillButton ويستخدم لون الخطر */}
+                    <Tooltip
+                      title={
+                        isAdmin
+                          ? (t('cannot_delete_admin') || 'لا يمكن حذف حساب المشرف.')
+                          : (t('delete') || 'حذف')
+                      }
+                    >
+                      <span>
+                        <PillButton
+                          startIcon={<DeleteOutlineIcon />}
+                          onClick={() => openDeleteDialog(user)}
+                          disabled={isAdmin || deleting}
+                          sx={{
+                            borderColor: COLORS.danger,
+                            color: COLORS.danger,
+                            '&:hover': {
+                              borderColor: COLORS.danger,
+                              backgroundColor: 'rgba(238, 48, 41, 0.06)',
+                            },
+                          }}
+                        >
+                          {t('delete') || 'حذف'}
+                        </PillButton>
+                      </span>
+                    </Tooltip>
                   </Stack>
                 </CardContent>
               </Card>
             );
           })}
         </Stack>
+
+        {/* Dialog تأكيد حذف — بدون تغيير بصري عام */}
+        <Dialog open={!!deleteTarget} onClose={closeDeleteDialog}>
+          <DialogTitle>{t('confirm_delete_title') || 'تأكيد حذف المستخدم'}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              {t('confirm_delete_msg') || 'هل أنت متأكد أنك تريد حذف هذا المستخدم؟ لا يمكن التراجع عن هذه العملية.'}
+            </Typography>
+            {deleteTarget ? (
+              <Box mt={1}>
+                <Chip label={deleteTarget.username} />
+              </Box>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeDeleteDialog} disabled={deleting}>
+              {t('cancel') || 'إلغاء'}
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              color="error"
+              variant="contained"
+              startIcon={deleting ? <CircularProgress size={16} /> : <DeleteOutlineIcon />}
+              disabled={deleting}
+            >
+              {t('delete') || 'حذف'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </ThemeProvider>
   );

@@ -195,8 +195,14 @@ class UserListAdminView(generics.ListAPIView):
         qs = User.objects.all().order_by("id")
         return Response(self.get_serializer(qs, many=True).data)
 
-
-class UserDetailAdminView(generics.RetrieveUpdateAPIView):
+# core/views.py  — المقطع الخاص بالمستخدمين فقط
+class UserDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    /api/users/<pk>/
+    - GET    : مشاهدة بيانات مستخدم (للمدراء فقط)
+    - PATCH  : تعديل جزئي (للمدراء فقط) — محمي من تعطيل admin
+    - DELETE : حذف مستخدم (للمدراء فقط) — محمي من حذف admin أو حذف نفسك
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
@@ -211,8 +217,22 @@ class UserDetailAdminView(generics.RetrieveUpdateAPIView):
             return Response(status=status.HTTP_403_FORBIDDEN)
         user_obj = self.get_object()
         if user_obj.username == "admin" and "is_active" in request.data:
-            return Response({"detail": "لا يمكن تعطيل حساب admin الأساسي."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لا يمكن تعطيل حساب admin الأساسي."},
+                            status=status.HTTP_400_BAD_REQUEST)
         return super().patch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        if not is_admin(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        user_obj = self.get_object()
+        # منع حذف حساب المشرف أو حذف نفسك
+        if user_obj.is_superuser or user_obj.username == "admin":
+            return Response({"detail": "لا يمكن حذف حساب المشرف."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if user_obj.id == request.user.id:
+            return Response({"detail": "لا يمكنك حذف حسابك الحالي."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return super().delete(request, *args, **kwargs)
 
 
 # ============================================================
