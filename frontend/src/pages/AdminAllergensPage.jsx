@@ -20,6 +20,9 @@ export default function AdminAllergensPage() {
   const [okMsg, setOkMsg] = useState("");
   const [file, setFile] = useState(null);
 
+  // ✅ الحالة الجديدة للرفع إلى القاموس العام (للإضافات فقط)
+  const [uploadToGlobal, setUploadToGlobal] = useState(false);
+
   // بحث وترتيب
   const [q, setQ] = useState("");
   const debouncedQ = useDebouncedValue(q, 450);
@@ -30,44 +33,39 @@ export default function AdminAllergensPage() {
   const [editId, setEditId] = useState(null);
   const onFormChange = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
-  // نوع الجدول
-  const [kind, setKind] = useState("allergens"); // "allergens" | "additives"
+  // ====== أنواع الجداول (مُحدَّثة) ======
+  const [kind, setKind] = useState("allergens"); // "additives" | "lexemes" | "ingredients"
+  const KIND_OPTS = [
+    { value: "allergens", label: "الحساسيّات" },
+    { value: "additives", label: "الإضافات (E)" },
+    { value: "lexemes",   label: "المعجم النصّي" },
+    { value: "ingredients", label: "المكوّنات" },
+  ];
+
   const isAllergen = kind === "allergens";
-  const ep = useCallback((suffix) => `/${kind}/${suffix}`, [kind]);
+  const isAdditive = kind === "additives";
+  const isLexeme   = kind === "lexemes";
+  const isIngredient = kind === "ingredients";
 
-  // لو الإضافات تستخدم number/label_* بدال code/name_* نطبّع المفاتيح
-  const normalizeItem = useCallback(
-    (raw) => {
-      if (isAllergen) return raw;
-      // حاول اكتشاف الشكل
-      const code = raw.code ?? raw.number ?? "";
-      const name_en = raw.name_en ?? raw.label_en ?? "";
-      const name_de = raw.name_de ?? raw.label_de ?? "";
-      const name_ar = raw.name_ar ?? raw.label_ar ?? "";
-      return { ...raw, code, name_en, name_de, name_ar };
-    },
-    [isAllergen]
-  );
+  // ====== خرائط نقاط النهاية ======
+  const API = {
+    allergens:   "/allergens/codes/",
+    additives:   "/additives/codes/",
+    lexemes:     "/lexemes/",
+    ingredients: "/ingredients/",
+  };
+  const CSV = {
+    lexemes:   { export: "/lexemes/export/",   import: "/lexemes/import/" },
+    // لاحقًا يمكن نضيف لـ ingredients عند الحاجة
+  };
 
-  // عكس التطبيع للـ payload قبل الإرسال لو كنا بالإضافات
-  const buildPayload = useCallback(
-    (data) => {
-      if (isAllergen) return data;
-      // إن كان الـ API يتوقع number/label_*
-      return {
-        number: data.code,
-        label_de: data.name_de || "",
-        label_en: data.name_en || "",
-        label_ar: data.name_ar || "",
-      };
-    },
-    [isAllergen]
-  );
+  // مُساعد مسار نهائي للأنواع التي تدعم CRUD القديم (allergens/additives)
+  const ep = useCallback((suffix = "") => `${API[kind]}${suffix}`, [API, kind]);
 
   // خريطة ترتيب عند الإضافات
   const mapOrdering = useCallback(
     (o) => {
-      if (kind !== "additives") return o;
+      if (!isAdditive) return o;
       const m = {
         code: "number",
         "-code": "-number",
@@ -80,7 +78,7 @@ export default function AdminAllergensPage() {
       };
       return m[o] || o;
     },
-    [kind]
+    [isAdditive]
   );
 
   const hasAuth = !!api.defaults.headers?.common?.Authorization;
@@ -89,21 +87,28 @@ export default function AdminAllergensPage() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
-    if (location.pathname.includes("/admin/additives")) setKind("additives");
+    const p = location.pathname;
+    if (p.includes("/admin/additives")) setKind("additives");
+    else if (p.includes("/admin/lexemes")) setKind("lexemes");
+    else if (p.includes("/admin/ingredients")) setKind("ingredients");
     else setKind("allergens");
   }, [location.pathname]);
 
   const switchKind = (k) => {
     setKind(k);
-    navigate(k === "additives" ? "/admin/additives" : "/admin/allergens", { replace: true });
+    // لو عندك روتات لكل نوع
+    const to = `/admin/${k}`;
+    navigate(to, { replace: true });
   };
 
   // لتجنّب حالة "الطلب القديم يكتب فوق الجديد"
   const reqIdRef = useRef(0);
 
-  const load = useCallback(async () => {
+  // ====== الجلب الديناميكي حسب النوع (بديل load السابق) ======
+  async function loadItems() {
     setError("");
     setOkMsg("");
+
     if (!hasAuth) {
       setError("الرجاء تسجيل الدخول كمشرف أولًا.");
       return;
@@ -111,50 +116,59 @@ export default function AdminAllergensPage() {
     const myReqId = ++reqIdRef.current;
     try {
       setBusy(true);
-      const { data } = await api.get(ep("codes/"), {
-        params: { q: debouncedQ || undefined, ordering: mapOrdering(ordering) },
-      });
-      if (myReqId !== reqIdRef.current) return; // تجاهل نتيجة قديمة
-      const arr = Array.isArray(data) ? data : data.results || [];
-      setItems(arr.map(normalizeItem));
+      const mappedOrdering = isAdditive ? mapOrdering(ordering) : ordering;
+      const url = `${API[kind]}?q=${encodeURIComponent(debouncedQ || "")}&ordering=${encodeURIComponent(mappedOrdering || "")}`;
+      const { data } = await api.get(url);
+      if (myReqId !== reqIdRef.current) return;
+
+      // results أو مصفوفة
+      const arr = Array.isArray(data?.results)
+        ? data.results
+        : (Array.isArray(data) ? data : (data?.results || []));
+
+      setItems(arr);
     } catch (e) {
       if (myReqId !== reqIdRef.current) return;
-      setError(e?.response?.data?.detail || e.message || "فشل الجلب");
+      setError(e?.response?.data?.detail || e.message || "خطأ أثناء الجلب");
     } finally {
       if (myReqId === reqIdRef.current) setBusy(false);
     }
-  }, [debouncedQ, ordering, ep, mapOrdering, normalizeItem, hasAuth]);
+  }
+  useEffect(() => { loadItems(); }, [kind, debouncedQ, ordering]); // الجلب عند تغيّر النوع/البحث/الترتيب
 
-  const upload = async (e) => {
-    e.preventDefault();
+  // ====== CSV للـ Lexemes ======
+  function onLexemesExport() {
     setError("");
     setOkMsg("");
-
-    if (!hasAuth) {
-      setError("الرجاء تسجيل الدخول كمشرف.");
-      return;
-    }
-    if (!file) {
-      setError("اختر ملف CSV أولًا.");
-      return;
-    }
+    api.get(CSV.lexemes.export, { responseType: "blob" })
+      .then(res => {
+        const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "lexemes.csv"; a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(() => setError("فشل تصدير CSV"));
+  }
+  async function onLexemesImport(fileObj) {
+    setError("");
+    setOkMsg("");
+    if (!fileObj) return;
+    const fd = new FormData();
+    fd.append("file", fileObj);
+    // إن أردت الاستيراد لمالك معيّن:
+    // fd.append("owner", currentOwnerId || "");
     try {
       setBusy(true);
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data } = await api.post(ep("bulk-upload/"), fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setOkMsg(`تم: أُضيف ${data.created || 0} وتحدّث ${data.updated || 0} وتخطّى ${data.skipped || 0}.`);
-      setFile(null); // تنظيف
-      await load();
-    } catch (e) {
-      setError(e?.response?.data?.detail || e.message || "فشل الرفع");
-    } finally {
-      setBusy(false);
-    }
-  };
+      await api.post(CSV.lexemes.import, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setOkMsg("تم استيراد المعجم بنجاح");
+      await loadItems();
+    } catch {
+      setError("فشل استيراد CSV");
+    } finally { setBusy(false); }
+  }
 
+  // ====== تصدير CSV (لـ allergens/additives فقط كما كان) ======
   const exportCSV = async () => {
     setError("");
     setOkMsg("");
@@ -178,19 +192,59 @@ export default function AdminAllergensPage() {
     }
   };
 
-  // CRUD
+  // ====== رفع CSV (لـ allergens/additives فقط كما كان) ======
+  const upload = async (e) => {
+    e.preventDefault();
+    setError("");
+    setOkMsg("");
+
+    if (!hasAuth) {
+      setError("الرجاء تسجيل الدخول كمشرف.");
+      return;
+    }
+    if (!file) {
+      setError("اختر ملف CSV أولًا.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const fd = new FormData();
+      fd.append("file", file);
+
+      // ✅ نضيف ?global=1 فقط للإضافات
+      const qs = !isAllergen && uploadToGlobal ? "?global=1" : "";
+
+      const { data } = await api.post(ep(`bulk-upload/${qs}`), fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setOkMsg(`تم: أُضيف ${data.created || 0} وتحدّث ${data.updated || 0} وتخطّى ${data.skipped || 0}.`);
+      setFile(null); // تنظيف
+      await loadItems();
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message || "فشل الرفع");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ====== CRUD (لـ allergens/additives فقط كما كان) ======
   const createItem = async () => {
     setError("");
-    // ✅ تحقّق قبل busy
     if (!form.code.trim()) {
       setError("أدخل الكود");
       return;
     }
     try {
       setBusy(true);
-      await api.post(ep("codes/"), buildPayload(form));
+      // ✅ نضيف ?global=1 فقط للإضافات
+      const qs = !isAllergen && uploadToGlobal ? "?global=1" : "";
+      await api.post(ep(``), buildPayload(form, isAllergen), { headers: { "Content-Type": "application/json" } });
+      // ملاحظة: في الكود القديم كنت ترسل ep("codes/")، والآن API[kind] = "/.../codes/" بالفعل
+      // لذا الإرسال لـ ep(``) يكافئ "/.../codes/"
+
       setForm({ code: "", name_de: "", name_en: "", name_ar: "" });
-      await load();
+      await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل الإضافة");
     } finally {
@@ -201,10 +255,10 @@ export default function AdminAllergensPage() {
   const startEdit = (x) => {
     setEditId(x.id);
     setForm({
-      code: x.code ?? "",
-      name_de: x.name_de ?? "",
-      name_en: x.name_en ?? "",
-      name_ar: x.name_ar ?? "",
+      code: x.code ?? x.number ?? "",
+      name_de: x.name_de ?? x.label_de ?? "",
+      name_en: x.name_en ?? x.label_en ?? "",
+      name_ar: x.name_ar ?? x.label_ar ?? "",
     });
   };
 
@@ -213,10 +267,11 @@ export default function AdminAllergensPage() {
     setError("");
     try {
       setBusy(true);
-      await api.put(ep(`codes/${editId}/`), buildPayload(form));
+      // ⚠️ لا نضيف global=1 للتعديل حسب السياسة
+      await api.put(ep(`${editId}/`), buildPayload(form, isAllergen));
       setEditId(null);
       setForm({ code: "", name_de: "", name_en: "", name_ar: "" });
-      await load();
+      await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل التعديل");
     } finally {
@@ -234,8 +289,9 @@ export default function AdminAllergensPage() {
     try {
       setBusy(true);
       setError("");
-      await api.delete(ep(`codes/${id}/`));
-      await load();
+      // ⚠️ لا نضيف global=1 للحذف حسب السياسة
+      await api.delete(ep(`${id}/`));
+      await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل الحذف");
     } finally {
@@ -243,18 +299,127 @@ export default function AdminAllergensPage() {
     }
   };
 
-  // الجلب الأوّلي + عند تغيّر العوامل
-  useEffect(() => {
-    load();
-  }, [load]);
+  // ====== أدوات تحويل البيانات (لـ allergens/additives كما في القديم) ======
+  const buildPayload = (data, isAllergenLocal) => {
+    if (isAllergenLocal) return data;
+    // إن كان الـ API يتوقع number/label_* (للإضافات)
+    return {
+      number: data.code,
+      label_de: data.name_de || "",
+      label_en: data.name_en || "",
+      label_ar: data.name_ar || "",
+    };
+  };
 
-  // عناوين الأعمدة حسب اللغة المختارة
+  // ====== جداول العرض حسب النوع ======
+  function renderHeader() {
+    if (isAllergen) return (<tr><th>الكود</th><th>الاسم (DE)</th><th>الاسم (EN)</th><th>الاسم (AR)</th><th>إجراءات</th></tr>);
+    if (isAdditive) return (<tr><th>الكود</th><th>الاسم (EN)</th><th>الاسم (DE)</th><th>الاسم (AR)</th><th>إجراءات</th></tr>);
+    if (isLexeme)   return (<tr><th>lang</th><th>term</th><th>is_regex</th><th>allergens_ids</th><th>ingredient_id</th><th>active</th><th>priority</th><th>weight</th></tr>);
+    if (isIngredient) return (<tr><th>name</th><th>allergens_ids</th><th>additives</th><th>synonyms</th></tr>);
+    return null;
+  }
+
+  function renderRow(it) {
+    if (isAllergen) {
+      return (
+        <tr key={it.id}>
+          {editId === it.id ? (
+            <>
+              <td><input value={form.code} onChange={(e) => onFormChange("code", e.target.value)} /></td>
+              <td><input value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} /></td>
+              <td><input value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} /></td>
+              <td><input value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} /></td>
+              <td>
+                <button onClick={saveEdit} disabled={busy}>حفظ</button>
+                <button onClick={cancelEdit} disabled={busy} style={{ marginInlineStart: 8 }}>إلغاء</button>
+              </td>
+            </>
+          ) : (
+            <>
+              <td>{it.code}</td>
+              <td>{it.name_de}</td>
+              <td>{it.name_en}</td>
+              <td>{it.name_ar}</td>
+              <td>
+                <button onClick={() => startEdit(it)} disabled={busy}>تعديل</button>
+                <button onClick={() => delItem(it.id)} disabled={busy} style={{ marginInlineStart: 8 }}>حذف</button>
+              </td>
+            </>
+          )}
+        </tr>
+      );
+    }
+
+    if (isAdditive) {
+      const displayCode = it.code || it.number;
+      const de = it.name_de ?? it.label_de;
+      const en = it.name_en ?? it.label_en;
+      const ar = it.name_ar ?? it.label_ar;
+      return (
+        <tr key={it.id || it.number}>
+          {editId === it.id ? (
+            <>
+              <td><input value={form.code} onChange={(e) => onFormChange("code", e.target.value)} /></td>
+              <td><input value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} /></td>
+              <td><input value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} /></td>
+              <td><input value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} /></td>
+              <td>
+                <button onClick={saveEdit} disabled={busy}>حفظ</button>
+                <button onClick={cancelEdit} disabled={busy} style={{ marginInlineStart: 8 }}>إلغاء</button>
+              </td>
+            </>
+          ) : (
+            <>
+              <td>{displayCode}</td>
+              <td>{en}</td>
+              <td>{de}</td>
+              <td>{ar}</td>
+              <td>
+                <button onClick={() => startEdit(it)} disabled={busy}>تعديل</button>
+                <button onClick={() => delItem(it.id)} disabled={busy} style={{ marginInlineStart: 8 }}>حذف</button>
+              </td>
+            </>
+          )}
+        </tr>
+      );
+    }
+
+    if (isLexeme) {
+      return (
+        <tr key={it.id}>
+          <td>{it.lang}</td>
+          <td>{it.term}</td>
+          <td>{it.is_regex ? "✓" : ""}</td>
+          <td>{(it.allergens || []).join(",")}</td>
+          <td>{it.ingredient || it.ingredient_id || ""}</td>
+          <td>{it.is_active ? "✓" : ""}</td>
+          <td>{it.priority ?? 0}</td>
+          <td>{it.weight ?? 0}</td>
+        </tr>
+      );
+    }
+
+    if (isIngredient) {
+      return (
+        <tr key={it.id}>
+          <td>{it.name}</td>
+          <td>{(it.allergens || []).join(",")}</td>
+          <td>{Array.isArray(it.additives) ? it.additives.join(",") : (it.additives || "")}</td>
+          <td>{typeof it.synonyms === "string" ? it.synonyms : JSON.stringify(it.synonyms || [])}</td>
+        </tr>
+      );
+    }
+
+    return null;
+  }
+
+  // عناوين الأعمدة القديمة لم تعد ضرورية لكن لو أردت استخدامها لمرجعية
   const cols = useMemo(
     () => [
       { key: "code", label: "الكود" },
       { key: "name_en", label: "الاسم (EN)" },
       { key: "name_de", label: "(DE) الاسم" },
-      // اظهار AR لو في بيانات/اهتمام
       { key: "name_ar", label: "(AR) الاسم" },
     ],
     []
@@ -262,17 +427,15 @@ export default function AdminAllergensPage() {
 
   return (
     <div className="container" style={{ padding: 16 }}>
-      {/* مبدّل النوع */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button type="button" onClick={() => switchKind("allergens")} disabled={isAllergen}>
-          حساسيات
-        </button>
-        <button type="button" onClick={() => switchKind("additives")} disabled={!isAllergen}>
-          إضافات (E)
-        </button>
+      {/* مُبدّل النوع (Dropdown) */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+        <select value={kind} onChange={(e)=>switchKind(e.target.value)}>
+          {KIND_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <h2 style={{ margin: 0 }}>
+          إدارة {isAllergen ? "أكواد الحساسية" : isAdditive ? "الإضافات (E-Numbers)" : isLexeme ? "المعجم النصّي" : "المكوّنات"}
+        </h2>
       </div>
-
-      <h2>إدارة أكواد {isAllergen ? "الحساسية" : "الإضافات (E-Numbers)"} </h2>
 
       {error && (
         <div style={{ background: "#fee", color: "#900", padding: 12, borderRadius: 8, marginBottom: 12 }}>
@@ -286,102 +449,96 @@ export default function AdminAllergensPage() {
         </div>
       )}
 
-      <form onSubmit={upload} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          type="file"
-          accept=".csv"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          // إعادة الضبط المرئي بعد النجاح
-          value={file ? undefined : ""}
-        />
-        <button type="submit" disabled={busy}>رفع CSV</button>
-        <button type="button" onClick={exportCSV} disabled={busy}>CSV</button>
-        <button type="button" onClick={load} disabled={busy}>تحديث</button>
-      </form>
+      {/* شريط الأدوات */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
+        {/* أدوات CSV للأنواع القديمة */}
+        {(isAllergen || isAdditive) && (
+          <form onSubmit={upload} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              value={file ? undefined : ""} // إعادة الضبط المرئي بعد النجاح
+            />
+            <button type="submit" disabled={busy}>رفع CSV</button>
+            <button type="button" onClick={exportCSV} disabled={busy}>CSV</button>
 
-      {/* تحكّم: بحث + ترتيب */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-        <input
-          type="text"
-          placeholder="ابحث بالكود أو الاسم..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && load()}
-          style={{ padding: 8, flex: 1 }}
-        />
-        <select value={ordering} onChange={(e) => setOrdering(e.target.value)} style={{ padding: 8 }}>
-          <option value="code">ترتيب: الكود ↑</option>
-          <option value="-code">ترتيب: الكود ↓</option>
-          <option value="name_de">الاسم DE ↑</option>
-          <option value="-name_de">الاسم DE ↓</option>
-          <option value="name_en">الاسم EN ↑</option>
-          <option value="-name_en">الاسم EN ↓</option>
-          <option value="name_ar">الاسم AR ↑</option>
-          <option value="-name_ar">الاسم AR ↓</option>
-        </select>
-        <button type="button" onClick={load} disabled={busy}>بحث</button>
+            {/* ✅ Checkbox يظهر فقط للإضافات */}
+            {isAdditive && (
+              <label style={{ marginInlineStart: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={uploadToGlobal}
+                  onChange={(e) => setUploadToGlobal(e.target.checked)}
+                />
+                {" "}رفع إلى القاموس العام
+              </label>
+            )}
+          </form>
+        )}
+
+        {/* أدوات CSV للـ Lexemes */}
+        {isLexeme && (
+          <div className="flex items-center gap-2" style={{ display: "flex", gap: 8 }}>
+            <button onClick={onLexemesExport} disabled={busy}>CSV (تصدير)</button>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              رفع CSV
+              <input
+                type="file"
+                accept=".csv"
+                hidden
+                onChange={e => e.target.files?.[0] && onLexemesImport(e.target.files[0])}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* تحكّم: بحث + ترتيب */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 260 }}>
+          <input
+            type="text"
+            placeholder="ابحث بالكود أو الاسم..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && loadItems()}
+            style={{ padding: 8, flex: 1 }}
+          />
+          {/* خيارات الترتيب كما كانت؛ تعمل مع addtives عبر mapOrdering */}
+          <select value={ordering} onChange={(e) => setOrdering(e.target.value)} style={{ padding: 8 }}>
+            <option value="code">ترتيب: الكود ↑</option>
+            <option value="-code">ترتيب: الكود ↓</option>
+            <option value="name_de">الاسم DE ↑</option>
+            <option value="-name_de">الاسم DE ↓</option>
+            <option value="name_en">الاسم EN ↑</option>
+            <option value="-name_en">الاسم EN ↓</option>
+            <option value="name_ar">الاسم AR ↑</option>
+            <option value="-name_ar">الاسم AR ↓</option>
+          </select>
+          <button type="button" onClick={loadItems} disabled={busy}>بحث</button>
+        </div>
       </div>
 
-      {/* سطر إدخال سريع */}
-      <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 1fr auto", gap: 8, margin: "8px 0 12px" }}>
-        <input placeholder="الكود *" value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
-        <input placeholder="الاسم (DE)" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
-        <input placeholder="الاسم (EN)" value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} />
-        <input placeholder="الاسم (AR)" value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} />
-        <button type="button" onClick={createItem} disabled={busy}>إضافة</button>
-      </div>
+      {/* سطر إدخال سريع — يظهر فقط للحساسيّات/الإضافات */}
+      {(isAllergen || isAdditive) && (
+        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 1fr auto", gap: 8, margin: "8px 0 12px" }}>
+          <input placeholder="الكود *" value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
+          <input placeholder="الاسم (DE)" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
+          <input placeholder="الاسم (EN)" value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} />
+          <input placeholder="الاسم (AR)" value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} />
+          <button type="button" onClick={createItem} disabled={busy}>إضافة</button>
+        </div>
+      )}
 
       {busy ? (
         <p>جارٍ التحميل…</p>
       ) : (
         <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              {cols.map((c) => (
-                <th key={c.key}>{c.label}</th>
-              ))}
-              <th>إجراءات</th>
-            </tr>
-          </thead>
+          <thead>{renderHeader()}</thead>
           <tbody>
-            {items.map((x) => (
-              <tr key={x.id}>
-                {editId === x.id ? (
-                  <>
-                    <td>
-                      <input value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
-                    </td>
-                    <td>
-                      <input value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} />
-                    </td>
-                    <td>
-                      <input value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
-                    </td>
-                    <td>
-                      <input value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} />
-                    </td>
-                    <td>
-                      <button onClick={saveEdit} disabled={busy}>حفظ</button>
-                      <button onClick={cancelEdit} disabled={busy} style={{ marginInlineStart: 8 }}>إلغاء</button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td>{x.code}</td>
-                    <td>{x.name_en}</td>
-                    <td>{x.name_de}</td>
-                    <td>{x.name_ar}</td>
-                    <td>
-                      <button onClick={() => startEdit(x)} disabled={busy}>تعديل</button>
-                      <button onClick={() => delItem(x.id)} disabled={busy} style={{ marginInlineStart: 8 }}>حذف</button>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
+            {items.map((x) => renderRow(x))}
             {!items.length && (
               <tr>
-                <td colSpan={cols.length + 1} style={{ textAlign: "center" }}>
+                <td colSpan={(isAllergen || isAdditive) ? 5 : (isLexeme ? 8 : 4)} style={{ textAlign: "center" }}>
                   لا توجد بيانات
                 </td>
               </tr>

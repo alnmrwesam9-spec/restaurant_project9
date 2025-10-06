@@ -51,6 +51,6 @@
     "ajv-keywords": "^3.5.2",
     "stylis": "^4.3.6",
     "stylis-plugin-rtl": "^2.1.1",
-    "vite": "^7.1.6"
+    "vite": "^7.1.9"
   }
 }

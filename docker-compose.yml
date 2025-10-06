@@ -1,10 +1,8 @@
-# docker-compose.yml (fixed)
+# docker-compose.yml (stable)
 services:
   ibla_db:
     container_name: ibla_db
-    image: postgres:16-alpine
-    ports:
-      - "5432:5432"      # ← تعريض المنفذ (Host:Container)
+    image: postgres:16-alpine           # ← نرجع للإصدار 16 المتوافق مع الـ volume
     environment:
       POSTGRES_DB: ${DB_NAME:-ibla_db}
       POSTGRES_USER: ${DB_USER:-ibla_user}
@@ -15,20 +13,23 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
 
   backend:
     container_name: backend
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: backend/Dockerfile     # Dockerfile داخل مجلد backend
     environment:
-      POSTGRES_HOST: ibla_db
-      POSTGRES_PORT: "5432"
-      POSTGRES_DB: ${DB_NAME:-ibla_db}
-      POSTGRES_USER: ${DB_USER:-ibla_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-ibla_pass}
-      DJANGO_SETTINGS_MODULE: backend.settings.prod
+      # إعدادات قاعدة البيانات — متوافقة مع settings لديك
+      DB_HOST: ibla_db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-ibla_db}
+      DB_USER: ${DB_USER:-ibla_user}
+      DB_PASSWORD: ${DB_PASSWORD:-ibla_pass}
+
+      # Django
+      DJANGO_SETTINGS_MODULE: backend.settings.prod  # أو dev لو أردت، لكن prod كان شغّال لديك
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-.env}
@@ -36,9 +37,8 @@ services:
       ibla_db:
         condition: service_healthy
     volumes:
-      # يجب أن تكون قابلة للكتابة (بدون :ro) لأن Django سيكتب هنا
-      - staticfiles:/app/backend/staticfiles
-      - media:/app/backend/media
+      - staticfiles:/app/backend/staticfiles      # للـ collectstatic
+      - media:/app/backend/media                  # لرفع الصور والملفات
     expose:
       - "8000"
     command: >
@@ -68,7 +68,6 @@ services:
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - frontend_dist:/usr/share/nginx/html:ro
-      # نفس المسارات التي يقرأ منها nginx alias والـ settings في Django
       - staticfiles:/app/backend/staticfiles:ro
       - media:/app/backend/media:ro
 

@@ -1,26 +1,26 @@
+# backend/settings/dev.py
 """
-Development settings (Postgres via .env).
+Development settings (Postgres via env vars).
 """
-from .base import *  # noqa
 import os
+from .base import *  # noqa: F401,F403
 
 DEBUG = True
-ALLOWED_HOSTS = ["*"]
-
-# اقرأ إعدادات Postgres من .env (مع قيم افتراضية للتجارب)
-DB_NAME = os.getenv("POSTGRES_DB", "ibla_db")
-DB_USER = os.getenv("POSTGRES_USER", "ibla_user")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "ibla_password")
-DB_HOST = os.getenv("POSTGRES_HOST", "localhost")  # في Docker: "db"
-DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": DB_NAME,
-        "USER": DB_USER,
-        "PASSWORD": DB_PASSWORD,
-        "HOST": DB_HOST,
-        "PORT": DB_PORT,
+        "NAME": os.getenv("DB_NAME", "ibla"),
+        "USER": os.getenv("DB_USER", "ibla"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "ibla"),
+        "HOST": os.getenv("DB_HOST", "ibla_db"),  # داخل Docker اسم خدمة DB
+        "PORT": int(os.getenv("DB_PORT", "5432")),
     }
 }
+
+ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "nginx"]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+]

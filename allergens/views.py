@@ -1,12 +1,11 @@
+# ==========================================
 # allergens/views.py
-
+# ==========================================
 from django.http import HttpResponse, StreamingHttpResponse
-from django.db.models import Q, F, Case, When, Value, IntegerField, Subquery, Window
-from django.db.models.functions import RowNumber
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet  # (ReadOnlyModelViewSet may be unused now)
-from rest_framework.generics import ListAPIView  # (kept for compatibility if referenced elsewhere)
+from django.db.models import Q, Subquery
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,14 +13,25 @@ import csv
 import io
 
 from core.models import Allergen, AdditiveLegend
-from .serializers import AllergenCodeSerializer
-from core.serializers import AdditiveLegendSerializer  # يرجّع number/label_*
+from .serializers import AllergenCodeSerializer  # لعرض/تحرير Allergen عبر ViewSet
+from core.serializers import (
+    AdditiveLegendSerializer,
+    AllergenSerializer,
+    KeywordLexemeSerializer,
+    IngredientSerializer as IngredientLiteSerializer,   # ← alias بدل المفقود
+)
 
+from core.dictionary_models import KeywordLexeme
+from core.models import Ingredient
 
-# =========================
-# Allergen (قاموس الحساسيّات)
-# =========================
+# ==========================================
+# Allergen (قاموس الحساسيّات) — ViewSet قياسي
+# ==========================================
 class AllergenCodeViewSet(ModelViewSet):
+    """
+    CRUD قياسي عبر DRF ViewSet على الجدول Allergen.
+    يدعم q للبحث و ordering للترتيب (code, label_de, label_en, label_ar).
+    """
     queryset = Allergen.objects.all().order_by("code")
     serializer_class = AllergenCodeSerializer
     permission_classes = [IsAuthenticated]
@@ -29,6 +39,7 @@ class AllergenCodeViewSet(ModelViewSet):
     def get_queryset(self):
         qs = Allergen.objects.all()
 
+        # بحث نصّي
         q = self.request.query_params.get("q", "").strip()
         if q:
             qs = qs.filter(
@@ -38,6 +49,7 @@ class AllergenCodeViewSet(ModelViewSet):
                 | Q(label_ar__icontains=q)
             )
 
+        # ترتيب آمن
         ordering = self.request.query_params.get("ordering", "code").strip()
         allowed = {"code", "label_de", "label_en", "label_ar"}
         if ordering.lstrip("-") not in allowed:
@@ -46,62 +58,229 @@ class AllergenCodeViewSet(ModelViewSet):
         return qs.order_by(ordering, "id")
 
 
-# ===============================
-# BULK UPLOAD للحساسيّات
-# ===============================
+# ==========================================
+# Allergen (قاموس الحساسيّات) — واجهات API مسطّحة
+# ==========================================
+class AllergenCodesView(APIView):
+    """
+    GET: قائمة أكواد الحساسيّات مع فلترة وترتيب وتقسيم صفحات.
+    POST: إضافة/تعديل عنصر واحد حسب الكود (قاموس عام واحد).
+    """
+    permission_classes = [IsAuthenticated]
+
+    # -------- GET (List) --------
+    def get(self, request):
+        qs = Allergen.objects.all()
+
+        # 🔎 دعم q للبحث العام
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(code__icontains=q) |
+                Q(label_de__icontains=q) |
+                Q(label_en__icontains=q) |
+                Q(label_ar__icontains=q)
+            )
+
+        # الفلاتر القديمة (اختياري تبقيها)
+        code = request.query_params.get("code") or request.query_params.get("letter")
+        en = request.query_params.get("en")
+        de = request.query_params.get("de")
+        ar = request.query_params.get("ar")
+
+        if code:
+            qs = qs.filter(code__iexact=str(code).strip())
+        if en:
+            qs = qs.filter(label_en__icontains=en)
+        if de:
+            qs = qs.filter(label_de__icontains=de)
+        if ar:
+            qs = qs.filter(label_ar__icontains=ar)
+
+        # ترتيب آمن
+        ordering = (request.query_params.get("ordering") or "code").strip()
+        allowed = {"code", "label_en", "label_de", "label_ar"}
+        if ordering.lstrip("-") not in allowed:
+            ordering = "code"
+        qs = qs.order_by(ordering, "id")
+
+        # تقسيم صفحات بسيط (شكل قريب من DRF)
+        try:
+            page = int(request.query_params.get("page", "1"))
+            page_size = int(request.query_params.get("page_size", "50"))
+        except ValueError:
+            page, page_size = 1, 50
+        start, end = (page - 1) * page_size, page * page_size
+        total = qs.count()
+
+        return Response({
+            "count": total,
+            "next": None if end >= total else f"?page={page+1}&page_size={page_size}",
+            "previous": None if page == 1 else f"?page={page-1}&page_size={page_size}",
+            "results": AllergenCodeSerializer(qs[start:end], many=True).data,
+        }, status=status.HTTP_200_OK)
+
+    # -------- POST (Upsert by code) --------
+    def post(self, request):
+        """
+        يقبل JSON بمفاتيح: code/letter, en|label_en, de|label_de, ar|label_ar
+        - لو الكود موجود → تحديث.
+        - لو غير موجود → إنشاء.
+        """
+        data = request.data
+        raw_code = data.get("code") or data.get("letter") or data.get("Code")
+        if not raw_code:
+            return Response({"detail": "Field 'code' (or 'letter') is required."}, status=status.HTTP_400_BAD_REQUEST)
+        code = str(raw_code).strip().upper()  # A..Z
+
+        def pick(*keys):
+            for k in keys:
+                if data.get(k) is not None:
+                    return str(data.get(k)).strip()
+            return ""
+
+        defaults = {
+            "label_en": pick("en", "label_en", "name_en", "EN"),
+            "label_de": pick("de", "label_de", "name_de", "DE"),
+            "label_ar": pick("ar", "label_ar", "name_ar", "AR"),
+        }
+
+        obj, created = Allergen.objects.update_or_create(code=code, defaults=defaults)
+        return Response(
+            {"created": bool(created), "code": obj.code, "en": obj.label_en, "de": obj.label_de, "ar": obj.label_ar},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class AllergenCodeDetailView(APIView):
+    """
+    GET/PUT/PATCH/DELETE لعنصر واحد في قاموس الحساسيّات العام.
+    - لا نسمح بتغيير code من شاشة التعديل.
+    - الحذف للأدمن فقط (اختياري).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _get_obj(self, pk):
+        return Allergen.objects.filter(pk=pk).first()
+
+    def get(self, request, pk):
+        obj = self._get_obj(pk)
+        if not obj:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        # نرجع Serializer المتوافق مع الفرونت
+        return Response(AllergenCodeSerializer(obj).data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        obj = self._get_obj(pk)
+        if not obj:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        d = request.data
+        obj.label_en = (d.get("en") or d.get("label_en") or obj.label_en) or ""
+        obj.label_de = (d.get("de") or d.get("label_de") or obj.label_de) or ""
+        obj.label_ar = (d.get("ar") or d.get("label_ar") or obj.label_ar) or ""
+        obj.save()
+        # نرجع Serializer المتوافق مع الفرونت
+        return Response(AllergenCodeSerializer(obj).data, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
+    def delete(self, request, pk):
+        if not request.user.is_staff:
+            return Response({"detail": "Only admins can delete global allergens."}, status=status.HTTP_403_FORBIDDEN)
+        obj = self._get_obj(pk)
+        if not obj:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class AllergenBulkUpload(APIView):
+    """
+    رفع CSV للحساسيّات — أعمدة مرنة:
+    code|letter, en|label_en|name_en, de|label_de|name_de, ar|label_ar|name_ar
+    """
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         f = request.FILES.get("file")
         if not f:
-            return Response({"detail": "CSV file is required (field name 'file')."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "CSV file is required (field 'file')."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # يدعم UTF-8 مع/بدون BOM، ويحافظ على الأسطر
-        decoded = io.TextIOWrapper(f.file, encoding="utf-8-sig", newline="")
-        reader = csv.DictReader(decoded)
+        try:
+            data = f.read().decode("utf-8-sig")
+        except Exception:
+            return Response({"detail": "Unable to read CSV as UTF-8."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reader = csv.DictReader(io.StringIO(data))
+        headers = {h.strip(): h for h in (reader.fieldnames or [])}
+        lower = {h.lower(): h for h in headers}
+
+        def h(*cands):
+            for c in cands:
+                if c in headers:
+                    return headers[c]
+                if c.lower() in lower:
+                    return lower[c.lower()]
+            return None
+
+        col_code = h("code", "letter", "Code", "Letter")
+        col_en   = h("en", "label_en", "name_en", "EN")
+        col_de   = h("de", "label_de", "name_de", "DE")
+        col_ar   = h("ar", "label_ar", "name_ar", "AR")
+
+        if any(x is None for x in [col_code, col_en, col_de, col_ar]):
+            return Response(
+                {"detail": "Missing columns. Accepts: code|letter, en|label_en, de|label_de, ar|label_ar"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         created = updated = skipped = 0
-
         for row in reader:
-            code = (row.get("code") or row.get("Code") or "").strip()
+            code = (row.get(col_code) or "").strip().upper()
             if not code:
                 skipped += 1
                 continue
-
             defaults = {
-                "label_de": (row.get("name_de") or row.get("DE") or row.get("de") or "").strip(),
-                "label_en": (row.get("name_en") or row.get("EN") or row.get("en") or "").strip(),
-                "label_ar": (row.get("name_ar") or row.get("AR") or row.get("ar") or "").strip(),
+                "label_en": (row.get(col_en) or "").strip(),
+                "label_de": (row.get(col_de) or "").strip(),
+                "label_ar": (row.get(col_ar) or "").strip(),
             }
-
             _, was_created = Allergen.objects.update_or_create(code=code, defaults=defaults)
-            created += int(was_created)
-            updated += int(not was_created)  # noqa: E713
+            if was_created:
+                created += 1
+            else:
+                updated += 1
 
         return Response({"created": created, "updated": updated, "skipped": skipped}, status=status.HTTP_200_OK)
 
 
 class AllergenExportCSV(APIView):
+    """
+    تصدير قاموس الحساسيّات CSV (عام).
+    """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
-        resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    def get(self, request):
+        rows = Allergen.objects.order_by("code", "id").values_list("code", "label_en", "label_de", "label_ar")
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["code", "en", "de", "ar"])
+        for r in rows:
+            w.writerow(list(r))
+
+        # HttpResponse يضمن الهيدر والميم تايب مباشرةً
+        resp = HttpResponse(out.getvalue(), content_type="text/csv; charset=utf-8")
         resp["Content-Disposition"] = 'attachment; filename="allergens.csv"'
-        writer = csv.writer(resp)
-        writer.writerow(["code", "name_de", "name_en", "name_ar"])
-
-        for a in Allergen.objects.all().order_by("code", "id"):
-            writer.writerow([a.code, a.label_de or "", a.label_en or "", a.label_ar or ""])
-
         return resp
 
 
-# ===========================================
+# ==========================================
 # AdditiveLegend (إضافات/مواد E-numbered)
-# دمج الخاص مع العام: سجلات المستخدم + العامة غير المغطاة
-# ===========================================
+# - دمج الخاص مع العام: الخاص يغلب العام
+# ==========================================
 
 # --- دالة مساعدة لتحديد المالك (عام/خاص) ---
 def _current_owner(request):
@@ -115,7 +294,7 @@ def _current_owner(request):
 
 class AdditiveCodesView(APIView):
     """
-    GET: قائمة مدمجة (الخاص يغلب العام) مع ترتيب/فلترة بسيطة.
+    GET: قائمة مدمجة (الخاص يغلب العام) مع ترتيب/فلترة بسيطة + تقسيم صفحات.
     POST: إضافة/تعديل عنصر واحد (owner + number).
     """
     permission_classes = [IsAuthenticated]
@@ -151,7 +330,7 @@ class AdditiveCodesView(APIView):
     def get(self, request):
         qs = self._merged_queryset(request.user, request.query_params)
 
-        # Pagination DRF يدويًا (بسيط، لأننا لسنا داخل GenericAPIView)
+        # Pagination يدوي بسيط
         try:
             page = int(request.query_params.get("page", "1"))
             page_size = int(request.query_params.get("page_size", "50"))
@@ -221,15 +400,12 @@ class AdditiveCodesView(APIView):
         )
 
 
-# ===============================
-# BULK UPLOAD (الإصدار الجديد) — Additives
-# ===============================
 class AdditiveBulkUploadView(APIView):
     """
     رفع CSV للإضافات (E-Numbers) مع قبول صيغ عناوين متعددة.
     يسمح للمالك برفع ملفه الخاص (?global=1 للعام).
     """
-    permission_classes = [IsAuthenticated]  # اسمح برفع المالك لملفّه
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
@@ -328,47 +504,187 @@ class AdditiveExportCSV(APIView):
         return resp
 
 
-# ===========================================
-# AdditiveCodeDetailView (عرض/تحديث/حذف عنصر واحد)
-# ===========================================
 class AdditiveCodeDetailView(APIView):
+    """
+    عرض/تحديث/حذف عنصر واحد من الإضافات.
+    - يسمح بالوصول لعنصر خاص بالمستخدم أو عنصر عام.
+    - حذف عنصر عام يتطلّب is_staff.
+    """
     permission_classes = [IsAuthenticated]
 
-    def get_object(self, pk, user):
-        # نسمح بالوصول لعنصر خاص بالمستخدم أو عنصر عام
+    def _get_object(self, pk, user):
         return AdditiveLegend.objects.filter(
             Q(pk=pk) & (Q(owner=user) | Q(owner__isnull=True))
         ).first()
 
     def get(self, request, pk):
-        obj = self.get_object(pk, request.user)
+        obj = self._get_object(pk, request.user)
         if not obj:
-            return Response({"detail": "Not found."}, status=404)
-        return Response(AdditiveLegendSerializer(obj).data)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(AdditiveLegendSerializer(obj).data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
-        obj = self.get_object(pk, request.user)
+        obj = self._get_object(pk, request.user)
         if not obj:
-            return Response({"detail": "Not found."}, status=404)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # تحديث الحقول
         data = request.data
         obj.label_en = (data.get("en") or data.get("label_en") or obj.label_en) or ""
         obj.label_de = (data.get("de") or data.get("label_de") or obj.label_de) or ""
         obj.label_ar = (data.get("ar") or data.get("label_ar") or obj.label_ar) or ""
         # لا نسمح بتغيير number من شاشة التعديل
         obj.save()
-        return Response(AdditiveLegendSerializer(obj).data)
+        return Response(AdditiveLegendSerializer(obj).data, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
         return self.put(request, pk)
 
     def delete(self, request, pk):
-        obj = self.get_object(pk, request.user)
+        obj = self._get_object(pk, request.user)
         if not obj:
-            return Response({"detail": "Not found."}, status=404)
-        # لا نحذف من القاموس العام إلا لو المستخدم Admin
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         if obj.owner is None and not request.user.is_staff:
-            return Response({"detail": "Only admins can delete global entries."}, status=403)
+            return Response({"detail": "Only admins can delete global entries."}, status=status.HTTP_403_FORBIDDEN)
         obj.delete()
-        return Response(status=204)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+    # ---- Lexemes CRUD ----
+class KeywordLexemeViewSet(ModelViewSet):
+    queryset = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
+    serializer_class = KeywordLexemeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # فلاتر شائعة: المالِك/اللغة/التفعيل + q على normalized_term
+        owner = self.request.query_params.get("owner")
+        lang  = (self.request.query_params.get("lang") or "").strip()
+        active = self.request.query_params.get("is_active")
+        q = (self.request.query_params.get("q") or "").strip()
+        if owner: qs = qs.filter(owner_id=owner)
+        if lang:  qs = qs.filter(lang__iexact=lang)
+        if active in ("0","1"): qs = qs.filter(is_active=(active=="1"))
+        if q: qs = qs.filter(normalized_term__icontains=q)
+        return qs.order_by("priority", "weight", "id")
+
+class KeywordLexemeExportCSV(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        qs = KeywordLexemeViewSet().get_queryset()  # أعد استخدام نفس الفلاتر
+        def row(lx):
+            al = ",".join(str(a.id) for a in lx.allergens.all())
+            ing = lx.ingredient_id or ""
+            return [lx.lang, lx.term or "", int(lx.is_regex), al, ing, int(lx.is_active), lx.priority or 0, lx.weight or 0]
+        header = ["lang","term","is_regex","allergens_ids","ingredient_id","is_active","priority","weight"]
+        buf = io.StringIO(); w = csv.writer(buf); w.writerow(header); [w.writerow(row(x)) for x in qs]
+        resp = HttpResponse(buf.getvalue(), content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = 'attachment; filename="lexemes.csv"'
+        return resp
+
+class KeywordLexemeImportCSV(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    def post(self, request):
+        f = request.FILES.get("file")
+        if not f: return Response({"detail":"CSV مفقود"}, status=400)
+        data = io.TextIOWrapper(f.file, encoding="utf-8", errors="ignore")
+        r = csv.DictReader(data)
+        upserted = 0
+        for row in r:
+            lx, _ = KeywordLexeme.objects.update_or_create(
+                owner_id=request.data.get("owner") or None,
+                lang=(row.get("lang") or "de").lower().strip(),
+                term=(row.get("term") or "").strip(),
+                defaults={
+                    "is_regex": str(row.get("is_regex") or "0") in ("1","true","True"),
+                    "ingredient_id": (row.get("ingredient_id") or None),
+                    "is_active": str(row.get("is_active") or "1") in ("1","true","True"),
+                    "priority": int(row.get("priority") or 0),
+                    "weight": int(row.get("weight") or 0),
+                }
+            )
+            # allergens_ids: "1,5,9"
+            ids = [int(x) for x in (row.get("allergens_ids") or "").split(",") if x.strip().isdigit()]
+            if ids: lx.allergens.set(ids)
+            upserted += 1
+        return Response({"ok": True, "count": upserted})
+        
+
+
+        # ========================= =======
+        # ---- Lexemes CRUD ----
+class KeywordLexemeViewSet(ModelViewSet):
+    queryset = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
+    serializer_class = KeywordLexemeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # فلاتر شائعة: المالِك/اللغة/التفعيل + q على normalized_term
+        owner = self.request.query_params.get("owner")
+        lang  = (self.request.query_params.get("lang") or "").strip()
+        active = self.request.query_params.get("is_active")
+        q = (self.request.query_params.get("q") or "").strip()
+        if owner: qs = qs.filter(owner_id=owner)
+        if lang:  qs = qs.filter(lang__iexact=lang)
+        if active in ("0","1"): qs = qs.filter(is_active=(active=="1"))
+        if q: qs = qs.filter(normalized_term__icontains=q)
+        return qs.order_by("priority", "weight", "id")
+
+class KeywordLexemeExportCSV(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        qs = KeywordLexemeViewSet().get_queryset()  # أعد استخدام نفس الفلاتر
+        def row(lx):
+            al = ",".join(str(a.id) for a in lx.allergens.all())
+            ing = lx.ingredient_id or ""
+            return [lx.lang, lx.term or "", int(lx.is_regex), al, ing, int(lx.is_active), lx.priority or 0, lx.weight or 0]
+        header = ["lang","term","is_regex","allergens_ids","ingredient_id","is_active","priority","weight"]
+        buf = io.StringIO(); w = csv.writer(buf); w.writerow(header); [w.writerow(row(x)) for x in qs]
+        resp = HttpResponse(buf.getvalue(), content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = 'attachment; filename="lexemes.csv"'
+        return resp
+
+class KeywordLexemeImportCSV(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    def post(self, request):
+        f = request.FILES.get("file")
+        if not f: return Response({"detail":"CSV مفقود"}, status=400)
+        data = io.TextIOWrapper(f.file, encoding="utf-8", errors="ignore")
+        r = csv.DictReader(data)
+        upserted = 0
+        for row in r:
+            lx, _ = KeywordLexeme.objects.update_or_create(
+                owner_id=request.data.get("owner") or None,
+                lang=(row.get("lang") or "de").lower().strip(),
+                term=(row.get("term") or "").strip(),
+                defaults={
+                    "is_regex": str(row.get("is_regex") or "0") in ("1","true","True"),
+                    "ingredient_id": (row.get("ingredient_id") or None),
+                    "is_active": str(row.get("is_active") or "1") in ("1","true","True"),
+                    "priority": int(row.get("priority") or 0),
+                    "weight": int(row.get("weight") or 0),
+                }
+            )
+            # allergens_ids: "1,5,9"
+            ids = [int(x) for x in (row.get("allergens_ids") or "").split(",") if x.strip().isdigit()]
+            if ids: lx.allergens.set(ids)
+            upserted += 1
+        return Response({"ok": True, "count": upserted})
+    
+
+    # ---- Ingredients CRUD ----
+class IngredientViewSet(ModelViewSet):
+    queryset = Ingredient.objects.all().prefetch_related("allergens")
+    serializer_class = IngredientLiteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        owner = self.request.query_params.get("owner")
+        q = (self.request.query_params.get("q") or "").strip()
+        if owner: qs = qs.filter(owner_id=owner)
+        if q: qs = qs.filter(name__icontains=q)
+        return qs.order_by("name","id")
