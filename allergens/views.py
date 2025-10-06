@@ -78,7 +78,7 @@ class AllergenBulkUpload(APIView):
 
             _, was_created = Allergen.objects.update_or_create(code=code, defaults=defaults)
             created += int(was_created)
-            updated += int(not was_created)
+            updated += int(not was_created)  # noqa: E713
 
         return Response({"created": created, "updated": updated, "skipped": skipped}, status=status.HTTP_200_OK)
 
@@ -229,7 +229,7 @@ class AdditiveBulkUploadView(APIView):
     رفع CSV للإضافات (E-Numbers) مع قبول صيغ عناوين متعددة.
     يسمح للمالك برفع ملفه الخاص (?global=1 للعام).
     """
-    permission_classes = [IsAuthenticated]     # اسمح برفع المالك لملفّه
+    permission_classes = [IsAuthenticated]  # اسمح برفع المالك لملفّه
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
@@ -255,9 +255,9 @@ class AdditiveBulkUploadView(APIView):
             return None
 
         col_number = h("number", "code", "Code")
-        col_en     = h("en", "label_en", "name_en", "EN", "En")
-        col_de     = h("de", "label_de", "name_de", "DE", "De")
-        col_ar     = h("ar", "label_ar", "name_ar", "AR", "Ar")
+        col_en = h("en", "label_en", "name_en", "EN", "En")
+        col_de = h("de", "label_de", "name_de", "DE", "De")
+        col_ar = h("ar", "label_ar", "name_ar", "AR", "Ar")
 
         required = [col_number, col_en, col_de, col_ar]
         if any(c is None for c in required):
@@ -326,3 +326,49 @@ class AdditiveExportCSV(APIView):
         resp = StreamingHttpResponse(stream(), content_type="text/csv; charset=utf-8")
         resp["Content-Disposition"] = 'attachment; filename="additives_merged.csv"'
         return resp
+
+
+# ===========================================
+# AdditiveCodeDetailView (عرض/تحديث/حذف عنصر واحد)
+# ===========================================
+class AdditiveCodeDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk, user):
+        # نسمح بالوصول لعنصر خاص بالمستخدم أو عنصر عام
+        return AdditiveLegend.objects.filter(
+            Q(pk=pk) & (Q(owner=user) | Q(owner__isnull=True))
+        ).first()
+
+    def get(self, request, pk):
+        obj = self.get_object(pk, request.user)
+        if not obj:
+            return Response({"detail": "Not found."}, status=404)
+        return Response(AdditiveLegendSerializer(obj).data)
+
+    def put(self, request, pk):
+        obj = self.get_object(pk, request.user)
+        if not obj:
+            return Response({"detail": "Not found."}, status=404)
+
+        # تحديث الحقول
+        data = request.data
+        obj.label_en = (data.get("en") or data.get("label_en") or obj.label_en) or ""
+        obj.label_de = (data.get("de") or data.get("label_de") or obj.label_de) or ""
+        obj.label_ar = (data.get("ar") or data.get("label_ar") or obj.label_ar) or ""
+        # لا نسمح بتغيير number من شاشة التعديل
+        obj.save()
+        return Response(AdditiveLegendSerializer(obj).data)
+
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
+    def delete(self, request, pk):
+        obj = self.get_object(pk, request.user)
+        if not obj:
+            return Response({"detail": "Not found."}, status=404)
+        # لا نحذف من القاموس العام إلا لو المستخدم Admin
+        if obj.owner is None and not request.user.is_staff:
+            return Response({"detail": "Only admins can delete global entries."}, status=403)
+        obj.delete()
+        return Response(status=204)
