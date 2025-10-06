@@ -43,6 +43,12 @@ import MenuPublicSettings from './pages/MenuPublicSettings';
 /* 🌐 صفحة عرض عامة (للقوائم العامة) */
 import PublicMenuPage from './pages/PublicMenuPage';
 
+/* 📄 صفحة إدارة أكواد الحساسية */
+import AdminAllergensPage from './pages/AdminAllergensPage';
+
+
+
+
 /* ------------------------- JWT utils ------------------------- */
 function isJwtValidMaybe(token) {
   if (!token) return false;
@@ -175,6 +181,8 @@ export default function App() {
     return <Navigate to={goAdmin ? '/admin/users' : '/menus'} replace />;
   }
 
+  <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+
   return (
     <Router>
       <Routes>
@@ -302,6 +310,24 @@ export default function App() {
             </AdminRoute>
           }
         />
+        <Route
+          path="/admin/allergens"
+          element={
+           <AdminRoute token={token}>
+           <>
+             <AdminNavbar onLogout={handleLogout} />
+             <AdminAllergensPage />
+            </>
+         </AdminRoute>
+          }
+        />
+<Route path="/admin/allergens" element={
+  <AdminRoute><AdminAllergensPage /></AdminRoute>
+} />
+<Route path="/admin/additives" element={
+  <AdminRoute><AdminAllergensPage /></AdminRoute>
+} />
+
 
         {/* 🌐 صفحات العرض العامة */}
         <Route path="/show/menu/:publicSlug" element={<PublicMenuPage />} />

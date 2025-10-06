@@ -12,7 +12,7 @@ from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.utils import timezone
-
+from django.db.models import Q  # لاستخدام القيود الجزئية
 
 # ===========================
 # نموذج المستخدم المخصّص
@@ -50,25 +50,43 @@ class Allergen(models.Model):
 
 class AdditiveLegend(models.Model):
     """
-    أسطورة الإضافات (الأرقام) قابلة للتخصيص لكل مالك/مطعم.
-    مثال متعارف: 1=Farbstoff, 2=Konservierungsstoff, ...
+    معجم المضافات (E-numbers) مع دعم قاموس عام (owner=NULL) وقواميس خاصة بالملاك.
     """
+    number = models.PositiveIntegerField(db_index=True)   # E-number بدون حرف "E"
+    label_en = models.CharField(max_length=255, blank=True, default="")
+    label_de = models.CharField(max_length=255, blank=True, default="")
+    label_ar = models.CharField(max_length=255, blank=True, default="")
+
+    # ✅ موحّد مع باقي الموديلات مثل Ingredient
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        null=True, blank=True,
         on_delete=models.CASCADE,
-        related_name="additives_legend",
+        related_name="additive_legends",
     )
-    number = models.PositiveIntegerField()
-    label_de = models.CharField(max_length=180)
-    label_en = models.CharField(max_length=180, blank=True, default='')
-    label_ar = models.CharField(max_length=180, blank=True, default='')
 
     class Meta:
-        unique_together = ("owner", "number")
-        ordering = ["number"]
+        constraints = [
+            # يمنع تكرار نفس الرقم ضمن نفس المالك (يعمل مع NOT NULL)
+            models.UniqueConstraint(
+                fields=["owner", "number"],
+                name="uniq_owner_number",
+            ),
+            # يمنع وجود أكثر من صف عام (owner IS NULL) لنفس الرقم
+            models.UniqueConstraint(
+                fields=["number"],
+                condition=Q(owner__isnull=True),
+                name="uniq_global_number_when_owner_null",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "number"]),
+            models.Index(fields=["number"]),
+        ]
 
     def __str__(self):
-        return f"{self.owner_id}#{self.number} - {self.label_de}"
+        scope = "global" if self.owner_id is None else f"owner={self.owner_id}"
+        return f"E{self.number} ({scope})"
 
 
 class Ingredient(models.Model):
@@ -204,7 +222,8 @@ class Dish(models.Model):
     def _codes_from_allergen_rows(self) -> str:
         try:
             rows = self.allergen_rows.select_related("allergen").only("allergen__code")
-            codes = sorted({(r.allergen.code or "").strip().upper() for r in rows if r.allergen_id and r.allergen and r.allergen.code})
+            codes = sorted({(r.allergen.code or "").strip().upper()
+                            for r in rows if r.allergen_id and r.allergen and r.allergen.code})
             return ",".join(c for c in codes if c)
         except Exception:
             return ""
@@ -244,9 +263,9 @@ class DishAllergen(models.Model):
     class Source(models.TextChoices):
         INGREDIENT = "ingredient", "Ingredient"   # جاء من مكوّن مهيكل (M2M)
         REGEX = "regex", "Regex/Lexeme"          # جاء من مطابقة لغوية (Keyword/Regex)
-        LLM = "llm", "LLM"                        # مقترح من LLM (عادة غير مؤكّد حتى يراجع)
-        TRACE = "trace", "Trace/Spuren"           # أثر مطبخي عام (Spuren)
-        MANUAL = "manual", "Manual"               # إدخال يدوي صريح
+        LLM = "llm", "LLM"                       # مقترح من LLM (عادة غير مؤكّد حتى يراجع)
+        TRACE = "trace", "Trace/Spuren"          # أثر مطبخي عام (Spuren)
+        MANUAL = "manual", "Manual"              # إدخال يدوي صريح
 
     dish = models.ForeignKey(
         Dish, on_delete=models.CASCADE, related_name="allergen_rows"
@@ -509,17 +528,6 @@ def ensure_profile_exists(sender, instance, created, **kwargs):
     prof, _ = Profile.objects.get_or_create(
         user=instance, defaults={"display_name": default_display}
     )
-    if not getattr(prof, "display_name", None):
-        prof.display_name = default_display
-        prof.save(update_fields=["display_name"])
-
-
-    prof, _ = Profile.objects.get_or_create(
-        user=instance,
-        defaults={"display_name": default_display}
-    )
-
-    # لو موجود لكن display_name فاضي لسبب ما، عالجه
     if not getattr(prof, "display_name", None):
         prof.display_name = default_display
         prof.save(update_fields=["display_name"])
