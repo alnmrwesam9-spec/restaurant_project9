@@ -35,13 +35,12 @@ import { jwtDecode } from 'jwt-decode';
 
 import AppSidebar, { SIDEBAR_WIDTH, RAIL_WIDTH } from '../components/AppSidebar';
 import useLocalStorage from '../hooks/useLocalStorage';
+import { PLACEHOLDER, PLACEHOLDER_HERO, firstValid } from '../utils/helpers';
 
 // ⬇️ الإضافة الجديدة للفصل بين المنطق والواجهة
 import { MenusProvider } from './MenusPage.context';
 import MenusPageView from './MenusPage.view';
 
-// ✅ بليس‌هولدر يخدم من Vite: ضع الصورة في frontend/public/img/dish-placeholder.png
-const PLACEHOLDER = '/img/dish-placeholder.png';
 
 /** أبعاد بطاقات الأطباق */
 const CARD_W = 280;
@@ -216,20 +215,20 @@ function MenusPage({ token }) {
   };
 
   // ✅ تأكيد اختيار أول مصدر صورة صالح فعلاً وتجاهل قيم سيئة
- const normalizeSrc = (s) => {
-  const x = (s ?? '').toString().trim();
-  if (!x || x === 'null' || x === 'undefined') return PLACEHOLDER; // ✅ استخدم صورة افتراضية
-  return x;
-};
+  const safeSrc = (value) => {
+    if (value == null) return null;
+    const cleaned = typeof value === 'string' ? value.trim() : value;
+    if (!cleaned || cleaned === 'null' || cleaned === 'undefined') return null;
+    return cleaned;
+  };
 
-  const dishCardImage = (dish) => {
-    return (
-      normalizeSrc(dish?.image) ||
-      normalizeSrc(dish?.image_url) ||
-      normalizeSrc(profile?.avatar) ||
+  const dishCardImage = (dish) =>
+    firstValid(
+      safeSrc(dish?.image),
+      safeSrc(dish?.image_url),
+      safeSrc(profile?.avatar),
       PLACEHOLDER
     );
-  };
 
   const bySort = (a, b) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0) || (a?.id || 0) - (b?.id || 0);
 
@@ -716,7 +715,13 @@ function MenusPage({ token }) {
 
   // ✅ اختيار الهيرو من: إعدادات العرض > الشعار > أفاتار > بليس‌هولدر
   const heroSrc = useMemo(
-    () => normalizeSrc(selectedDisplay?.hero_image) || normalizeSrc(selectedDisplay?.logo) || normalizeSrc(profile?.avatar) || PLACEHOLDER,
+    () =>
+      firstValid(
+        safeSrc(selectedDisplay?.hero_image),
+        safeSrc(selectedDisplay?.logo),
+        safeSrc(profile?.avatar),
+        PLACEHOLDER_HERO
+      ),
     [selectedDisplay, profile]
   );
 
@@ -765,7 +770,7 @@ function MenusPage({ token }) {
     t, i18n, theme, isRTL,
 
     // ثوابت واجهة
-    CONTENT_MAX, CARD_W, CARD_H, IMG_H, NAME_MIN_H, PRICE_ROW_H, PLACEHOLDER,
+    CONTENT_MAX, CARD_W, CARD_H, IMG_H, NAME_MIN_H, PRICE_ROW_H, PLACEHOLDER, PLACEHOLDER_HERO,
 
     // Sidebar & layout
     AppSidebar, SIDEBAR_WIDTH, RAIL_WIDTH,

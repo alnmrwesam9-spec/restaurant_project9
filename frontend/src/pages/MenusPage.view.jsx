@@ -6,7 +6,7 @@ export default function MenusPageView() {
   const ctx = useMenusPage();
   const {
     t, i18n, theme, isRTL,
-    CONTENT_MAX, CARD_W, CARD_H, IMG_H, NAME_MIN_H, PRICE_ROW_H, PLACEHOLDER,
+    CONTENT_MAX, CARD_W, CARD_H, IMG_H, NAME_MIN_H, PRICE_ROW_H, PLACEHOLDER, PLACEHOLDER_HERO,
 
     // Layout & sidebar
     AppSidebar, SIDEBAR_WIDTH, RAIL_WIDTH,
@@ -532,7 +532,7 @@ export default function MenusPageView() {
                         <Grow in timeout={800}>
                           <SafeImg
                             src={heroSrc}
-                            fallback={PLACEHOLDER}
+                            fallback={PLACEHOLDER_HERO}
                             alt={t('aria.menu_preview')}
                             sx={{
                               width: '100%',
