@@ -1,3 +1,4 @@
+# core/views.py
 # ============================================================
 # واجهات REST الخاصة بالتطبيق
 # ============================================================
@@ -8,6 +9,7 @@ import re
 from django.db import transaction, IntegrityError
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
 
 from rest_framework import generics, status, viewsets, permissions
 from rest_framework.decorators import api_view, permission_classes, action
@@ -15,6 +17,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveUpdateAPIView, ListAPIView
 
 from .models import (
     User,
@@ -25,9 +28,10 @@ from .models import (
     DishPrice,
     Profile,
     Ingredient,
-    Allergen,   # لاستخدام M2M الأكواد
-    DishAllergen,  # ⬅️ سجلات التتبّع لكل كود
+    Allergen,        # لاستخدام M2M الأكواد
+    DishAllergen,    # ⬅️ سجلات التتبّع لكل كود
 )
+
 from .serializers import (
     RegisterSerializer,
     MenuSerializer,
@@ -39,6 +43,7 @@ from .serializers import (
     DishPriceSerializer,
     ProfileSerializer,
     DishAllergenSerializer,
+    KeywordLexemeSerializer,   # ✅ بديل LexemeSerializer
 )
 
 # محرك القواعد
@@ -54,13 +59,11 @@ from core.services.llm_ingest import (
 )
 from core.llm_clients.openai_client import openai_caller
 
-# نموذج القاموس
+# نموذج القاموس (الموديل الصحيح)
 from core.dictionary_models import KeywordLexeme
-from django.contrib.auth import get_user_model
-from rest_framework.generics import RetrieveUpdateAPIView
-
 
 User = get_user_model()
+
 # ============================================================
 # Helpers
 # ============================================================
@@ -106,7 +109,13 @@ def _split_letter_codes(codes_str: str) -> List[str]:
 
 
 @transaction.atomic
-def _sync_dish_allergen_rows_from_codes(dish: Dish, codes_str: str, *, source: str = DishAllergen.Source.REGEX, force: bool = False) -> int:
+def _sync_dish_allergen_rows_from_codes(
+    dish: Dish,
+    codes_str: str,
+    *,
+    source: str = DishAllergen.Source.REGEX,
+    force: bool = False
+) -> int:
     """
     يزامن سجلات DishAllergen من سلسلة أكواد حرفية (A,G,K).
     - لا يحذف السجلات اليدوية أو المؤكّدة.
@@ -195,7 +204,7 @@ class UserListAdminView(generics.ListAPIView):
         qs = User.objects.all().order_by("id")
         return Response(self.get_serializer(qs, many=True).data)
 
-# core/views.py  — المقطع الخاص بالمستخدمين فقط
+
 class UserDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
     """
     /api/users/<pk>/
@@ -251,6 +260,7 @@ class MeProfileAPIView(RetrieveUpdateAPIView):
         ctx = super().get_serializer_context()
         ctx["request"] = self.request          # حتى يشتغل avatar_url
         return ctx
+
 
 # ============================================================
 # Menus / Sections / Dishes
@@ -1071,6 +1081,8 @@ class RegisterView(generics.CreateAPIView):
     def perform_create(self, serializer):
         # نغلق أي محاولة لتمرير role من الواجهة ونثبته لمالك مطعم
         serializer.save(role="owner")
+
+
 # ============================================================
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -1079,12 +1091,43 @@ def username_available(request):
     User = get_user_model()
     return Response({"available": bool(u and not User.objects.filter(username__iexact=u).exists())})
 
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def email_available(request):
     e = (request.GET.get("email") or "").strip()
     User = get_user_model()
     return Response({"available": bool(e and not User.objects.filter(email__iexact=e).exists())})
+
+
+# ============================================================
+# KeywordLexeme List API (بديل/تصحيح لـ LexemeListAPIView)
+# ============================================================
+
+class LexemeListAPIView(ListAPIView):
+    """
+    تُرجع قائمة من KeywordLexeme مع فلاتر اختيارية:
+      - q    : بحث جزئي في term
+      - lang : اللغة
+      - active: '1' أو '0'
+    """
+    serializer_class = KeywordLexemeSerializer
+    queryset = KeywordLexeme.objects.all().order_by("id")  # ترتيب ثابت وافتراضيًا يرجع الكل
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        q = self.request.GET.get("q")
+        lang = self.request.GET.get("lang")
+        active = self.request.GET.get("active")
+
+        if q:
+            qs = qs.filter(term__icontains=q)
+        if lang:
+            qs = qs.filter(lang=lang)
+        if active in ("0", "1"):
+            qs = qs.filter(is_active=(active == "1"))
+
+        return qs
 
 
 # ========================= END =========================

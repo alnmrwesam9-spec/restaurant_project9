@@ -216,11 +216,11 @@ function MenusPage({ token }) {
   };
 
   // ✅ تأكيد اختيار أول مصدر صورة صالح فعلاً وتجاهل قيم سيئة
-  const normalizeSrc = (s) => {
-    const x = (s ?? '').toString().trim();
-    if (!x || x === 'null' || x === 'undefined') return '';
-    return x;
-  };
+ const normalizeSrc = (s) => {
+  const x = (s ?? '').toString().trim();
+  if (!x || x === 'null' || x === 'undefined') return PLACEHOLDER; // ✅ استخدم صورة افتراضية
+  return x;
+};
 
   const dishCardImage = (dish) => {
     return (

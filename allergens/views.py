@@ -547,135 +547,85 @@ class AdditiveCodeDetailView(APIView):
             return Response({"detail": "Only admins can delete global entries."}, status=status.HTTP_403_FORBIDDEN)
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
 
-    # ---- Lexemes CRUD ----
-class KeywordLexemeViewSet(ModelViewSet):
-    queryset = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
-    serializer_class = KeywordLexemeSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        # فلاتر شائعة: المالِك/اللغة/التفعيل + q على normalized_term
-        owner = self.request.query_params.get("owner")
-        lang  = (self.request.query_params.get("lang") or "").strip()
-        active = self.request.query_params.get("is_active")
-        q = (self.request.query_params.get("q") or "").strip()
-        if owner: qs = qs.filter(owner_id=owner)
-        if lang:  qs = qs.filter(lang__iexact=lang)
-        if active in ("0","1"): qs = qs.filter(is_active=(active=="1"))
-        if q: qs = qs.filter(normalized_term__icontains=q)
-        return qs.order_by("priority", "weight", "id")
-
+# ==========================================
+# ---- Lexemes CSV (Export / Import) ----
+# ==========================================
 class KeywordLexemeExportCSV(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
-        qs = KeywordLexemeViewSet().get_queryset()  # أعد استخدام نفس الفلاتر
-        def row(lx):
-            al = ",".join(str(a.id) for a in lx.allergens.all())
-            ing = lx.ingredient_id or ""
-            return [lx.lang, lx.term or "", int(lx.is_regex), al, ing, int(lx.is_active), lx.priority or 0, lx.weight or 0]
-        header = ["lang","term","is_regex","allergens_ids","ingredient_id","is_active","priority","weight"]
-        buf = io.StringIO(); w = csv.writer(buf); w.writerow(header); [w.writerow(row(x)) for x in qs]
+
+    def get(self, request, *args, **kwargs):
+        qs = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
+
+        # 👈 الجديد: نقرأ owner من الـ kwargs إن كان موجودًا
+        owner = request.query_params.get("owner") or kwargs.get("owner")
+        lang  = (request.query_params.get("lang") or "").strip()
+        active = request.query_params.get("is_active")
+        q = (request.query_params.get("q") or "").strip()
+
+        if owner:
+            qs = qs.filter(owner_id=owner)
+        if lang:
+            qs = qs.filter(lang__iexact=lang)
+        if active in ("0", "1"):
+            qs = qs.filter(is_active=(active == "1"))
+        if q:
+            qs = qs.filter(normalized_term__icontains=q)
+        qs = qs.order_by("priority", "weight", "id")
+
+        header = ["lang", "term", "is_regex", "allergens_ids", "ingredient_id", "is_active", "priority", "weight"]
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(header)
+        for x in qs:
+            al = ",".join(str(a.id) for a in x.allergens.all())
+            ing = x.ingredient_id or ""
+            w.writerow([x.lang, x.term or "", int(x.is_regex), al, ing, int(x.is_active), x.priority or 0, x.weight or 0])
+
         resp = HttpResponse(buf.getvalue(), content_type="text/csv; charset=utf-8")
         resp["Content-Disposition"] = 'attachment; filename="lexemes.csv"'
         return resp
 
+
 class KeywordLexemeImportCSV(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
-    def post(self, request):
+
+    def post(self, request, *args, **kwargs):
         f = request.FILES.get("file")
-        if not f: return Response({"detail":"CSV مفقود"}, status=400)
+        if not f:
+            return Response({"detail": "CSV مفقود"}, status=400)
+
+        # 👈 الجديد: نقرأ owner من الـ kwargs إن كان موجودًا
+        owner_from_url = kwargs.get("owner")
+
         data = io.TextIOWrapper(f.file, encoding="utf-8", errors="ignore")
         r = csv.DictReader(data)
         upserted = 0
+
         for row in r:
             lx, _ = KeywordLexeme.objects.update_or_create(
-                owner_id=request.data.get("owner") or None,
+                owner_id=owner_from_url or request.data.get("owner") or None,
                 lang=(row.get("lang") or "de").lower().strip(),
                 term=(row.get("term") or "").strip(),
                 defaults={
-                    "is_regex": str(row.get("is_regex") or "0") in ("1","true","True"),
+                    "is_regex": str(row.get("is_regex") or "0") in ("1", "true", "True"),
                     "ingredient_id": (row.get("ingredient_id") or None),
-                    "is_active": str(row.get("is_active") or "1") in ("1","true","True"),
+                    "is_active": str(row.get("is_active") or "1") in ("1", "true", "True"),
                     "priority": int(row.get("priority") or 0),
                     "weight": int(row.get("weight") or 0),
                 }
             )
             # allergens_ids: "1,5,9"
             ids = [int(x) for x in (row.get("allergens_ids") or "").split(",") if x.strip().isdigit()]
-            if ids: lx.allergens.set(ids)
+            if ids:
+                lx.allergens.set(ids)
             upserted += 1
+
         return Response({"ok": True, "count": upserted})
-        
+# ==========================================
 
-
-        # ========================= =======
-        # ---- Lexemes CRUD ----
-class KeywordLexemeViewSet(ModelViewSet):
-    queryset = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
-    serializer_class = KeywordLexemeSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        # فلاتر شائعة: المالِك/اللغة/التفعيل + q على normalized_term
-        owner = self.request.query_params.get("owner")
-        lang  = (self.request.query_params.get("lang") or "").strip()
-        active = self.request.query_params.get("is_active")
-        q = (self.request.query_params.get("q") or "").strip()
-        if owner: qs = qs.filter(owner_id=owner)
-        if lang:  qs = qs.filter(lang__iexact=lang)
-        if active in ("0","1"): qs = qs.filter(is_active=(active=="1"))
-        if q: qs = qs.filter(normalized_term__icontains=q)
-        return qs.order_by("priority", "weight", "id")
-
-class KeywordLexemeExportCSV(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request):
-        qs = KeywordLexemeViewSet().get_queryset()  # أعد استخدام نفس الفلاتر
-        def row(lx):
-            al = ",".join(str(a.id) for a in lx.allergens.all())
-            ing = lx.ingredient_id or ""
-            return [lx.lang, lx.term or "", int(lx.is_regex), al, ing, int(lx.is_active), lx.priority or 0, lx.weight or 0]
-        header = ["lang","term","is_regex","allergens_ids","ingredient_id","is_active","priority","weight"]
-        buf = io.StringIO(); w = csv.writer(buf); w.writerow(header); [w.writerow(row(x)) for x in qs]
-        resp = HttpResponse(buf.getvalue(), content_type="text/csv; charset=utf-8")
-        resp["Content-Disposition"] = 'attachment; filename="lexemes.csv"'
-        return resp
-
-class KeywordLexemeImportCSV(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-    def post(self, request):
-        f = request.FILES.get("file")
-        if not f: return Response({"detail":"CSV مفقود"}, status=400)
-        data = io.TextIOWrapper(f.file, encoding="utf-8", errors="ignore")
-        r = csv.DictReader(data)
-        upserted = 0
-        for row in r:
-            lx, _ = KeywordLexeme.objects.update_or_create(
-                owner_id=request.data.get("owner") or None,
-                lang=(row.get("lang") or "de").lower().strip(),
-                term=(row.get("term") or "").strip(),
-                defaults={
-                    "is_regex": str(row.get("is_regex") or "0") in ("1","true","True"),
-                    "ingredient_id": (row.get("ingredient_id") or None),
-                    "is_active": str(row.get("is_active") or "1") in ("1","true","True"),
-                    "priority": int(row.get("priority") or 0),
-                    "weight": int(row.get("weight") or 0),
-                }
-            )
-            # allergens_ids: "1,5,9"
-            ids = [int(x) for x in (row.get("allergens_ids") or "").split(",") if x.strip().isdigit()]
-            if ids: lx.allergens.set(ids)
-            upserted += 1
-        return Response({"ok": True, "count": upserted})
-    
-
-    # ---- Ingredients CRUD ----
+# ---- Ingredients CRUD ----
 class IngredientViewSet(ModelViewSet):
     queryset = Ingredient.objects.all().prefetch_related("allergens")
     serializer_class = IngredientLiteSerializer
@@ -688,3 +638,41 @@ class IngredientViewSet(ModelViewSet):
         if owner: qs = qs.filter(owner_id=owner)
         if q: qs = qs.filter(name__icontains=q)
         return qs.order_by("name","id")
+
+
+# ==========================================
+# --- Lexemes CRUD/List عبر DRF ViewSet ---
+class KeywordLexemeViewSet(ModelViewSet):
+    """
+    قائمة/إنشاء/تعديل/حذف للـ KeywordLexeme مع فلاتر تشبه التي يستعملها الفرونت.
+    يدعم بارامترات: owner, lang, is_active(0/1), q, ordering
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = KeywordLexemeSerializer
+    queryset = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        req = self.request
+
+        owner = (req.query_params.get("owner") or "").strip()
+        lang  = (req.query_params.get("lang") or "").strip()
+        active = req.query_params.get("is_active")
+        q      = (req.query_params.get("q") or "").strip()
+
+        if owner:
+            qs = qs.filter(owner_id=owner)
+        if lang:
+            qs = qs.filter(lang__iexact=lang)
+        if active in ("0", "1"):
+            qs = qs.filter(is_active=(active == "1"))
+        if q:
+            # ابحث بالـ term والـ normalized_term لمرونة أكبر
+            qs = qs.filter(Q(term__icontains=q) | Q(normalized_term__icontains=q))
+
+        # ترتيب آمن (افتراضي: priority ثم weight ثم id)
+        ordering = (req.query_params.get("ordering") or "priority,weight,id")
+        allowed = {"priority", "weight", "id", "term", "lang"}
+        parts = [p.strip() for p in ordering.split(",") if p.strip()]
+        safe = [p for p in parts if p.lstrip("-") in allowed] or ["priority", "weight", "id"]
+        return qs.order_by(*safe)
