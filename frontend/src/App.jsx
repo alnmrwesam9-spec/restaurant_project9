@@ -43,11 +43,8 @@ import MenuPublicSettings from './pages/MenuPublicSettings';
 /* 🌐 صفحة عرض عامة (للقوائم العامة) */
 import PublicMenuPage from './pages/PublicMenuPage';
 
-/* 📄 صفحة إدارة أكواد الحساسية */
+/* 📄 صفحة إدارة الأكواد (Allergens/Additives/Lexemes/Ingredients) */
 import AdminAllergensPage from './pages/AdminAllergensPage';
-
-
-
 
 /* ------------------------- JWT utils ------------------------- */
 function isJwtValidMaybe(token) {
@@ -181,8 +178,6 @@ export default function App() {
     return <Navigate to={goAdmin ? '/admin/users' : '/menus'} replace />;
   }
 
-  <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
-
   return (
     <Router>
       <Routes>
@@ -256,8 +251,6 @@ export default function App() {
         <Route
           path="/admin/users"
           element={
-            /* ملاحظة: عنصر Route يحتاج "element="،
-               بعض المحررات قد تصلحها تلقائياً، لكن نكتبها صحيحة هنا */
             <AdminRoute token={token}>
               <>
                 <AdminNavbar onLogout={handleLogout} />
@@ -266,6 +259,7 @@ export default function App() {
             </AdminRoute>
           }
         />
+
         <Route
           path="/admin/users/:userId/menus"
           element={
@@ -310,24 +304,52 @@ export default function App() {
             </AdminRoute>
           }
         />
+
+        {/* ✅ هنا صفحات الأكواد الأربع (نفس الصفحة، تحدد النوع من المسار) */}
         <Route
           path="/admin/allergens"
           element={
-           <AdminRoute token={token}>
-           <>
-             <AdminNavbar onLogout={handleLogout} />
-             <AdminAllergensPage />
-            </>
-         </AdminRoute>
+            <AdminRoute token={token}>
+              <>
+                <AdminNavbar onLogout={handleLogout} />
+                <AdminAllergensPage />
+              </>
+            </AdminRoute>
           }
         />
-<Route path="/admin/allergens" element={
-  <AdminRoute><AdminAllergensPage /></AdminRoute>
-} />
-<Route path="/admin/additives" element={
-  <AdminRoute><AdminAllergensPage /></AdminRoute>
-} />
-
+        <Route
+          path="/admin/additives"
+          element={
+            <AdminRoute token={token}>
+              <>
+                <AdminNavbar onLogout={handleLogout} />
+                <AdminAllergensPage />
+              </>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/lexemes"
+          element={
+            <AdminRoute token={token}>
+              <>
+                <AdminNavbar onLogout={handleLogout} />
+                <AdminAllergensPage />
+              </>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/ingredients"
+          element={
+            <AdminRoute token={token}>
+              <>
+                <AdminNavbar onLogout={handleLogout} />
+                <AdminAllergensPage />
+              </>
+            </AdminRoute>
+          }
+        />
 
         {/* 🌐 صفحات العرض العامة */}
         <Route path="/show/menu/:publicSlug" element={<PublicMenuPage />} />
