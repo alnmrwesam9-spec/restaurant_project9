@@ -1,0 +1,37 @@
+   1: import { defineConfig } from 'vite';
+   2: import react from '@vitejs/plugin-react';
+   3: 
+   4: export default defineConfig({
+   5:   plugins: [react()],
+   6:   esbuild: {
+   7:     loader: 'jsx',
+   8:     include: /src\/.*\.[jt]sx?$/, // يشمل .js .jsx (وأيضًا ts/tsx لو وُجد)
+   9:   },
+  10:   optimizeDeps: {
+  11:     esbuildOptions: {
+  12:       loader: { '.js': 'jsx' }, // لأي تبعية JS تحتوي JSX
+  13:     },
+  14:   },
+  15:   server: {
+  16:     port: 3000,
+  17:     // Dev proxy: forward API/media/static to Django on 8000
+  18:     proxy: {
+  19:       '/api': {
+  20:         target: 'http://127.0.0.1:8000',
+  21:         changeOrigin: true,
+  22:         secure: false,
+  23:       },
+  24:       '/media': {
+  25:         target: 'http://127.0.0.1:8000',
+  26:         changeOrigin: true,
+  27:         secure: false,
+  28:       },
+  29:       '/static': {
+  30:         target: 'http://127.0.0.1:8000',
+  31:         changeOrigin: true,
+  32:         secure: false,
+  33:       },
+  34:     },
+  35:   },
+  36:   preview: { port: 3000 },
+  37: });

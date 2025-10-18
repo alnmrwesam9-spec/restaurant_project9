@@ -1,0 +1,25 @@
+# Reduce Docker build context and image size
+.git
+.gitignore
+.env
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Python artifacts
+*.sqlite3
+backend/db.sqlite3
+
+# Media (served via volume in compose)
+backend/media/
+
+# Node modules and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

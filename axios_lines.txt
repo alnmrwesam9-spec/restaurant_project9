@@ -1,0 +1,151 @@
+   1: // src/services/axios.js
+   2: // axios instance + JWT interceptors (attach token, auto-refresh, map 401/403)
+   3: 
+   4: import axios from 'axios';
+   5: 
+   6: const apiBase = (typeof import !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env)
+   7:   ? (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '/api')
+   8:   : '/api';
+   9: 
+  10: const api = axios.create({
+  11:   baseURL: apiBase,
+  12:   withCredentials: false,
+  13:   headers: { 'Content-Type': 'application/json' },
+  14: });
+  15: 
+  16: /* ----------------------------- Token helpers ----------------------------- */
+  17: // نتعامل مع تسميتين لضمان التوافق الخلفي: access_token/refresh_token و access/refresh
+  18: export const getAccess = () =>
+  19:   localStorage.getItem('access_token') || localStorage.getItem('access');
+  20: 
+  21: export const getRefresh = () =>
+  22:   localStorage.getItem('refresh_token') || localStorage.getItem('refresh');
+  23: 
+  24: export const setAccess = (t) => {
+  25:   if (t) {
+  26:     localStorage.setItem('access_token', t);
+  27:     localStorage.setItem('access', t);
+  28:   } else {
+  29:     localStorage.removeItem('access_token');
+  30:     localStorage.removeItem('access');
+  31:   }
+  32: };
+  33: 
+  34: export const setRefresh = (t) => {
+  35:   if (t) {
+  36:     localStorage.setItem('refresh_token', t);
+  37:     localStorage.setItem('refresh', t);
+  38:   } else {
+  39:     localStorage.removeItem('refresh_token');
+  40:     localStorage.removeItem('refresh');
+  41:   }
+  42: };
+  43: 
+  44: /* ---------------------------- Unauthorized hook --------------------------- */
+  45: // نوفّر hook ليستدعيه الـ App عند حصول 401 بعد فشل الـ refresh
+  46: let onUnauthorized = null;
+  47: export function setOnUnauthorized(fn) {
+  48:   onUnauthorized = typeof fn === 'function' ? fn : null;
+  49: }
+  50: 
+  51: /* ------------------------------- Boot header ------------------------------ */
+  52: const bootAccess = getAccess();
+  53: if (bootAccess) {
+  54:   api.defaults.headers.common.Authorization = `Bearer ${bootAccess}`;
+  55: }
+  56: 
+  57: /* --------------------------------- Queue --------------------------------- */
+  58: let isRefreshing = false;
+  59: let pendingQueue = [];
+  60: const flushQueue = (err, token = null) => {
+  61:   pendingQueue.forEach((p) => (err ? p.reject(err) : p.resolve(token)));
+  62:   pendingQueue = [];
+  63: };
+  64: 
+  65: /* ------------------------------- Interceptors ----------------------------- */
+  66: // request: أرفق Authorization إن وجد
+  67: api.interceptors.request.use((config) => {
+  68:   const token = getAccess();
+  69:   if (token && !config.headers.Authorization) {
+  70:     config.headers.Authorization = `Bearer ${token}`;
+  71:   }
+  72:   return config;
+  73: });
+  74: 
+  75: // response: جرّب refresh مرة واحدة على 401، ومرّر 403 برسالة مفهومة
+  76: api.interceptors.response.use(
+  77:   (res) => res,
+  78:   async (error) => {
+  79:     const { config, response } = error || {};
+  80:     const status = response?.status;
+  81: 
+  82:     if (status === 403) {
+  83:       return Promise.reject({ ...error, friendly: 'forbidden' });
+  84:     }
+  85: 
+  86:     // 401: محاولة refresh مرة واحدة مع دعم الانتظار للطلبات المتزامنة
+  87:     if (status === 401 && !config.__isRetryRequest) {
+  88:       if (isRefreshing) {
+  89:         return new Promise((resolve, reject) => {
+  90:           pendingQueue.push({
+  91:             resolve: (token) => {
+  92:               config.headers.Authorization = `Bearer ${token}`;
+  93:               config.__isRetryRequest = true;
+  94:               resolve(api(config));
+  95:             },
+  96:             reject,
+  97:           });
+  98:         });
+  99:       }
+ 100: 
+ 101:       config.__isRetryRequest = true;
+ 102:       isRefreshing = true;
+ 103: 
+ 104:       try {
+ 105:         const refresh = getRefresh();
+ 106:         if (!refresh) throw new Error('No refresh token');
+ 107: 
+ 108:         const { data } = await api.post('/token/refresh/', { refresh });
+ 109:         const newAccess = data?.access;
+ 110:         if (!newAccess) throw new Error('No access from refresh');
+ 111: 
+ 112:         // خزّن وحدث الهيدرات
+ 113:         setAccess(newAccess);
+ 114:         api.defaults.headers.common.Authorization = `Bearer ${newAccess}`;
+ 115:         flushQueue(null, newAccess);
+ 116: 
+ 117:         // أعد تنفيذ الطلب الأصلي
+ 118:         config.headers.Authorization = `Bearer ${newAccess}`;
+ 119:         return api(config);
+ 120:       } catch (err) {
+ 121:         flushQueue(err, null);
+ 122:         // تنظيف شامل
+ 123:         setAccess(null);
+ 124:         setRefresh(null);
+ 125:         sessionStorage.removeItem('token');
+ 126:         sessionStorage.removeItem('role');
+ 127:         delete api.defaults.headers.common.Authorization;
+ 128: 
+ 129:         // دع التطبيق يقرر التوجيه
+ 130:         if (onUnauthorized) onUnauthorized();
+ 131:         return Promise.reject({ ...error, friendly: 'unauthorized' });
+ 132:       } finally {
+ 133:         isRefreshing = false;
+ 134:       }
+ 135:     }
+ 136: 
+ 137:     return Promise.reject(error);
+ 138:   }
+ 139: );
+ 140: 
+ 141: /* ------------------------------- Small helper ----------------------------- */
+ 142: export async function whoAmI() {
+ 143:   try {
+ 144:     const { data } = await api.get('/auth/whoami');
+ 145:     return data;
+ 146:   } catch {
+ 147:     return null;
+ 148:   }
+ 149: }
+ 150: 
+ 151: export default api;

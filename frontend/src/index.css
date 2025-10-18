@@ -1,0 +1,18 @@
+/* عندما تكون خطوة tour مُلزِمة (requireAction) نخفي أزرار الملاحة */
+html.tour-lock .reactour__navigation,
+html.tour-lock .reactour__controls,
+html.tour-lock [data-tour-elem="controls"],
+html.tour-lock [data-tour-elem="navigation"],
+html.tour-lock [data-tour-elem="right-arrow"],
+html.tour-lock [data-tour-elem="left-arrow"],
+html.tour-lock [data-tour-elem="dot"],
+body.tour-lock .reactour__navigation,
+body.tour-lock .reactour__controls,
+body.tour-lock [data-tour-elem="controls"],
+body.tour-lock [data-tour-elem="navigation"],
+body.tour-lock [data-tour-elem="right-arrow"],
+body.tour-lock [data-tour-elem="left-arrow"],
+body.tour-lock [data-tour-elem="dot"] {
+  display: none !important;
+}
+
