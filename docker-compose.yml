@@ -1,0 +1,86 @@
+# docker-compose.yml (stable)
+services:
+  ibla_db:
+    container_name: ibla_db
+    image: postgres:16-alpine           # ← نرجع للإصدار 16 المتوافق مع الـ volume
+    environment:
+      
+      POSTGRES_DB: ${POSTGRES_DB:-ibla_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_pass}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  backend:
+    container_name: backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile     # Dockerfile داخل مجلد backend
+    environment:
+      # إعدادات قاعدة البيانات — متوافقة مع settings لديك
+      POSTGRES_DB: ${POSTGRES_DB:-ibla_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_pass}
+      POSTGRES_HOST: ibla_db
+      POSTGRES_PORT: "5432"
+
+      # Django
+      DJANGO_SETTINGS_MODULE: backend.settings.prod  # أو dev لو أردت، لكن prod كان شغّال لديك
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+    depends_on:
+      ibla_db:
+        condition: service_healthy
+    volumes:
+      - staticfiles:/app/backend/staticfiles      # للـ collectstatic
+      - media:/app/backend/media                  # لرفع الصور والملفات
+    expose:
+      - "8000"
+    command: >
+      sh -c "
+        mkdir -p /app/backend/media/avatars &&
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 90
+      "
+
+  frontend_builder:
+    container_name: frontend_builder
+    build:
+      context: ./frontend
+    # Ensure Rollup native binary or JS fallback is available in Linux containers
+    environment:
+      - ROLLUP_SKIP_NODE_NATIVE=1
+      - npm_config_optional=true
+      - CI=1
+    # npm ci on Windows-generated lockfiles misses linux rollup optional deps.
+    # Install linux binary explicitly, then build and keep container alive to hold the named volume.
+    command: sh -c "(npm ci || npm install) && npm i --no-save @rollup/rollup-linux-x64-gnu && npm run build && sleep infinity"
+    volumes:
+      - frontend_dist:/app/dist
+
+  nginx:
+    container_name: nginx
+    image: nginx:1.27-alpine
+    depends_on:
+      - backend
+      - frontend_builder
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - frontend_dist:/usr/share/nginx/html:ro
+      - staticfiles:/app/backend/staticfiles:ro
+      - media:/app/backend/media:ro
+
+volumes:
+  pg_data:
+  staticfiles:
+  media:
+  frontend_dist:

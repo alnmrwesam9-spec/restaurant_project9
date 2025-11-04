@@ -1,0 +1,10 @@
+.git
+node_modules/
+dist/
+.vite/
+*.log
+
+# Avoid leaking host env files into image
+.env
+.env.*
+

@@ -1,0 +1,29 @@
+.git
+.github/
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+.Python
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.log
+*.sqlite3
+.DS_Store
+TEMP_out.txt
+
+# Do not send secrets or local env to image build context
+.env
+.env.*
+
+# Frontend heavy folders (backend context is project root)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+

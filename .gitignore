@@ -1,0 +1,81 @@
+# ===============================
+# Root: Python + Django + Vite/React
+# ===============================
+
+# --- Python / virtualenv ---
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.so
+.python-version
+
+# --- Django ---
+# لا تضع قاعدة بيانات محلية تحت الـ VCS
+*.sqlite3
+
+# static (ناتج collectstatic) و media المرفوعة من المستخدمين
+staticfiles/
+static_root/
+media/
+
+# إذا لديك إعدادات محلية خاصة
+# backend/settings/local.py
+
+# --- بيئة التشغيل (ENV) ---
+# أبقِ مثالًا فقط
+.env
+.env.*
+!.env.example
+
+# --- أدوات الاختبار والجودة ---
+.pytest_cache/
+.coverage*
+htmlcov/
+coverage.xml
+.tox/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# --- سجلات مؤقتة ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Node / Frontend ---
+node_modules/
+frontend/node_modules/
+# نواتج البناء (لا تُرفع؛ تُبنى في CI/CD)
+dist/
+frontend/dist/
+# كاش اللنتر
+.eslintcache
+# تغطية الواجهة
+frontend/coverage/
+
+# --- Build artifacts ---
+build/
+# حافظ على ملفات lock لأنها مهمة لتثبيت الإصدارات
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock
+
+# --- Docker (اختياري حسب استخدامك) ---
+.docker/
+# docker-compose.override.yml  # تجاهله إن كان محلي فقط
+
+# --- IDE/OS ---
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# --- Project-specific scratch files ---
+project_tree.txt
+temp_vite.txt
+debug_db.py
+data/

@@ -1,0 +1,105 @@
+/* ===========================
+   IBLA DISH — Final Font Faces
+   =========================== */
+
+/* منع المتصفح من تصنيع Bold/Italic وهمي */
+* {
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
+}
+
+/* ---------------------------
+   Arabic Family: AppArabic
+   MF_Tahadath Light/Regular/Bold (OTF)
+   أوزان متوفرة: 300 / 400 / 700
+   --------------------------- */
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/MF_Tahadath-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF; /* Arabic */
+}
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/MF_Tahadath-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/MF_Tahadath-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+/* ---------------------------
+   Arabic Family: AppArabic — Haradh 1.344
+   أوزان متوفرة: Regular(400) / SemiBold(600) / Bold(700) / Heavy(800) / Hefty(900)
+   يوجد ملف Regular Hidden Tashkeel للاستخدام كـ Regular.
+   --------------------------- */
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/Haradh_1.344-Regular Hidden Tashkeel.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/Haradh_1.344-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/Haradh_1.344-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/Haradh_1.344-Heavy.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'AppArabic';
+  src: url('/fonts/Haradh_1.344-Hefty.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+
+/* ---------------------------
+   CSS Vars stacks (يقرأها الثيم)
+   --------------------------- */
+:root {
+  --font-ar: 'AppArabic', 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-en: 'AppLatin', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-de: var(--font-en);
+
+  /* سيُبدّلها index.jsx عبر applyFontForLocale(lng) */
+  --font-base: var(--font-en);
+  --font-heading: var(--font-base);
+}
+
+html, body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

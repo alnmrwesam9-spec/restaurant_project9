@@ -1,0 +1,26 @@
+# ===== Core (Django + API) =====
+Django==5.2.4
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.3.1
+drf-nested-routers==0.93.5
+django-cors-headers==4.6.0
+Pillow==10.4.0
+
+# ===== Database =====
+# على ويندوز/ديبيان (python:3.12-slim) هذا الباينري مريح.
+# على Alpine قد تفضّل psycopg بدون [binary] + حزم بناء.
+psycopg[binary]==3.2.3
+dj-database-url==2.2.0
+
+# ===== Static & WSGI (prod) =====
+whitenoise==6.7.0
+gunicorn==22.0.0
+
+# ===== Env / Config =====
+python-dotenv==1.0.1
+
+# ===== External SDKs =====
+openai>=1.0.0,<2
+sentry-sdk==2.16.0
+
+# ===== Monitoring =====
