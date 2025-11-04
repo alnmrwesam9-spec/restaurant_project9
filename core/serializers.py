@@ -735,6 +735,37 @@ class PublicMenuSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'public_slug', 'is_published', 'sections', 'display_settings']
 
 
+# ===================== Aggregated menu (owner/admin) =====================
+class MenuAggregateDishSerializer(serializers.ModelSerializer):
+    """
+    خفيف للوحة التحكم: حقول أساسية فقط لتقليل حجم JSON.
+    """
+    image = AbsoluteImageURLField(read_only=True)
+    image_url = serializers.SerializerMethodField(read_only=True)
+    prices = DishPriceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Dish
+        fields = [
+            'id', 'name', 'description',
+            'price', 'prices',
+            'image', 'image_url',
+            'allergy_info',
+        ]
+        read_only_fields = ['image', 'image_url', 'prices']
+
+    def get_image_url(self, obj):
+        return _resolve_dish_image_url(obj, self.context.get('request'))
+
+
+class MenuAggregateSectionSerializer(serializers.ModelSerializer):
+    dishes = MenuAggregateDishSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Section
+        fields = ['id', 'name', 'dishes']
+
+
 # ===================== LLM Ingredient Suggestions (Fallback) =====================
 class IngredientSuggestionSerializer(serializers.ModelSerializer):
     """

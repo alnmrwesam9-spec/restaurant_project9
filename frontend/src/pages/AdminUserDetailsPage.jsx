@@ -99,13 +99,12 @@ const AdminUserDetailsPage = () => {
 
   const fetchSectionsAndDishes = async (menuId) => {
     try {
-      const resSections = await axios.get(`/sections/?menu=${menuId}`);
-      setSections(resSections.data);
-
+      const { data } = await axios.get('/menu/', { params: { branch: menuId } });
+      const secs = Array.isArray(data?.sections) ? data.sections : [];
+      setSections(secs);
       const dishesObj = {};
-      for (let section of resSections.data) {
-        const resDishes = await axios.get(`/dishes/?section=${section.id}`);
-        dishesObj[section.id] = resDishes.data || [];
+      for (let section of secs) {
+        dishesObj[section.id] = Array.isArray(section.dishes) ? section.dishes : [];
       }
       setDishesBySection(dishesObj);
     } catch (err) {
@@ -139,10 +138,11 @@ const AdminUserDetailsPage = () => {
       const wb = XLSX.utils.book_new();
       const hdr = exportHeaders();
 
-      const { data: secs } = await axios.get(`/sections/?menu=${selectedMenuId}`);
+      const { data } = await axios.get('/menu/', { params: { branch: selectedMenuId } });
+      const secs = Array.isArray(data?.sections) ? data.sections : [];
 
       for (const section of secs || []) {
-        const { data: dishes = [] } = await axios.get(`/dishes/?section=${section.id}`);
+        const dishes = Array.isArray(section.dishes) ? section.dishes : [];
 
         const rows = (dishes || []).map((d) => {
           const prices = (d.prices || []).slice().sort(bySort);

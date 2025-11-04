@@ -408,6 +408,52 @@ class PublicMenuView(generics.RetrieveAPIView):
 
 
 # ============================================================
+# Aggregated Menu (owner/admin): /api/menu?branch=<id>&lang=ar
+# Returns: { "sections": [ { id, name, dishes: [...] } ] }
+# ============================================================
+class MenuAggregateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Accept aliases to be flexible with callers
+        menu_id = (
+            request.query_params.get("branch")
+            or request.query_params.get("menu")
+            or request.query_params.get("menu_id")
+        )
+        if not menu_id:
+            raise ValidationError({"branch": "menu/branch id is required"})
+
+        menu = get_object_or_404(Menu, pk=menu_id)
+        user = request.user
+        if not (is_admin(user) or menu.user_id == user.id):
+            raise PermissionDenied("You do not have permission to access this menu")
+
+        # ORM optimization: minimal columns + relateds for image fallback + prices
+        dishes_qs = (
+            Dish.objects
+            .filter(section__menu=menu)
+            .only("id", "name", "description", "price", "image", "allergy_info", "section_id")
+            .select_related("section__menu__user__profile")
+            .prefetch_related("prices")
+            .order_by("id")
+        )
+        sections_qs = (
+            Section.objects
+            .filter(menu=menu)
+            .only("id", "name", "menu_id")
+            .prefetch_related(Prefetch("dishes", queryset=dishes_qs))
+            .order_by("id")
+        )
+
+        from .serializers import MenuAggregateSectionSerializer  # local import to avoid cycles
+        data = MenuAggregateSectionSerializer(
+            sections_qs, many=True, context={"request": request}
+        ).data
+        return Response({"sections": data})
+
+
+# ============================================================
 # Menu Display Settings
 # ============================================================
 

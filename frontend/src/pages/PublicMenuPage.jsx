@@ -1,5 +1,6 @@
 // src/pages/PublicMenuPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FixedSizeList as VirtualList } from 'react-window';
 import { useParams } from 'react-router-dom';
 import axios from '../services/axios';
 import {
@@ -497,16 +498,50 @@ export default function PublicMenuPage() {
                     })}
                   </Box>
                 ) : (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { md: 'repeat(3, minmax(0, 1fr))' }, gap: 2, alignItems: 'stretch' }}>
-                    {dishes.map((dish, i) => {
-                      const imgSources = publicDishImageSources(dish, ds, rp);
-                      return (
-                        <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(i===0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
-                          <DishCard dish={dish} imgSources={imgSources} index={i} fixedHeight={CARD_HEIGHT_MD} />
-                        </Box>
-                      );
-                    })}
-                  </Box>
+                  // Desktop: virtualize when many cards to reduce DOM nodes
+                  dishes.length > 60 ? (
+                    <VirtualList
+                      height={CARD_HEIGHT_MD * 3 + 48}
+                      itemCount={Math.ceil(dishes.length / 3)}
+                      itemSize={CARD_HEIGHT_MD + 16}
+                      width={'100%'}
+                      style={{ overflowX: 'hidden' }}
+                    >
+                      {({ index, style }) => {
+                        const start = index * 3;
+                        const rowItems = dishes.slice(start, start + 3);
+                        return (
+                          <div style={style}>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { md: 'repeat(3, minmax(0, 1fr))' }, gap: 2, alignItems: 'stretch' }}>
+                              {rowItems.map((dish, i) => {
+                                const globalIndex = start + i;
+                                const imgSources = publicDishImageSources(dish, ds, rp);
+                                return (
+                                  <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(globalIndex===0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
+                                    <DishCard dish={dish} imgSources={imgSources} index={globalIndex} fixedHeight={CARD_HEIGHT_MD} />
+                                  </Box>
+                                );
+                              })}
+                              {rowItems.length < 3 && Array.from({ length: 3 - rowItems.length }).map((_, k) => (
+                                <Box key={`pad-${k}`} />
+                              ))}
+                            </Box>
+                          </div>
+                        );
+                      }}
+                    </VirtualList>
+                  ) : (
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { md: 'repeat(3, minmax(0, 1fr))' }, gap: 2, alignItems: 'stretch' }}>
+                      {dishes.map((dish, i) => {
+                        const imgSources = publicDishImageSources(dish, ds, rp);
+                        return (
+                          <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(i===0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
+                            <DishCard dish={dish} imgSources={imgSources} index={i} fixedHeight={CARD_HEIGHT_MD} />
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  )
                 )}
               </Box>
             );

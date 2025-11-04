@@ -84,6 +84,9 @@ urlpatterns = [
     re_path(r"^public/menus/(?P<public_slug>[-a-zA-Z0-9_]+)/?$",
             views.PublicMenuView.as_view(), name="public_menu"),
 
+    # ---------- Aggregated (owner/admin) ----------
+    re_path(r"^menu/?$", views.MenuAggregateView.as_view(), name="menu_aggregate"),
+
     # ---------- Menu display settings ----------
     re_path(r"^menus/(?P<menu_id>\d+)/display-settings/?$",
             views.MenuDisplaySettingsDetail.as_view(), name="menu_display_settings"),

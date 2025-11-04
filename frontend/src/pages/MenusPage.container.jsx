@@ -1,5 +1,6 @@
 // src/pages/MenusPage.container.jsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import api from '../services/axios';
 import { Link } from 'react-router-dom';
 import {
@@ -305,13 +306,12 @@ function MenusPage({ token }) {
       return;
     }
     try {
-      const resSections = await api.get('/sections/', { params: { menu: menuId } });
-      const secs = Array.isArray(resSections.data) ? resSections.data : [];
+      const { data } = await api.get('/menu/', { params: { branch: menuId } });
+      const secs = Array.isArray(data?.sections) ? data.sections : [];
       setSections(secs);
       const dishesObj = {};
-      for (const section of secs) {
-        const resDishes = await api.get('/dishes/', { params: { section: section.id } });
-        dishesObj[section.id] = Array.isArray(resDishes.data) ? resDishes.data : [];
+      for (const sec of secs) {
+        dishesObj[sec.id] = Array.isArray(sec.dishes) ? sec.dishes : [];
       }
       setDishesBySection(dishesObj);
     } catch { /* ignore */ }
@@ -364,14 +364,33 @@ function MenusPage({ token }) {
   }, [token, t]);
 
   useEffect(() => { fetchMenus(); fetchMyProfile(); }, []); // eslint-disable-line
+  // React Query: aggregated menu fetch (single request)
+  const { data: aggMenuData } = useQuery({
+    queryKey: ['menu-aggregate', selectedMenuId],
+    enabled: /^\d+$/.test(String(selectedMenuId ?? '')),
+    queryFn: async () => {
+      const { data } = await api.get('/menu/', { params: { branch: selectedMenuId } });
+      return data;
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    keepPreviousData: true,
+  });
+
   useEffect(() => {
     if (/^\d+$/.test(String(selectedMenuId ?? ''))) {
-      fetchSectionsAndDishes(selectedMenuId);
+      // sections + dishes from cached query
+      const secs = Array.isArray(aggMenuData?.sections) ? aggMenuData.sections : [];
+      setSections(secs);
+      const dishesBy = {};
+      for (const sec of secs) dishesBy[sec.id] = Array.isArray(sec.dishes) ? sec.dishes : [];
+      setDishesBySection(dishesBy);
       fetchDisplaySettings(selectedMenuId);
     } else {
       setSections([]); setDishesBySection({}); setSelectedDisplay({ logo: '', hero_image: '' });
     }
-  }, [selectedMenuId]); // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMenuId, aggMenuData]);
 
   const handleCreateMenu = async () => {
     if (!newMenuName.trim()) return;
@@ -425,11 +444,10 @@ function MenusPage({ token }) {
       const XLSX = await ensureXLSX();
       const wb = XLSX.utils.book_new();
       const hdr = exportHeaders();
-      const resSections = await api.get('/sections/', { params: { menu: menu.id } });
-      const secs = Array.isArray(resSections.data) ? resSections.data : [];
+      const { data } = await api.get('/menu/', { params: { branch: menu.id } });
+      const secs = Array.isArray(data?.sections) ? data.sections : [];
       for (const sec of secs) {
-        const resDishes = await api.get('/dishes/', { params: { section: sec.id } });
-        const dishes = Array.isArray(resDishes.data) ? resDishes.data : [];
+        const dishes = Array.isArray(sec.dishes) ? sec.dishes : [];
         const rows = dishes.map((d) => {
           const prices = (d.prices || []).slice().sort(bySort);
           const def = prices.find((p) => p.is_default)?.price ?? d.price ?? '';
