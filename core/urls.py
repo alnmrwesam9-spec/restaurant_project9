@@ -98,7 +98,16 @@ urlpatterns = [
             views.dictionary_batch_upsert_lexemes, name="dictionary_batch_upsert_lexemes"),
     re_path(r"^dictionary/llm-add-terms/?$",
             views.llm_add_terms_to_lexicon, name="llm_add_terms_to_lexicon"),
+    # Backwards-compatibility alias used by frontend
+    re_path(r"^lexicon/llm-add/?$",
+            views.llm_add_terms_to_lexicon, name="lexicon_llm_add"),
     re_path(r"^llm-direct-codes/?$", views.llm_direct_codes, name="llm_direct_codes"),
+    # LLM helper endpoints (ETA / Limits)
+    re_path(r"^llm/eta/?$", views.llm_eta, name="llm_eta"),
+    re_path(r"^llm/limits/?$", views.llm_limits, name="llm_limits"),
+    # LLM async jobs
+    re_path(r"^llm/jobs/start-batch-generate/?$", views.llm_jobs_start_batch_generate, name="llm_jobs_start_batch_generate"),
+    re_path(r"^llm/jobs/(?P<job_id>[a-f0-9\-]+)/status/?$", views.llm_jobs_status, name="llm_jobs_status"),
 
     # ---------- v2: dishes + nested prices/allergens ----------
     re_path(r"^v2/dishes/?$",                   dish_list,   name="v2_dish_list"),

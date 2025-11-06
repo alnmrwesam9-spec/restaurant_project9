@@ -64,6 +64,9 @@ from core.services.llm_ingest import (
     llm_map_dish_to_codes,   # LLM مباشر للأكواد
 )
 from core.llm_clients.openai_client import openai_caller
+from core.llm_clients.limiter import estimate_eta as _llm_estimate_eta
+from core.llm_clients.limiter import global_limiter as _llm_limiter
+from core.utils.jobs import job_manager, JobState
 
 # نموذج القاموس
 from core.dictionary_models import KeywordLexeme
@@ -186,6 +189,330 @@ def ping(request):
     فحص سريع للتأكد من أن الـ API يعمل.
     """
     return Response({"ok": True, "ping": "pong"}, status=status.HTTP_200_OK)
+
+
+# ============================================================
+# LLM ETA / Limits helpers (for UI progress & estimates)
+# ============================================================
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def llm_eta(request):
+    """
+    GET /api/llm/eta?count=100&avg_tokens=1500&calls_per_item=2.0&p95_latency_sec=2.5
+    Returns an ETA estimate (in minutes) and the effective throughput.
+    """
+    try:
+        count = int(request.query_params.get("count", 0))
+    except Exception:
+        count = 0
+    try:
+        avg_tokens = int(request.query_params.get("avg_tokens", 1500))
+    except Exception:
+        avg_tokens = 1500
+    try:
+        calls_per_item = float(request.query_params.get("calls_per_item", 2.0))
+    except Exception:
+        calls_per_item = 2.0
+    try:
+        p95_latency = float(request.query_params.get("p95_latency_sec", 2.5))
+    except Exception:
+        p95_latency = 2.5
+
+    rate, minutes = _llm_estimate_eta(
+        items=count,
+        avg_tokens_per_call=avg_tokens,
+        calls_per_item=calls_per_item,
+        p95_latency_sec=p95_latency,
+    )
+    return Response({
+        "count": count,
+        "avg_tokens_per_call": avg_tokens,
+        "calls_per_item": calls_per_item,
+        "p95_latency_sec": p95_latency,
+        "effective_rate_req_per_min": round(rate, 2),
+        "estimated_minutes": round(minutes, 2),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def llm_limits(request):
+    """
+    GET /api/llm/limits -> current limiter config + runtime budgets & simple throughput.
+    Useful to show the user remaining capacity and a live-progress ticker.
+    """
+    data = {
+        "config": _llm_limiter.config(),
+        "stats": _llm_limiter.stats(),
+    }
+    return Response(data, status=status.HTTP_200_OK)
+
+
+# ============================================================
+# LLM Batch Jobs (async): start + status
+# ============================================================
+
+def _run_batch_generate_job(job: JobState, user_id: int, payload: dict) -> Dict:
+    # Reuse logic from batch_generate_allergen_codes while updating job progress
+    from django.contrib.auth import get_user_model
+    UserModel = get_user_model()
+    user = UserModel.objects.filter(pk=user_id).first()
+    if not user:
+        raise RuntimeError("User not found for job")
+
+    # Parse payload (mirror sync endpoint)
+    force = bool(payload.get("force", False))
+    dry_run = bool(payload.get("dry_run", True))
+    lang = str(payload.get("lang") or "de").lower()
+    include_details = bool(payload.get("include_details", True))
+
+    use_llm = bool(payload.get("use_llm", False))
+    llm_dry_run = bool(payload.get("llm_dry_run", True))
+    llm_model = payload.get("llm_model") or "gpt-4o-mini"
+    try:
+        llm_max_terms = int(payload.get("llm_max_terms", 12))
+    except Exception:
+        llm_max_terms = 12
+    try:
+        llm_temperature = float(payload.get("llm_temperature", 0.2))
+    except Exception:
+        llm_temperature = 0.2
+    llm_debug = bool(payload.get("llm_debug", False))
+    llm_guess_codes = bool(payload.get("llm_guess_codes", True))
+
+    # Query dishes with same permission constraints
+    base = Dish.objects.select_related("section__menu__user")
+    qs = base if is_admin(user) else base.filter(section__menu__user=user)
+    dish_ids_param = payload.get("dish_ids")
+    if isinstance(dish_ids_param, list) and dish_ids_param:
+        qs = qs.filter(id__in=dish_ids_param)
+    dishes = list(qs)
+
+    total_units = len(dishes)
+    job_manager.update(job.id, total=total_units, completed=0, message="rules phase")
+
+    # Determine owner_id as in sync endpoint
+    owner_id = None
+    explicit_owner_id = payload.get("owner_id")
+    if explicit_owner_id is not None:
+        try:
+            owner_id = int(explicit_owner_id)
+        except Exception:
+            owner_id = None
+    if owner_id is None:
+        if not is_admin(user):
+            owner_id = user.id
+        else:
+            owner_ids = {getattr(d.section.menu, "user_id", None) for d in dishes}
+            owner_ids.discard(None)
+            owner_id = next(iter(owner_ids)) if len(owner_ids) == 1 else None
+
+    # 1) Rules — always include the caller's private lexicon along with owner's/global
+    rules_res = rule_generate_for_dishes(
+        dishes,
+        owner_id=owner_id,
+        lang=lang,
+        force=force,
+        dry_run=dry_run,
+        include_details=include_details,
+        extra_owner_ids=[user.id],
+    )
+
+    # 1.b) Persist DishAllergen rows if not dry_run
+    if not dry_run and isinstance(rules_res, dict):
+        items = rules_res.get("items", []) or []
+        by_id = {d.id: d for d in dishes}
+        created_rows = 0
+        for it in items:
+            try:
+                did = int(it.get("dish_id"))
+            except Exception:
+                continue
+            dish = by_id.get(did)
+            if not dish or bool(it.get("skipped")):
+                continue
+            after = (it.get("after") or "").strip()
+            if not after:
+                continue
+            created_rows += _sync_dish_allergen_rows_from_codes(
+                dish, after, source=DishAllergen.Source.REGEX, force=force
+            )
+        rules_res["dish_allergen_rows_created"] = created_rows
+
+    # Mark phase 1 progress
+    job_manager.update(job.id, completed=len(dishes), message="rules done")
+
+    # 2) LLM fallback
+    missing_ids: List[int] = []
+    for it in rules_res.get("items", []):
+        after = (it.get("after") or "").strip()
+        before = (it.get("before") or "").strip()
+        if bool(it.get("skipped")):
+            continue
+        if after == "" or ((after == before) and (before == "")):
+            try:
+                missing_ids.append(int(it["dish_id"]))
+            except Exception:
+                continue
+
+    llm_payload = None
+    if use_llm and missing_ids:
+        by_id = {d.id: d for d in dishes}
+        cfg = LLMConfig(
+            model_name=llm_model,
+            lang=lang,
+            max_terms=llm_max_terms,
+            temperature=llm_temperature,
+            dry_run=llm_dry_run,
+            max_output_tokens=512,
+        )
+
+        # Increase total units by remaining LLM work
+        total_units2 = len(dishes) + len(missing_ids)
+        job_manager.update(job.id, total=total_units2, message="llm phase")
+
+        items = []
+        total_llm = len(missing_ids)
+        processed_llm = 0
+        calls_per_item = 1.0 + (1.0 if llm_guess_codes else 0.0)
+
+        for did in missing_ids:
+            d = by_id.get(did)
+            if not d:
+                continue
+            try:
+                if llm_debug:
+                    terms, raw = llm_extract_terms(openai_caller, cfg, d.name or "", d.description or "", return_raw=True)  # type: ignore
+                else:
+                    terms = llm_extract_terms(openai_caller, cfg, d.name or "", d.description or "")  # type: ignore
+                    raw = ""
+            except Exception as e:
+                items.append({
+                    "dish_id": did,
+                    "status": "error",
+                    "error": str(e),
+                    "reused": False,
+                    "candidates": [],
+                })
+                processed_llm += 1
+                job_manager.update(job.id, completed=len(dishes) + processed_llm)
+                # update ETA for remaining llm items
+                remain = max(0, total_llm - processed_llm)
+                _, eta_min = _llm_estimate_eta(remain, avg_tokens_per_call=1500, calls_per_item=calls_per_item)
+                job_manager.update(job.id, eta_minutes=eta_min)
+                continue
+
+            codes_lookup = {}
+            if llm_guess_codes and terms:
+                try:
+                    codes_lookup = llm_map_terms_to_codes(openai_caller, cfg, terms, lang=lang)
+                except Exception:
+                    codes_lookup = {}
+
+            candidates = []
+            for term in terms:
+                lk = codes_lookup.get(term.lower(), {}) if isinstance(codes_lookup, dict) else {}
+                cand = {
+                    "term": term,
+                    "guess_codes": lk.get("codes", ""),
+                    "confidence": lk.get("confidence", 0.0),
+                    "reason": lk.get("reason", ""),
+                }
+                norm = _norm(term)
+                lx = (
+                    KeywordLexeme.objects
+                    .filter(lang=lang, normalized_term=norm)
+                    .select_related("ingredient")
+                    .first()
+                )
+                if lx and lx.ingredient_id:
+                    cand["mapped_ingredient_id"] = lx.ingredient_id
+                candidates.append(cand)
+
+            item = {
+                "dish_id": did,
+                "status": "ok" if terms else "empty",
+                "reused": False,
+                "candidates": candidates,
+            }
+            if llm_debug:
+                item["raw"] = raw
+            items.append(item)
+
+            processed_llm += 1
+            job_manager.update(job.id, completed=len(dishes) + processed_llm)
+            remain = max(0, total_llm - processed_llm)
+            _, eta_min = _llm_estimate_eta(remain, avg_tokens_per_call=1500, calls_per_item=calls_per_item)
+            job_manager.update(job.id, eta_minutes=eta_min)
+
+        llm_payload = {
+            "count": len(items),
+            "items": items[:1000],
+            "dry_run": llm_dry_run,
+            "model_name": cfg.model_name,
+            "lang": cfg.lang,
+            "note": "LLM candidates only; review & add lexemes to map terms → ingredients. Includes guess_codes.",
+        }
+
+    return {"rules": rules_res, "llm": llm_payload}
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def llm_jobs_start_batch_generate(request):
+    # Prepare payload copy
+    payload = dict(request.data) if hasattr(request, "data") else {}
+
+    # Compute initial dish count for total estimate
+    user = request.user
+    base = Dish.objects.select_related("section__menu__user")
+    qs = base if is_admin(user) else base.filter(section__menu__user=user)
+    dish_ids_param = payload.get("dish_ids")
+    if isinstance(dish_ids_param, list) and dish_ids_param:
+        qs = qs.filter(id__in=dish_ids_param)
+    initial_count = qs.count()
+
+    job = job_manager.create(total=initial_count, message="queued")
+    job_manager.spawn(job, _run_batch_generate_job, user.id, payload)
+
+    # rough ETA (LLM-only), assume at most 2 calls/item if llm enabled
+    use_llm = bool(payload.get("use_llm", False))
+    calls_per_item = 2.0 if use_llm else 0.0
+    _, eta_min = _llm_estimate_eta(initial_count, avg_tokens_per_call=1500, calls_per_item=calls_per_item)
+
+    return Response({
+        "job_id": job.id,
+        "queued": True,
+        "initial_total": initial_count,
+        "initial_eta_minutes": round(eta_min, 2) if eta_min else 0.0,
+    }, status=status.HTTP_202_ACCEPTED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def llm_jobs_status(request, job_id: str):
+    st = job_manager.get(job_id)
+    if not st:
+        return Response({"detail": "job not found"}, status=status.HTTP_404_NOT_FOUND)
+    def _ts(x):
+        import datetime
+        return datetime.datetime.utcfromtimestamp(x).isoformat() + "Z" if x else None
+    data = {
+        "id": st.id,
+        "status": st.status,
+        "message": st.message,
+        "created_at": _ts(st.created_at),
+        "started_at": _ts(st.started_at),
+        "finished_at": _ts(st.finished_at),
+        "total": st.total,
+        "completed": st.completed,
+        "percent": round(st.percent, 2),
+        "eta_minutes": round(st.eta_minutes, 2) if st.eta_minutes is not None else None,
+        "error": st.error,
+        "result": st.result if st.status == "done" else None,
+    }
+    return Response(data, status=status.HTTP_200_OK)
 
 
 class UserListAdminView(generics.ListAPIView):
@@ -581,6 +908,7 @@ def batch_generate_allergen_codes(request):
         llm_temperature = 0.2
     llm_debug = bool(request.data.get("llm_debug", False))
     llm_guess_codes = bool(request.data.get("llm_guess_codes", True))
+    # Always include the caller's private lexicon along with owner's/global
 
     # نطاق الأطباق
     base = Dish.objects.select_related("section__menu__user")
@@ -617,6 +945,7 @@ def batch_generate_allergen_codes(request):
         force=force,
         dry_run=dry_run,
         include_details=include_details,
+        extra_owner_ids=[user.id],
     )
 
     # 1.b) مزامنة سجلات DishAllergen من ناتج القواعد (إن لم يكن dry_run)
@@ -871,12 +1200,12 @@ def llm_add_terms_to_lexicon(request):
     للأدمن فقط: as_global=true يحفظ في القاموس العام (owner=None).
     """
     user = request.user
-    is_admin_user = is_admin(user)
-
+    # Always save to the caller's private lexicon (owner=request.user).
+    # We intentionally ignore any as_global flag to avoid polluting global lexicon.
     data = request.data or {}
     lang = (data.get("lang") or "de").lower().strip()
     items = data.get("items") or []
-    as_global = bool(data.get("as_global", False)) if is_admin_user else False
+    as_global = False
 
     results = []
     created = 0
@@ -895,7 +1224,7 @@ def llm_add_terms_to_lexicon(request):
         norm = _norm(term)
 
         qs = KeywordLexeme.objects.filter(lang__iexact=lang, normalized_term=norm)
-        qs = qs.filter(owner__isnull=True) if as_global else qs.filter(owner=user)
+        qs = qs.filter(owner=user)
 
         obj = qs.first()
         if obj:
@@ -925,10 +1254,7 @@ def llm_add_terms_to_lexicon(request):
             "is_active": True,
             "normalized_term": norm,
         }
-        if as_global:
-            obj = KeywordLexeme.objects.create(**create_kwargs)
-        else:
-            obj = KeywordLexeme.objects.create(owner=user, **create_kwargs)
+        obj = KeywordLexeme.objects.create(owner=user, **create_kwargs)
 
         if codes_norm:
             alls = list(Allergen.objects.filter(code__in=re.split(r"[,\s]+", codes_norm)))
@@ -940,7 +1266,7 @@ def llm_add_terms_to_lexicon(request):
     return Response({
         "ok": True,
         "lang": lang,
-        "as_global": as_global,
+        "as_global": False,
         "created": created,
         "updated": updated,
         "skipped": skipped,
@@ -1275,6 +1601,19 @@ try:
 
     llm_direct_codes.throttle_scope = "llm"
     llm_direct_codes = throttle_classes([ScopedRateThrottle])(llm_direct_codes)
+
+    # Lightweight GET helpers use availability throttle
+    llm_eta.throttle_scope = "availability"
+    llm_eta = throttle_classes([ScopedRateThrottle])(llm_eta)
+
+    llm_limits.throttle_scope = "availability"
+    llm_limits = throttle_classes([ScopedRateThrottle])(llm_limits)
+
+    llm_jobs_start_batch_generate.throttle_scope = "llm"
+    llm_jobs_start_batch_generate = throttle_classes([ScopedRateThrottle])(llm_jobs_start_batch_generate)
+
+    llm_jobs_status.throttle_scope = "availability"
+    llm_jobs_status = throttle_classes([ScopedRateThrottle])(llm_jobs_status)
 except Exception:
     # If import order or name lookup fails in some contexts, ignore.
     pass

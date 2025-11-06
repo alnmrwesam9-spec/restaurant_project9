@@ -3,6 +3,7 @@ import os
 import re
 from typing import Optional
 from openai import OpenAI, RateLimitError, APIError, APIConnectionError, AuthenticationError
+from .limiter import global_limiter, estimate_tokens
 
 MODEL_ALIAS = {
     "gpt-4.1": "gpt-4o",
@@ -44,7 +45,7 @@ def openai_caller(
     client = OpenAI(api_key=api_key, timeout=timeout)
     model = _resolve_model(model_name)
 
-    try:
+    def _do_call():
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -52,6 +53,11 @@ def openai_caller(
             max_tokens=int(max_tokens),
         )
         return (resp.choices[0].message.content or "").strip()
+
+    # Schedule via global rate limiter with retries
+    token_cost = estimate_tokens(prompt, int(max_tokens))
+    try:
+        return global_limiter.execute(token_cost, _do_call)  # type: ignore[return-value]
 
     except RateLimitError as e:
         # نستخرج تلميح "try again in XmYs" إن وجد

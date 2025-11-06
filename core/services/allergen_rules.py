@@ -54,10 +54,17 @@ def normalize_text(s: str) -> str:
 # -----------------------
 def _match_plain(text_norm: str, term_norm: str) -> bool:
     """مطابقة عبارة بعد التطبيع بحدود كلمات تقريبية."""
+    term_norm = (term_norm or "").strip()
     if not term_norm:
         return False
-    pat = rf"(?:(?<=\s)|^){re.escape(term_norm)}(?:(?=\s)|$)"
-    return re.search(pat, text_norm, flags=re.IGNORECASE) is not None
+    pat_full = rf"(?:(?<=\s)|^){re.escape(term_norm)}(?:(?=\s)|$)"
+    if re.search(pat_full, text_norm, flags=re.IGNORECASE):
+        return True
+    if len(term_norm) >= 3:
+        for tok in (text_norm or "").split():
+            if tok.startswith(term_norm) or tok.endswith(term_norm):
+                return True
+    return False
 
 
 def _match_regex(text_norm: str, pattern_raw: str) -> bool:
@@ -179,7 +186,7 @@ def _build_de_explanation(letter_codes: Set[str]) -> str:
 # -----------------------
 _GLOBAL_OWNER_ID = getattr(settings, "GLOBAL_LEXICON_OWNER_ID", None)
 
-def _resolve_lexemes(owner_id: int | None, lang: str) -> List[KeywordLexeme]:
+def _resolve_lexemes(owner_id: int | None, lang: str, extra_owner_ids: Iterable[int] | None = None) -> List[KeywordLexeme]:
     """
     نجلب القواميس بالترتيب:
       1) قاموس المالك (إن وُجد owner_id)
@@ -187,11 +194,20 @@ def _resolve_lexemes(owner_id: int | None, lang: str) -> List[KeywordLexeme]:
       3) القاموس المُعرّف في settings.GLOBAL_LEXICON_OWNER_ID (إن وُجد)
     مع ترتيب يفضّل نتائج المالك ثم NULL ثم GLOBAL.
     """
-    filters = Q(is_active=True, lang__iexact=lang) & (
-        Q(owner_id=owner_id) |
-        Q(owner__isnull=True) |
-        (Q(owner_id=_GLOBAL_OWNER_ID) if _GLOBAL_OWNER_ID is not None else Q(pk__in=[]))
-    )
+    extra_owner_ids = list(extra_owner_ids or [])
+    owner_q = Q()
+    if owner_id is not None:
+        owner_q |= Q(owner_id=owner_id)
+    for oid in extra_owner_ids:
+        try:
+            owner_q |= Q(owner_id=int(oid))
+        except Exception:
+            pass
+    owner_q |= Q(owner__isnull=True)
+    if _GLOBAL_OWNER_ID is not None:
+        owner_q |= Q(owner_id=_GLOBAL_OWNER_ID)
+
+    filters = Q(is_active=True, lang__iexact=lang) & owner_q
 
     qs = (
         KeywordLexeme.objects
@@ -370,8 +386,9 @@ def generate_for_dishes(
     force: bool = False,
     dry_run: bool = True,
     include_details: bool = False,
+    extra_owner_ids: Iterable[int] | None = None,
 ) -> Dict:
-    lexemes = _resolve_lexemes(owner_id=owner_id, lang=lang)
+    lexemes = _resolve_lexemes(owner_id=owner_id, lang=lang, extra_owner_ids=extra_owner_ids)
 
     processed = 0
     skipped = 0
