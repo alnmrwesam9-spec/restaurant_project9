@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FixedSizeList as VirtualList } from 'react-window';
 import { useParams } from 'react-router-dom';
 import axios from '../services/axios';
+import PublicOpeningHours from '../components/PublicOpeningHours';
 import {
   Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Container,
   Dialog, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography,
@@ -476,6 +477,12 @@ export default function PublicMenuPage() {
 
       {/* المحتوى */}
       <Container maxWidth={false} sx={{ maxWidth: 'min(1200px, 100%)', px: 2, mt: parsedTheme.show_hero ? 6 : 3 }}>
+        <PublicOpeningHours
+          hours={ds.hours}
+          address={ds.address || rp.address}
+          phone={ds.phone || rp.phone}
+          language={i18n.language}
+        />
         {filteredSections.length === 0 ? (
           <Alert severity="info">{t('no_results') || 'لا توجد نتائج.'}</Alert>
         ) : (

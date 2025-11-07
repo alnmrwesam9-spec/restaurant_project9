@@ -489,7 +489,9 @@
   "public.help.toggles_body": "Blende Logo, Titelbild, Suche, Bereichsnamen, Preise und Bilder ein/aus – ohne Daten zu ändern.",
   "upload_hero": "Titelbild hochladen",
   "back_to_sections": "Zurück zu den Bereichen",
-  "powered_by": "Powered by Ibla Tech"
+  "powered_by": "Powered by Ibla Tech",
+  "confirm_delete_menu": "Sind Sie sicher, dass Sie dieses Menü löschen möchten?",
+  "started_tour": "🧑‍🍳 Tour gestartet"
 }
 
 

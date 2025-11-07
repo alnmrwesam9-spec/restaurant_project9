@@ -23,6 +23,7 @@ const QRCode = React.lazy(() => import('react-qr-code')); // ✅ تحميل كس
 
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import OpeningHoursEditor from '../components/OpeningHoursEditor';
 
 const buildURL = (path) => new URL(path, window.location.origin).toString();
 
@@ -166,7 +167,7 @@ function PreviewCard({ font, scale, priceColor, priceScale }) {
 }
 
 export default function MenuPublicSettings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const isSmDown = useMediaQuery(theme.breakpoints.down('md'));
   const isXsDown = useMediaQuery(theme.breakpoints.down('sm'));
@@ -312,7 +313,26 @@ export default function MenuPublicSettings() {
       fd.append('display_name', form.display_name);
       fd.append('phone', form.phone);
       fd.append('address', form.address);
-      fd.append('hours', form.hours);
+      // Compact hours if too large for backend CharField(255)
+      const compactHours = (() => {
+        const val = form.hours || '';
+        if (val && val.length <= 240) return val; // already short
+        try {
+          const obj = JSON.parse(val);
+          const days = obj?.days || obj;
+          const dks = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+          const compact = dks.map((k, i) => {
+            const d = days?.[k] || {};
+            const en = d?.enabled ? 1 : 0;
+            const times = Array.isArray(d?.slots) ? d.slots.map(s => `${s.from}-${s.to}`).join(',') : '';
+            return `d${i}=${en}${times ? '@' + times : ''}`;
+          }).join(';');
+          return compact;
+        } catch {
+          return String(val).slice(0, 250);
+        }
+      })();
+      fd.append('hours', compactHours);
       fd.append('theme', buildThemeString(form));
       // send show_images as a top-level flag (not inside theme)
       fd.append('show_images', String(form.show_images ? 1 : 0));
@@ -693,9 +713,15 @@ export default function MenuPublicSettings() {
                   onChange={(e) => update('hours', e.target.value)}
                   fullWidth
                   size={isSmDown ? 'small' : 'medium'}
-                  sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                  sx={{ display: 'none', '& .MuiInputBase-root': { borderRadius: 2 } }}
                 />
               </Stack>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.75, fontWeight: 800 }}>{tOr('opening_hours','Opening Hours')}</Typography>
+                <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                  <OpeningHoursEditor title={tOr('opening_hours','Opening Hours')} value={form.hours} onChange={(v) => update('hours', v)} language={(i18n && i18n.language) || 'en'} />
+                </Paper>
+              </Box>
               <TextField
                 label={tOr('address','العنوان')}
                 value={form.address}

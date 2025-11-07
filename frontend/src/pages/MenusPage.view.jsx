@@ -76,6 +76,28 @@ function MenusPageView() {
     InfoOutlinedIcon, SearchIcon, LanguageIcon,
   } = Icons;
 
+  // Delete confirmation dialog state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState(null);
+
+  const openDeleteConfirm = (id) => {
+    setPendingDeleteId(id);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmDeleteOpen(false);
+    setPendingDeleteId(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (pendingDeleteId) {
+      deleteMenuNow(pendingDeleteId);
+    }
+    setConfirmDeleteOpen(false);
+    setPendingDeleteId(null);
+  };
+
   // ���� ���� �������
   const SafeImg = React.forwardRef(function SafeImg(
     { src, alt, fallback, onError, ...props },
@@ -523,7 +545,7 @@ function MenusPageView() {
                                 size="small"
                                 color="error"
                                 startIcon={<DeleteIcon />}
-                                onClick={() => deleteMenuNow(selectedMenu.id)}
+                                onClick={() => openDeleteConfirm(selectedMenu.id)}
                                 variant="text"
                                 sx={pillSx}
                               >
@@ -549,7 +571,7 @@ function MenusPageView() {
                               size="small"
                               color="error"
                               startIcon={<DeleteIcon />}
-                              onClick={() => deleteMenuNow(selectedMenu.id)}
+                              onClick={() => openDeleteConfirm(selectedMenu.id)}
                               variant="text"
                               sx={{ borderRadius: 2 }}
                             >
@@ -789,6 +811,29 @@ function MenusPageView() {
               </Grid>
             </Grid>
           )}
+
+          {/* Delete confirmation dialog */}
+          <Dialog open={confirmDeleteOpen} onClose={handleCancelDelete} maxWidth="xs" fullWidth
+                  PaperProps={{ sx: { borderRadius: 3 } }}>
+            <DialogTitle sx={{ fontWeight: 800 }}>{t('actions.delete')}</DialogTitle>
+            <DialogContent dividers>
+              <Typography variant="body2" color="text.secondary">
+                {t('confirm_delete_menu') || 'Are you sure you want to delete this menu?'}
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCancelDelete}>{t('actions.cancel')}</Button>
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={handleConfirmDelete}
+                sx={{ borderRadius: 999, boxShadow: 'none' }}
+              >
+                {t('actions.delete')}
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* Import dialog */}
           <Dialog open={excelDialog} onClose={() => !excelBusy && setExcelDialog(false)} maxWidth="md" fullWidth

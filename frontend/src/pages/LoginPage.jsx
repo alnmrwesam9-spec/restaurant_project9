@@ -470,9 +470,10 @@ export default function LoginPage({ onLogin }) {
               {[0, 1, 2, 3].map((i) => (
                 <Avatar
                   key={i}
-                  sx={{ width: 28, height: 28, border: '2px solid', borderColor: 'var(--brand-sidebar)' }}
-                  src={`https://i.pravatar.cc/64?img=${12 + i}`}
-                />
+                  sx={{ width: 28, height: 28, border: '2px solid', borderColor: 'var(--brand-sidebar)', fontSize: 12, fontWeight: 700 }}
+                >
+                  {String.fromCharCode(65 + i)}
+                </Avatar>
               ))}
               <Typography variant="caption" sx={{ opacity: 0.95 }}>
                 {t('trusted_by') || 'Trusted by 500+ restaurants'}

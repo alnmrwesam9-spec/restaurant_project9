@@ -518,5 +518,7 @@
   "public.help.toggles_body": "Show/hide logo, hero image, search, section names, prices, and images without changing your data.",
   "upload_hero": "Upload a hero image",
   "back_to_sections": "Back to sections",
-  "powered_by": "Powered by Ibla Tech"
+  "powered_by": "Powered by Ibla Tech",
+  "confirm_delete_menu": "Are you sure you want to delete this menu?",
+  "started_tour": "🧑‍🍳 Started the tour"
 }

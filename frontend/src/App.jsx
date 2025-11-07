@@ -31,6 +31,7 @@ import AdminRoute from './components/AdminRoute'
 import UserNavbar from './components/UserNavbar'
 import AdminNavbar from './components/AdminNavbar'
 
+
 /* ⚙️ Lazy pages (تصغير الحزمة الأولية) */
 const LoginPage = React.lazy(() => import('./pages/LoginPage'))
 const Register = React.lazy(() => import('./pages/Register'))
@@ -72,7 +73,7 @@ function isAdminFromToken(token) {
 // ✅ يعتمد على i18next لمعرفة الاتجاه مع fallback على <html dir>
 function StartTourButton({ token }) {
   const { setIsOpen, setCurrentStep } = useTour()
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const location = useLocation()
   const path = location?.pathname || '/'
 
@@ -113,7 +114,7 @@ function StartTourButton({ token }) {
       aria-label="ابدأ الجولة"
       title="ابدأ الجولة"
     >
-      🧑‍🍳 ابدأ الجولة
+      {t("started_tour")}
     </button>
   )
 }
@@ -132,6 +133,16 @@ const queryClient = new QueryClient({
 
 export default function App() {
   const [token, setToken] = useState(null)
+  const { i18n } = useTranslation()
+
+  // Keep <html lang> and dir in sync with current language so native inputs (e.g., time) pick correct numerals
+  useEffect(() => {
+    try {
+      const lng = i18n?.language || 'en'
+      document.documentElement.lang = lng
+      document.dir = lng.startsWith('ar') ? 'rtl' : 'ltr'
+    } catch {}
+  }, [i18n?.language])
 
   // أثناء الإقلاع: حمّل توكن صالح إن وجد واضبط Authorization
   useEffect(() => {
