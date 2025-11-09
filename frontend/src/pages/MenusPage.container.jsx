@@ -431,7 +431,7 @@ function MenusPage({ token }) {
   };
 
   const exportHeaders = () => {
-    const lang = (i18n.language || 'en').slice(0, 2);
+    const lang = (i18n.language || 'de').slice(0, 2);
     if (lang === 'ar') return { name: t('export.sheet_headers.name_ar'), description: t('export.sheet_headers.description_ar'), price: t('export.sheet_headers.price_ar'), prices_all: t('export.sheet_headers.prices_all_ar'), allergy: t('export.sheet_headers.allergy_ar') };
     if (lang === 'de') return { name: t('export.sheet_headers.name_de'), description: t('export.sheet_headers.description_de'), price: t('export.sheet_headers.price_de'), prices_all: t('export.sheet_headers.prices_all_de'), allergy: t('export.sheet_headers.allergy_de') };
     return { name: t('export.sheet_headers.name_en'), description: t('export.sheet_headers.description_en'), price: t('export.sheet_headers.price_en'), prices_all: t('export.sheet_headers.prices_all_en'), allergy: t('export.sheet_headers.allergy_en') };

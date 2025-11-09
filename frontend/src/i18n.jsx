@@ -9,7 +9,7 @@ i18n
   .use(LanguageDetector)      // كشف اللغة من المتصفح / LocalStorage / إلخ
   .use(initReactI18next)      // ربط i18next مع React
   .init({
-    fallbackLng: 'ar',
+    fallbackLng: 'de',
     supportedLngs: ['ar', 'en', 'de'],
 
     ns: ['translation'],

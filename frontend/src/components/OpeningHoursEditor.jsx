@@ -79,11 +79,11 @@ function parseHours(value) {
 
 function getDayLabel(index, language) {
   const base = new Date(Date.UTC(2021, 0, 4 + index)); // Monday = 0
-  const lang = (language || 'en').startsWith('ar') ? 'ar' : (language || 'en');
+  const lang = (language || 'de').startsWith('ar') ? 'ar' : (language || 'de');
   return base.toLocaleDateString(lang, { weekday: 'long' });
 }
 
-export default function OpeningHoursEditor({ value, onChange, language = 'en', title }) {
+export default function OpeningHoursEditor({ value, onChange, language = 'de', title }) {
   const [schedule, setSchedule] = useState(() => parseHours(value));
   useEffect(() => { setSchedule(parseHours(value)); }, [value]);
 
@@ -106,8 +106,8 @@ export default function OpeningHoursEditor({ value, onChange, language = 'en', t
   };
   const toggleDay = (k, enabled) => emit({ ...schedule, [k]: { ...schedule[k], enabled } });
 
-  const lang = (language || 'en').startsWith('de') ? 'de-DE' : ((language || 'en').startsWith('ar') ? 'ar' : 'en-US');
-  const isArabic = (language || 'en').startsWith('ar');
+  const lang = (language || 'de').startsWith('de') ? 'de-DE' : ((language || 'de').startsWith('ar') ? 'ar' : 'en-US');
+  const isArabic = (language || 'de').startsWith('ar');
   const timeInputProps = { step: 300, lang, inputMode: 'numeric', pattern: '[0-9:]*', style: { direction: 'ltr' } };
 
   const genTimes = (step = 30) => {
@@ -215,7 +215,7 @@ export default function OpeningHoursEditor({ value, onChange, language = 'en', t
     });
   }, [isSmDown]);
 
-  const closedLabel = (language || 'en').startsWith('ar') ? 'مغلق' : ((language || 'en').startsWith('de') ? 'Geschlossen' : 'Closed');
+  const closedLabel = (language || 'de').startsWith('ar') ? 'مغلق' : ((language || 'de').startsWith('de') ? 'Geschlossen' : 'Closed');
 
   const summary = (day) => {
     if (!day?.enabled) return closedLabel;
@@ -241,7 +241,7 @@ export default function OpeningHoursEditor({ value, onChange, language = 'en', t
         <IconButton size="small" onClick={()=>setExpandedList((v)=>!v)} aria-label="toggle list">
           <ExpandMoreIcon sx={{ transform: expandedList ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
         </IconButton>
-        <Typography sx={{ fontWeight: 800, mr: 1 }}>{title || ( (language||'en').startsWith('ar') ? 'ساعات العمل' : ((language||'en').startsWith('de') ? 'Öffnungszeiten' : 'Opening Hours') )}</Typography>
+        <Typography sx={{ fontWeight: 800, mr: 1 }}>{title || ( (language||'de').startsWith('ar') ? 'ساعات العمل' : ((language||'de').startsWith('de') ? 'Öffnungszeiten' : 'Opening Hours') )}</Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', ml: 'auto', mr: 1 }}>{todayLabel}: {todaySummary}</Typography>
       </Stack>
       <Divider sx={{ opacity: 0.6 }} />

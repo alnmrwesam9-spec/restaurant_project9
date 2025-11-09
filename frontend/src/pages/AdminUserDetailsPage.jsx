@@ -114,7 +114,7 @@ const AdminUserDetailsPage = () => {
 
   // ===== تصدير إكسل (يدعم أسعار متعددة) =====
   const exportHeaders = () => {
-    const lang = (i18n.language || 'en').slice(0, 2);
+    const lang = (i18n.language || 'de').slice(0, 2);
     if (lang === 'ar') {
       return { name: 'اسم الطبق', description: 'الوصف', price: 'السعر', prices_all: 'جميع الأسعار', allergy: 'عناصر الحساسية' };
     }

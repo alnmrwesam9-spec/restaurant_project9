@@ -10,7 +10,7 @@ import { createTheme } from '@mui/material/styles'
  * Typography uses CSS vars that you set globally (e.g., in index.jsx) per locale:
  *   --font-base, --font-heading
  */
-export const makeAppTheme = (mode = 'light', direction = 'ltr', locale = 'en') => {
+export const makeAppTheme = (mode = 'light', direction = 'ltr', locale = 'de') => {
   const isArabic = String(locale || 'ar').toLowerCase().startsWith('ar')
 
   // Font stacks driven by CSS vars, switched from your app bootstrap

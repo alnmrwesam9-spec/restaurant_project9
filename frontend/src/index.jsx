@@ -54,12 +54,12 @@ function createEmotionCache(dir) {
 }
 
 function Root() {
-  const [lng, setLng] = React.useState(i18n.language || 'en')
+  const [lng, setLng] = React.useState(i18n.language || 'de')
   const dir = lng.startsWith('ar') ? 'rtl' : 'ltr'
 
   // الاستماع لتغيير اللغة
   React.useEffect(() => {
-    const onChange = (l) => setLng(l || 'en')
+    const onChange = (l) => setLng(l || 'de')
     i18n.on('languageChanged', onChange)
     return () => i18n.off('languageChanged', onChange)
   }, [])

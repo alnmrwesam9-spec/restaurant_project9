@@ -42,7 +42,7 @@ const parseHours = (value) => {
 
 const dayLabel = (index, language) => {
   const base = new Date(Date.UTC(2021,0,4+index));
-  const lang = (language || 'en').startsWith('ar') ? 'ar' : (language || 'en');
+  const lang = (language || 'de').startsWith('ar') ? 'ar' : (language || 'de');
   return base.toLocaleDateString(lang, { weekday: 'long' });
 };
 
@@ -124,14 +124,14 @@ function computeNextTransition(daysMap) {
 }
 
 function formatTime(d, language) {
-  const lang = (language || 'en').startsWith('ar') ? 'ar' : (language || 'en');
+  const lang = (language || 'de').startsWith('ar') ? 'ar' : (language || 'de');
   // 12h for ar/en, 24h for de
-  const is12h = !(language || 'en').startsWith('de');
+  const is12h = !(language || 'de').startsWith('de');
   return d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: is12h });
 }
 
-export default function PublicOpeningHours({ hours, address, phone, language = 'en' }) {
-  const langKey = (language || 'en').startsWith('ar') ? 'ar' : ((language || 'en').startsWith('de') ? 'de' : 'en');
+export default function PublicOpeningHours({ hours, address, phone, language = 'de' }) {
+  const langKey = (language || 'de').startsWith('ar') ? 'ar' : ((language || 'de').startsWith('de') ? 'de' : 'en');
   const TXT = {
     en: { opening: 'Opening Hours', open: 'Open now', closed: 'Closed', closesAt: 'closes at', opensAt: 'opens at' },
     de: { opening: 'Öffnungszeiten', open: 'Jetzt geöffnet', closed: 'Geschlossen', closesAt: 'schließt um', opensAt: 'öffnet um' },

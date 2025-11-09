@@ -719,7 +719,7 @@ export default function MenuPublicSettings() {
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 0.75, fontWeight: 800 }}>{tOr('opening_hours','Opening Hours')}</Typography>
                 <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-                  <OpeningHoursEditor title={tOr('opening_hours','Opening Hours')} value={form.hours} onChange={(v) => update('hours', v)} language={(i18n && i18n.language) || 'en'} />
+        <OpeningHoursEditor title={tOr('opening_hours','Opening Hours')} value={form.hours} onChange={(v) => update('hours', v)} language={(i18n && i18n.language) || 'de'} />
                 </Paper>
               </Box>
               <TextField

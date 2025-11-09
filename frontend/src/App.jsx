@@ -138,7 +138,7 @@ export default function App() {
   // Keep <html lang> and dir in sync with current language so native inputs (e.g., time) pick correct numerals
   useEffect(() => {
     try {
-      const lng = i18n?.language || 'en'
+      const lng = i18n?.language || 'de'
       document.documentElement.lang = lng
       document.dir = lng.startsWith('ar') ? 'rtl' : 'ltr'
     } catch {}

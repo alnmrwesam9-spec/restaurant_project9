@@ -276,7 +276,7 @@ const DishPage = () => {
                 <InputLabel>{t('language') || 'Language'}</InputLabel>
                 <Select
                   label={t('language') || 'Language'}
-                  value={i18n.language ?? 'en'}
+                  value={i18n.language ?? 'de'}
                   onChange={(e) => i18n.changeLanguage(e.target.value)}
                 >
                   {LANGS.map((l) => (<MenuItem key={l.code} value={l.code}>{l.label}</MenuItem>))}
