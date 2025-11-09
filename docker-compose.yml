@@ -1,10 +1,9 @@
-# docker-compose.yml (stable)
+
 services:
   ibla_db:
     container_name: ibla_db
-    image: postgres:16-alpine           # ← نرجع للإصدار 16 المتوافق مع الـ volume
+    image: postgres:16-alpine
     environment:
-      
       POSTGRES_DB: ${POSTGRES_DB:-ibla_db}
       POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_pass}
@@ -20,9 +19,9 @@ services:
     container_name: backend
     build:
       context: .
-      dockerfile: backend/Dockerfile     # Dockerfile داخل مجلد backend
+      dockerfile: backend/Dockerfile       # داخل مجلد backend
     environment:
-      # إعدادات قاعدة البيانات — متوافقة مع settings لديك
+      # قاعدة البيانات
       POSTGRES_DB: ${POSTGRES_DB:-ibla_db}
       POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_pass}
@@ -30,25 +29,23 @@ services:
       POSTGRES_PORT: "5432"
 
       # Django
-      DJANGO_SETTINGS_MODULE: backend.settings.prod  # أو dev لو أردت، لكن prod كان شغّال لديك
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      DJANGO_SETTINGS_MODULE: backend.settings.prod
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,ibladish.com,www.ibladish.com}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://ibladish.com,https://www.ibladish.com,http://localhost}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
     depends_on:
       ibla_db:
         condition: service_healthy
+
     volumes:
-      - staticfiles:/app/backend/staticfiles      # للـ collectstatic
-      - media:/app/backend/media                  # لرفع الصور والملفات
+      - staticfiles:/app/backend/staticfiles
+      - media:/app/backend/media
+
     expose:
       - "8000"
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket,sys; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',8000)); s.close(); sys.exit(0)\""]
-      interval: 5s
-      timeout: 3s
-      retries: 15
-      start_period: 5s
+
     command: >
       sh -c "
         mkdir -p /app/backend/media/avatars &&
@@ -61,14 +58,15 @@ services:
     container_name: frontend_builder
     build:
       context: ./frontend
-    # Ensure Rollup native binary or JS fallback is available in Linux containers
     environment:
       - ROLLUP_SKIP_NODE_NATIVE=1
       - npm_config_optional=true
       - CI=1
-    # npm ci on Windows-generated lockfiles misses linux rollup optional deps.
-    # Install linux binary explicitly, then build and keep container alive to hold the named volume.
-    command: sh -c "(npm ci || npm install) && npm i --no-save @rollup/rollup-linux-x64-gnu && npm run build && sleep infinity"
+    command: >
+      sh -c "(npm ci || npm install) &&
+             npm i --no-save @rollup/rollup-linux-x64-gnu &&
+             npm run build &&
+             sleep infinity"
     volumes:
       - frontend_dist:/app/dist
 
@@ -80,12 +78,14 @@ services:
       - frontend_builder
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - frontend_dist:/usr/share/nginx/html:ro
       - staticfiles:/app/backend/staticfiles:ro
       - media:/app/backend/media:ro
-    restart: always
+      # شهادات Let's Encrypt من النظام الرئيسي
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   pg_data:

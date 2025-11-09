@@ -1,0 +1,17 @@
+services:
+  backend:
+    environment:
+      DJANGO_SETTINGS_MODULE: backend.settings.dev
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      CORS_ALLOWED_ORIGINS: http://localhost
+
+  nginx:
+    # Only expose HTTP locally and use a dev nginx config without SSL
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - frontend_dist:/usr/share/nginx/html:ro
+      - staticfiles:/app/backend/staticfiles:ro
+      - media:/app/backend/media:ro
+
