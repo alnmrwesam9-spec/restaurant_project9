@@ -5,7 +5,7 @@ import axios from '../services/axios';
 import {
   Container, Typography, Box, Card, CardContent,
   CardMedia, Grid, TextField, Button, Snackbar,
-  InputAdornment, Stack, Chip, IconButton, Divider, Alert, Switch, FormControlLabel
+  InputAdornment, Stack, Chip, IconButton, Divider, Alert, Switch, FormControlLabel,
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import SaveIcon from '@mui/icons-material/Save';
@@ -47,6 +47,38 @@ const AdminMenuEditorPage = () => {
     fetchSections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuId]);
+
+  // Optimized aggregator-based fetch to reduce N+1 requests
+  const fetchSectionsOptimized = React.useCallback(async () => {
+    try {
+      const { data } = await axios.get('/menu/', { params: { branch: menuId } });
+      const secs = Array.isArray(data?.sections) ? data.sections : [];
+      setSections(secs.map((s) => ({ id: s.id, name: s.name })));
+      const dishes = {};
+      for (const section of secs) {
+        const arr = Array.isArray(section.dishes) ? section.dishes : [];
+        dishes[section.id] = arr.map((d) => {
+          const rows = (d.prices || []).slice().sort(bySort)
+            .map((p, i) => ({ id: p.id, label: p.label || '', price: String(p.price ?? ''), is_default: !!p.is_default, sort_order: i }));
+          return {
+            ...d,
+            _priceRows: rows.length ? rows : [{ id: undefined, label: '', price: '', is_default: true, sort_order: 0 }],
+            _originalPriceIds: new Set(rows.map(r => r.id).filter(Boolean)),
+          };
+        });
+      }
+      setDishesBySection(dishes);
+      setError('');
+    } catch (e) {
+      setError(t('load_sections_failed') || 'تعذر تحميل الأقسام/الأطباق');
+    }
+  }, [axios, menuId, t]);
+
+  useEffect(() => {
+    fetchSectionsOptimized();
+  }, [fetchSectionsOptimized]);
+
+  
 
   const fetchSections = async () => {
     try {
@@ -237,6 +269,7 @@ const AdminMenuEditorPage = () => {
     (dish.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (dish.description || '').toLowerCase().includes(searchQuery.toLowerCase());
 
+
   return (
     <Container sx={{ mt: 4, direction: document.dir }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -254,7 +287,7 @@ const AdminMenuEditorPage = () => {
           }}
         />
         <Typography variant="h6" fontWeight="bold">
-          {t('manage_menu')} #{menuId} 📄
+          {t('manage_menu')} #{menuId}
         </Typography>
         <Box>
           <TextField
@@ -301,6 +334,8 @@ const AdminMenuEditorPage = () => {
                         component="img"
                         image={dish.image}
                         alt={dish.name}
+                        loading="lazy"
+                        decoding="async"
                         sx={{ width: 160, height: '100%', objectFit: 'cover' }}
                       />
                     )}

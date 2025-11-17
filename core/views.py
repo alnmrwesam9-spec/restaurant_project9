@@ -665,6 +665,46 @@ class UserDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
         return super().delete(request, *args, **kwargs)
 
 
+class AdminCreateMenuForUser(APIView):
+    """
+    POST /api/admin/users/<user_id>/create-menu/
+    - Admin-only endpoint to create a new empty Menu for a specified user.
+    - Ensures related defaults are present (MenuDisplaySettings with default theme).
+    - Optionally accepts { "name": str, "sections": [str, ...] } to initialize categories.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, user_id: int):
+        # Validate target user exists
+        target_user = get_object_or_404(User, pk=user_id)
+
+        # Resolve name with safe default
+        raw_name = request.data.get("name") if isinstance(request.data, dict) else None
+        name = str(raw_name).strip() if raw_name else "New Menu"
+
+        # Create the menu for the specified user (unpublished by default)
+        menu = Menu.objects.create(user=target_user, name=name)
+
+        # Ensure display settings exist with defaults (theme='default', etc.)
+        MenuDisplaySettings.objects.get_or_create(menu=menu)
+
+        # Optionally create initial sections/categories
+        sections_payload = None
+        if isinstance(request.data, dict):
+            sections_payload = request.data.get("sections") or request.data.get("categories")
+        if isinstance(sections_payload, list):
+            for sec in sections_payload:
+                try:
+                    sec_name = (str(sec) if sec is not None else "").strip() or "New Section"
+                except Exception:
+                    sec_name = "New Section"
+                Section.objects.create(name=sec_name, menu=menu, user=target_user)
+
+        # Respond with created menu JSON
+        ser = MenuSerializer(menu)
+        return Response(ser.data, status=status.HTTP_201_CREATED)
+
+
 # ============================================================
 # Profile
 # ============================================================

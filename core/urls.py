@@ -58,6 +58,9 @@ urlpatterns = [
     # ---------- Users / Profile ----------
     re_path(r"^users/?$",              views.UserListAdminView.as_view(),   name="user_list_admin"),
     re_path(r"^users/(?P<pk>\d+)/?$",  views.UserDetailAdminView.as_view(), name="user_detail_admin"),
+    # Admin: create a new empty menu for a user
+    re_path(r"^admin/users/(?P<user_id>\d+)/create-menu/?$",
+            views.AdminCreateMenuForUser.as_view(), name="admin_create_menu_for_user"),
     re_path(r"^me/profile/?$", views.MeProfileAPIView.as_view(), name="me_profile"),
 
       # فحص سريع أن /api/ يعمل
