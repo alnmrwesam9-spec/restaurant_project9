@@ -460,13 +460,32 @@ export default function PublicMenuPage() {
 
       {/* المحتوى */}
       <Container maxWidth={false} sx={{ maxWidth: 'min(1200px, 100%)', px: 2, mt: parsedTheme.show_hero ? 6 : 3 }}>
-        <PublicOpeningHours
-          hours={ds.hours}
-          address={ds.address || rp.address}
-          phone={ds.phone || rp.phone}
-          whatsapp={ds.whatsapp}
-          language={i18n.language}
-        />
+        <Box sx={{
+          overflowX: 'hidden',
+          width: '100%',
+          maxWidth: '100%',
+          '& .MuiPaper-root': { overflowX: 'hidden', maxWidth: '100%' },
+          '& .MuiPaper-root *': { minWidth: { xs: 0 } },
+          '& .MuiPaper-root > .MuiStack-root > .MuiStack-root > .MuiStack-root': {
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+            justifyContent: { xs: 'space-between', md: 'flex-start' },
+          },
+          '& .MuiPaper-root .MuiTypography-caption': {
+            maxWidth: '100%',
+            display: 'inline-block',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          },
+        }}>
+          <PublicOpeningHours
+            hours={ds.hours}
+            address={ds.address || rp.address}
+            phone={ds.phone || rp.phone}
+            whatsapp={ds.whatsapp}
+            language={i18n.language}
+          />
+        </Box>
         {filteredSections.length === 0 ? (
           <Alert severity="info">{t('no_results') || 'لا توجد نتائج.'}</Alert>
         ) : (
@@ -715,3 +734,5 @@ function DialogHeroImage({ sources, alt }) {
     </Box>
   );
 }
+
+
