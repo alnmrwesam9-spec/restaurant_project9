@@ -19,7 +19,6 @@ import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import { useTranslation } from 'react-i18next';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 
-const LANGS = ['ar', 'de', 'en'];
 const PLACEHOLDER = '/static/img/dish-placeholder.png';
 const CARD_HEIGHT_MD = 360;
 
@@ -33,7 +32,7 @@ const fallback = {
 
 /* ========== شارة الأكواد/الحساسية بخلفية بيضاء واضحة ========== */
 const AllergenChip = ({ dish, sx, withTooltip = true }) => {
-  const codes = (dish?.display_codes || dish?.allergy_info || '').toString().trim();
+  const codes = (dish?.allergen_codes || dish?.display_codes || dish?.allergy_info || '').toString().trim();
   if (!codes) return null;
 
   const chip = (
@@ -75,7 +74,7 @@ const AllergenChip = ({ dish, sx, withTooltip = true }) => {
    - zIndex و pointerEvents مضبوطان لعدم التعارض مع الصورة/الأزرار
 */
 const DialogAllergenCodes = ({ dish, isRTL = false, sx }) => {
-  const raw = (dish?.display_codes || dish?.allergy_info || '').toString().trim();
+  const raw = (dish?.allergen_codes || dish?.display_codes || dish?.allergy_info || '').toString().trim();
   if (!raw) return null;
 
   const parts = raw.split(/[\s,;/|]+/g).map(s => s.trim()).filter(Boolean);
@@ -225,17 +224,9 @@ export default function PublicMenuPage() {
 
   const isRTL = i18n.language?.startsWith('ar');
   const dir = isRTL ? 'rtl' : 'ltr';
+  // Force German language for public view and remove language switcher
+  useEffect(() => { try { i18n.changeLanguage('de'); } catch {} }, [i18n]);
 
-  /* لغة */
-  useEffect(() => {
-    const k = `publicMenu.lang.${publicSlug}`;
-    const saved = localStorage.getItem(k);
-    if (saved && LANGS.includes(saved)) i18n.changeLanguage(saved);
-  }, [publicSlug, i18n]);
-  useEffect(() => {
-    const k = `publicMenu.lang.${publicSlug}`;
-    try { localStorage.setItem(k, i18n.language); } catch {}
-  }, [i18n.language, publicSlug]);
 
   /* تحميل البيانات */
   useEffect(() => {
@@ -284,7 +275,7 @@ export default function PublicMenuPage() {
 
   const filteredSections = useMemo(() => {
     const q = query.trim();
-    const list = activeSectionId ? sections.filter((s) => (s.id ?? slugify(s.name)) === activeSectionId) : sections;
+    const list = q ? sections : (activeSectionId ? sections.filter((s) => (s.id ?? slugify(s.name)) === activeSectionId) : sections);
     return list.map((s) => ({ ...s, dishes: (s.dishes || []).filter((d) => isMatch(q, d.name, d.description, d.display_codes)) }))
                .filter((s) => s.dishes && s.dishes.length > 0);
   }, [sections, query, activeSectionId]);
@@ -309,6 +300,7 @@ export default function PublicMenuPage() {
   }
 
   const bgHero = parsedTheme.show_hero ? (ds.hero_image || rp.hero_image || '') : '';
+  const heroCrop = ds.hero_crop || 'center';
   const logoUrl = parsedTheme.show_logo ? (ds.logo || rp.logo || '') : '';
   const title = ds.display_name || rp.display_name || menu.name || 'Restaurant';
   const priceColor = parsedTheme.price_color || '#1d4ed8';
@@ -433,19 +425,10 @@ export default function PublicMenuPage() {
 
       {/* هيرو */}
       {parsedTheme.show_hero && (
-        <Box sx={{ position: 'relative', width: '100%', height: { xs: 220, md: 380 }, backgroundImage: bgHero ? `url(${bgHero})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', overflow: 'hidden' }}>
+        <Box sx={{ position: 'relative', width: '100%', height: { xs: 220, md: 380 }, backgroundImage: bgHero ? `url(${bgHero})` : 'none', backgroundSize: 'cover', backgroundPosition: heroCrop, overflow: 'hidden' }}>
           <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.35))' }} />
           <Container maxWidth={false} sx={{ position: 'relative', height: '100%', px: 1 }}>
             <Box sx={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: { xs: 14, md: 56 }, width: { xs: 'min(92%, 480px)', sm: 'min(92%, 620px)', md: 'min(70%, 760px)' }, p: { xs: 1, md: 2.25 }, bgcolor: parsedTheme.mode === 'dark' ? 'rgba(15,18,22,0.62)' : 'rgba(255,255,255,0.82)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 10px 30px rgba(0,0,0,0.12)', borderRadius: 2.5, backdropFilter: 'saturate(140%) blur(8px)', textAlign: 'center' }}>
-              <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ mb: 0.6 }}>
-                {LANGS.map((lng) => (
-                  <motion.div whileHover={{ y: -2 }} key={lng}>
-                    <Button size="small" onClick={() => i18n.changeLanguage(lng)} variant={i18n.language?.startsWith(lng) ? 'contained' : 'text'} sx={{ color: i18n.language?.startsWith(lng) ? '#000' : 'var(--c-text)', bgcolor: i18n.language?.startsWith(lng) ? '#e5e7eb' : 'transparent', borderRadius: 999, minWidth: 36, px: 1 }}>
-                      {lng.toUpperCase()}
-                    </Button>
-                  </motion.div>
-                ))}
-              </Stack>
 
               {parsedTheme.show_search && (
                 <TextField
@@ -481,6 +464,7 @@ export default function PublicMenuPage() {
           hours={ds.hours}
           address={ds.address || rp.address}
           phone={ds.phone || rp.phone}
+          whatsapp={ds.whatsapp}
           language={i18n.language}
         />
         {filteredSections.length === 0 ? (
@@ -616,6 +600,20 @@ export default function PublicMenuPage() {
                 {selectedDish.description}
               </Typography>
             ) : null}
+
+            {(() => {
+              const raw = (selectedDish?.allergen_codes || selectedDish?.display_codes || selectedDish?.allergy_info || '').toString().trim();
+              if (!raw) return null;
+              const parts = raw.split(/[\s,;/|]+/g).map(s => s.trim()).filter(Boolean);
+              const codes = parts.join(',');
+              const text = selectedDish?.allergen_text || selectedDish?.allergen_explanation_de || selectedDish?.allergen_explanation || '';
+              return (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 700 }}>{codes}</Typography>
+                  {text ? <Typography variant="caption" sx={{ color: '#475569', display: 'block', mt: 0.25 }}>{text}</Typography> : null}
+                </Box>
+              );
+            })()}
 
             {/* ⚠️ لا نعرض أي عبارات شرح للحساسية داخل الحوار (رموز فقط) */}
 

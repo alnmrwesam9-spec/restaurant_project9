@@ -49,6 +49,7 @@ import { PLACEHOLDER, PLACEHOLDER_HERO, firstValid } from '../utils/helpers';
 // ⬇️ الإضافة الجديدة للفصل بين المنطق والواجهة
 import { MenusProvider } from './MenusPage.context';
 import MenusPageView from './MenusPage.view';
+import LLMOverlay from '../components/LLMOverlay';
 
 
 /** أبعاد بطاقات الأطباق */
@@ -214,6 +215,12 @@ function MenusPage({ token }) {
   const [genPreview, setGenPreview] = useState([]);
   const [genCounts, setGenCounts] = useState(null);
   const [genLLM, setGenLLM] = useState(null);
+  // LLM job overlay state
+  const [llmOverlayOpen, setLlmOverlayOpen] = useState(false);
+  const [llmJobId, setLlmJobId] = useState(null);
+  const [llmStep, setLlmStep] = useState(1);
+  const [llmPercent, setLlmPercent] = useState(0);
+  const [llmController, setLlmController] = useState(null);
 
   const formatEuro = (v) => {
     const n = Number(String(v ?? '').replace(',', '.'));
@@ -727,6 +734,50 @@ function MenusPage({ token }) {
     setGenBusy(true); setGenCounts(null); setGenLLM(null);
     try {
       const body = buildGenerateBody(true);
+      if (body.use_llm) {
+        const controller = new AbortController();
+        setLlmController(controller);
+        setLlmOverlayOpen(true);
+        setLlmStep(1); setLlmPercent(0);
+        const { data: start } = await api.post('/llm/jobs/start-batch-generate/', body, { signal: controller.signal });
+        const jobId = start?.job_id;
+        setLlmJobId(jobId);
+        let rules = null, llm = null;
+        const pollInterval = 1200;
+        while (true) {
+          await new Promise((r) => setTimeout(r, pollInterval));
+          const { data: st } = await api.get(`/llm/jobs/${jobId}/status/`, { signal: controller.signal });
+          setLlmPercent(st?.percent ?? 0);
+          const msg = (st?.message || '').toLowerCase();
+          if (msg.includes('rules phase')) setLlmStep(1);
+          else if (msg.includes('rules done')) setLlmStep(2);
+          else if (msg.includes('llm phase')) setLlmStep(3);
+          if (st?.status === 'done') {
+            rules = st?.result?.rules || null;
+            llm = st?.result?.llm || null;
+            break;
+          }
+          if (st?.status === 'error' || st?.status === 'cancelled') {
+            throw new Error(st?.error || 'LLM job did not complete');
+          }
+        }
+        setLlmOverlayOpen(false);
+        setLlmJobId(null);
+        setLlmController(null);
+
+        setGenRules(rules);
+        const shaped = shapePreviewFromRules(rules, true);
+        setGenPreview(shaped.rows);
+        setGenCounts({
+          processed: shaped.counters?.count ?? 0,
+          skipped: (rules?.items || []).filter((it) => it.skipped).length,
+          changed: shaped.rows.filter((r) => r.action === 'would_change' || r.action === 'would_override_manual').length,
+          missingAfterRules: shaped.missingCount,
+        });
+        setGenLLM(llm || null);
+        setGenDryRun(true);
+        return;
+      }
       const res = await api.post('/dishes/batch-generate-allergen-codes/', body, { timeout: 60000 });
       const rules = res?.data?.rules || null;
       const llm = res?.data?.llm || null;
@@ -754,6 +805,52 @@ function MenusPage({ token }) {
     try {
       const body = buildGenerateBody(false);
       if (body.use_llm) body.llm_dry_run = false;
+      if (body.use_llm) {
+        const controller = new AbortController();
+        setLlmController(controller);
+        setLlmOverlayOpen(true);
+        setLlmStep(1); setLlmPercent(0);
+        const { data: start } = await api.post('/llm/jobs/start-batch-generate/', body, { signal: controller.signal });
+        const jobId = start?.job_id;
+        setLlmJobId(jobId);
+        let rules = null, llm = null;
+        const pollInterval = 1200;
+        while (true) {
+          await new Promise((r) => setTimeout(r, pollInterval));
+          const { data: st } = await api.get(`/llm/jobs/${jobId}/status/`, { signal: controller.signal });
+          setLlmPercent(st?.percent ?? 0);
+          const msg = (st?.message || '').toLowerCase();
+          if (msg.includes('rules phase')) setLlmStep(1);
+          else if (msg.includes('rules done')) setLlmStep(2);
+          else if (msg.includes('llm phase')) setLlmStep(3);
+          if (st?.status === 'done') {
+            rules = st?.result?.rules || null;
+            llm = st?.result?.llm || null;
+            break;
+          }
+          if (st?.status === 'error' || st?.status === 'cancelled') {
+            throw new Error(st?.error || 'LLM job did not complete');
+          }
+        }
+        setLlmOverlayOpen(false);
+        setLlmJobId(null);
+        setLlmController(null);
+
+        setGenRules(rules);
+        const shaped = shapePreviewFromRules(rules, false);
+        setGenPreview(shaped.rows);
+        setGenCounts({
+          processed: shaped.counters?.count ?? 0,
+          skipped: (rules?.items || []).filter((it) => it.skipped).length,
+          changed: shaped.rows.filter((r) => r.action === 'changed').length,
+          missingAfterRules: shaped.missingCount,
+        });
+        setGenLLM(llm || null);
+        setGenDryRun(false);
+        setSnack({ open: true, msg: t('toast.generation_done') });
+        if (isNumericId(selectedMenuId)) await fetchSectionsAndDishes(selectedMenuId);
+        return;
+      }
       const res = await api.post('/dishes/batch-generate-allergen-codes/', body, { timeout: 60000 });
       const rules = res?.data?.rules || null;
       const llm = res?.data?.llm || null;
@@ -777,6 +874,24 @@ function MenusPage({ token }) {
       const serverMsg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.generation_failed');
       setSnack({ open: true, msg: serverMsg });
     } finally { setGenBusy(false); }
+  };
+
+  const cancelLlmJob = async () => {
+    try {
+      if (llmController) {
+        try { llmController.abort(); } catch {}
+      }
+      if (llmJobId) {
+        await api.post(`/llm/jobs/${llmJobId}/cancel/`).catch(() => {});
+      }
+    } finally {
+      setLlmOverlayOpen(false);
+      setLlmJobId(null);
+      setLlmController(null);
+      setLlmPercent(0);
+      setLlmStep(1);
+      setGenBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -982,6 +1097,14 @@ function MenusPage({ token }) {
   return (
     <MenusProvider value={value}>
       <MenusPageView />
+      <LLMOverlay
+        open={llmOverlayOpen}
+        onCancel={cancelLlmJob}
+        stepLabel={t('loading_llm', 'Generating codes…')}
+        step={llmStep}
+        steps={3}
+        percent={llmPercent}
+      />
     </MenusProvider>
   );
 }

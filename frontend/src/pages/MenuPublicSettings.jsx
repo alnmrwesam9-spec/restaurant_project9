@@ -195,12 +195,14 @@ export default function MenuPublicSettings() {
   const [form, setForm] = useState({
     display_name: '',
     phone: '',
+    whatsapp: '',
     address: '',
     hours: '',
     logo: null,
     logo_url: '',
     hero_image: null,
     hero_image_url: '',
+    hero_crop: 'center',
     ...defaultParsed,
     // Stored separately from theme string
     show_images: 1,
@@ -227,12 +229,14 @@ export default function MenuPublicSettings() {
       ...f,
       display_name: d.display_name || '',
       phone: d.phone || '',
+      whatsapp: d.whatsapp || '',
       address: d.address || '',
       hours: d.hours || '',
       logo: null,
       logo_url: d.logo || '',
       hero_image: null,
       hero_image_url: d.hero_image || '',
+      hero_crop: d.hero_crop || 'center',
       ...parsed,
       show_images: typeof d.show_images !== 'undefined' ? (d.show_images ? 1 : 0) : (f.show_images ?? 1),
     }));
@@ -312,6 +316,9 @@ export default function MenuPublicSettings() {
       const fd = new FormData();
       fd.append('display_name', form.display_name);
       fd.append('phone', form.phone);
+      if (typeof form.whatsapp === 'string' && form.whatsapp.trim() !== '') {
+        fd.append('whatsapp', form.whatsapp.trim());
+      }
       fd.append('address', form.address);
       // Compact hours if too large for backend CharField(255)
       const compactHours = (() => {
@@ -333,6 +340,8 @@ export default function MenuPublicSettings() {
         }
       })();
       fd.append('hours', compactHours);
+      // hero crop position (top/center/bottom)
+      fd.append('hero_crop', form.hero_crop || 'center');
       fd.append('theme', buildThemeString(form));
       // send show_images as a top-level flag (not inside theme)
       fd.append('show_images', String(form.show_images ? 1 : 0));
@@ -652,7 +661,7 @@ export default function MenuPublicSettings() {
               data-tour="hero-box"
             >
               {(form.hero_image ? URL.createObjectURL(form.hero_image) : form.hero_image_url)
-                ? <CardMedia component="img" image={form.hero_image ? URL.createObjectURL(form.hero_image) : form.hero_image_url} alt="hero" sx={{ objectFit: 'cover', objectPosition: 'center', width: '100%', height: '100%' }}/>
+                ? <CardMedia component="img" image={form.hero_image ? URL.createObjectURL(form.hero_image) : form.hero_image_url} alt="hero" sx={{ objectFit: 'cover', objectPosition: form.hero_crop || 'center', width: '100%', height: '100%' }}/>
                 : <Typography variant="body2" sx={{ color: alpha('#fff', 0.7) }}>{tOr('no_hero','لا توجد صورة')}</Typography>}
             </Box>
             {/* ⬇️ زر رفع لصورة الغلاف */}
@@ -668,6 +677,24 @@ export default function MenuPublicSettings() {
               {tOr('upload_hero','رفع صورة الغلاف')}
               <input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const file = e.target.files?.[0]; if (file) update('hero_image', file); }} />
             </Button>
+
+            <Typography variant="caption" sx={{ color: alpha('#fff', 0.75), display: 'block', mb: 1 }}>
+              الصورة المقترحة 1920×1080 – نسبة 16:9
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ color: alpha('#fff', 0.9), alignSelf: 'center' }}>Crop position</Typography>
+              <ToggleButtonGroup
+                exclusive
+                size={isSmDown ? 'small' : 'medium'}
+                color="primary"
+                value={form.hero_crop || 'center'}
+                onChange={(e, v) => { if (v) update('hero_crop', v); }}
+              >
+                <ToggleButton value="top">Top</ToggleButton>
+                <ToggleButton value="center">Center</ToggleButton>
+                <ToggleButton value="bottom">Bottom</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
 
             {/* LIVE PREVIEW */}
             <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('preview','معاينة')}</Typography>
@@ -714,6 +741,14 @@ export default function MenuPublicSettings() {
                   fullWidth
                   size={isSmDown ? 'small' : 'medium'}
                   sx={{ display: 'none', '& .MuiInputBase-root': { borderRadius: 2 } }}
+                />
+                <TextField
+                  label={tOr('whatsapp','WhatsApp')}
+                  value={form.whatsapp}
+                  onChange={(e) => update('whatsapp', e.target.value)}
+                  fullWidth
+                  size={isSmDown ? 'small' : 'medium'}
+                  sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                 />
               </Stack>
               <Box>
@@ -878,7 +913,7 @@ export default function MenuPublicSettings() {
                   {saving ? tOr('saving','حفظ...') : tOr('save','حفظ')}
                 </Button>
               </Box>
-            </Stack>
+              </Stack>
           </Paper>
         </Box>
       </Stack>
@@ -896,4 +931,3 @@ export default function MenuPublicSettings() {
     </Container>
   );
 }
-

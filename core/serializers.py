@@ -620,7 +620,7 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MenuDisplaySettings
-        fields = ['display_name', 'phone', 'address', 'hours', 'logo', 'hero_image', 'theme']
+        fields = ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'logo', 'hero_image', 'hero_crop', 'theme']
 
     # ✅ تنظيف/تحقق الصور (logo, hero_image)
     def validate_logo(self, file):
@@ -668,7 +668,7 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         validated_data = self._clean_images_in_data(validated_data)
-        for k in ['display_name', 'phone', 'address', 'hours', 'theme']:
+        for k in ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'hero_crop', 'theme']:
             if k in validated_data:
                 setattr(instance, k, validated_data[k])
         if 'logo' in validated_data:

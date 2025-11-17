@@ -5,6 +5,8 @@
 
 from typing import Iterable, List, Dict
 import re
+import time
+import logging
 
 from django.db import transaction, IntegrityError
 from django.db.models import Prefetch, Q
@@ -66,6 +68,8 @@ from core.llm_clients.openai_client import openai_caller
 from core.llm_clients.limiter import estimate_eta as _llm_estimate_eta
 from core.llm_clients.limiter import global_limiter as _llm_limiter
 from core.utils.jobs import job_manager, JobState
+
+logger = logging.getLogger("core.llm")
 
 # نموذج القاموس
 from core.dictionary_models import KeywordLexeme, normalize_text
@@ -256,6 +260,13 @@ def llm_eta(request):
         calls_per_item=calls_per_item,
         p95_latency_sec=p95_latency,
     )
+
+    # timing: end of rules phase
+    t_rules_end = time.monotonic()
+    try:
+        logger.info("rules_phase: dishes=%d sec=%.3f", len(dishes), (t_rules_end - t_rules_start))
+    except Exception:
+        pass
     return Response({
         "count": count,
         "avg_tokens_per_call": avg_tokens,
@@ -285,6 +296,7 @@ def llm_limits(request):
 # ============================================================
 
 def _run_batch_generate_job(job: JobState, user_id: int, payload: dict) -> Dict:
+    t_job_start = time.monotonic()
     # Reuse logic from batch_generate_allergen_codes while updating job progress
     from django.contrib.auth import get_user_model
     UserModel = get_user_model()
@@ -338,6 +350,9 @@ def _run_batch_generate_job(job: JobState, user_id: int, payload: dict) -> Dict:
             owner_ids = {getattr(d.section.menu, "user_id", None) for d in dishes}
             owner_ids.discard(None)
             owner_id = next(iter(owner_ids)) if len(owner_ids) == 1 else None
+
+    # timing: rules phase
+    t_rules_start = time.monotonic()
 
     # 1) Rules — always include the caller's private lexicon along with owner's/global
     rules_res = rule_generate_for_dishes(
@@ -409,15 +424,43 @@ def _run_batch_generate_job(job: JobState, user_id: int, payload: dict) -> Dict:
         calls_per_item = 1.0 + (1.0 if llm_guess_codes else 0.0)
 
         for did in missing_ids:
+            # cooperative cancellation: bail out with partial results
+            if job_manager.is_cancel_requested(job.id):
+                partial = {
+                    "rules": rules_res,
+                    "llm": {
+                        "count": len(items),
+                        "items": items[:1000],
+                        "dry_run": llm_dry_run,
+                        "model_name": cfg.model_name,
+                        "lang": cfg.lang,
+                        "note": "Cancelled by user; partial items included.",
+                    },
+                }
+                job_manager.cancelled(job.id, partial_result=partial)
+                return partial
             d = by_id.get(did)
             if not d:
                 continue
             try:
+                t_extr_start = time.monotonic()
                 if llm_debug:
                     terms, raw = llm_extract_terms(openai_caller, cfg, d.name or "", d.description or "", return_raw=True)  # type: ignore
                 else:
                     terms = llm_extract_terms(openai_caller, cfg, d.name or "", d.description or "")  # type: ignore
                     raw = ""
+                t_extr_end = time.monotonic()
+                try:
+                    logger.info(
+                        "llm_extract_terms: dish_id=%s name_len=%d desc_len=%d terms=%d sec=%.3f",
+                        did,
+                        len(d.name or ""),
+                        len(d.description or ""),
+                        len(terms) if isinstance(terms, list) else 0,
+                        (t_extr_end - t_extr_start),
+                    )
+                except Exception:
+                    pass
             except Exception as e:
                 items.append({
                     "dish_id": did,
@@ -437,7 +480,18 @@ def _run_batch_generate_job(job: JobState, user_id: int, payload: dict) -> Dict:
             codes_lookup = {}
             if llm_guess_codes and terms:
                 try:
+                    t_map_start = time.monotonic()
                     codes_lookup = llm_map_terms_to_codes(openai_caller, cfg, terms, lang=lang)
+                    t_map_end = time.monotonic()
+                    try:
+                        logger.info(
+                            "llm_map_terms_to_codes: dish_id=%s term_count=%d sec=%.3f",
+                            did,
+                            len(terms) if isinstance(terms, list) else 0,
+                            (t_map_end - t_map_start),
+                        )
+                    except Exception:
+                        pass
                 except Exception:
                     codes_lookup = {}
 
@@ -486,6 +540,15 @@ def _run_batch_generate_job(job: JobState, user_id: int, payload: dict) -> Dict:
             "note": "LLM candidates only; review & add lexemes to map terms → ingredients. Includes guess_codes.",
         }
 
+    # total timing
+    t_job_end = time.monotonic()
+    try:
+        logger.info(
+            "llm_job_total: dishes=%d missing_after_rules=%d sec=%.3f",
+            len(dishes), len(missing_ids), (t_job_end - t_job_start)
+        )
+    except Exception:
+        pass
     return {"rules": rules_res, "llm": llm_payload}
 
 
@@ -546,6 +609,21 @@ def llm_jobs_status(request, job_id: str):
         "result": st.result if st.status == "done" else None,
     }
     return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def llm_jobs_cancel(request, job_id: str):
+    """
+    POST /api/llm/jobs/{job_id}/cancel
+    Cooperative cancellation: marks the job as cancel_requested; the worker
+    loop will terminate ASAP, returning partial results if possible.
+    """
+    st = job_manager.get(job_id)
+    if not st:
+        return Response({"detail": "job not found"}, status=status.HTTP_404_NOT_FOUND)
+    job_manager.cancel(job_id)
+    return Response({"ok": True, "job_id": job_id, "cancel_requested": True}, status=status.HTTP_202_ACCEPTED)
 
 
 class UserListAdminView(generics.ListAPIView):
@@ -1699,6 +1777,8 @@ try:
 
     llm_jobs_status.throttle_scope = "availability"
     llm_jobs_status = throttle_classes([ScopedRateThrottle])(llm_jobs_status)
+    llm_jobs_cancel.throttle_scope = "llm"
+    llm_jobs_cancel = throttle_classes([ScopedRateThrottle])(llm_jobs_cancel)
 except Exception:
     # If import order or name lookup fails in some contexts, ignore.
     pass

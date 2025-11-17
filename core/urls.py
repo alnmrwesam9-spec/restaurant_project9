@@ -108,6 +108,7 @@ urlpatterns = [
     # LLM async jobs
     re_path(r"^llm/jobs/start-batch-generate/?$", views.llm_jobs_start_batch_generate, name="llm_jobs_start_batch_generate"),
     re_path(r"^llm/jobs/(?P<job_id>[a-f0-9\-]+)/status/?$", views.llm_jobs_status, name="llm_jobs_status"),
+    re_path(r"^llm/jobs/(?P<job_id>[a-f0-9\-]+)/cancel/?$", views.llm_jobs_cancel, name="llm_jobs_cancel"),
 
     # ---------- v2: dishes + nested prices/allergens ----------
     re_path(r"^v2/dishes/?$",                   dish_list,   name="v2_dish_list"),

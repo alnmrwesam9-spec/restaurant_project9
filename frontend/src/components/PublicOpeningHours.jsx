@@ -3,6 +3,7 @@ import { Box, Chip, Collapse, Divider, IconButton, Paper, Stack, Typography } fr
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CallIcon from '@mui/icons-material/Call';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 
@@ -130,7 +131,7 @@ function formatTime(d, language) {
   return d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: is12h });
 }
 
-export default function PublicOpeningHours({ hours, address, phone, language = 'de' }) {
+export default function PublicOpeningHours({ hours, address, phone, whatsapp, language = 'de' }) {
   const langKey = (language || 'de').startsWith('ar') ? 'ar' : ((language || 'de').startsWith('de') ? 'de' : 'en');
   const TXT = {
     en: { opening: 'Opening Hours', open: 'Open now', closed: 'Closed', closesAt: 'closes at', opensAt: 'opens at' },
@@ -180,7 +181,7 @@ export default function PublicOpeningHours({ hours, address, phone, language = '
           <Collapse in={expanded} timeout="auto" unmountOnExit={false}>
             {!days ? (
               <Typography variant="body2" color="text.secondary" sx={{ py: 0.75 }}>
-                {hours || (langKey === 'ar' ? 'لم يتم ضبط ساعات العمل' : (langKey==='de' ? 'Keine Öffnungszeiten hinterlegt' : 'Opening hours not set'))}
+                {TXT.closed}
               </Typography>
             ) : (
               <Box>
@@ -224,6 +225,14 @@ export default function PublicOpeningHours({ hours, address, phone, language = '
             <Stack direction="row" spacing={1} alignItems="center">
               <CallIcon fontSize="small" />
               <Typography variant="body2">{phone}</Typography>
+            </Stack>
+          ) : null}
+          {whatsapp ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <WhatsAppIcon fontSize="small" />
+              <Typography variant="body2">
+                <a href={`https://wa.me/${String(whatsapp).replace(/\D+/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{whatsapp}</a>
+              </Typography>
             </Stack>
           ) : null}
         </Stack>

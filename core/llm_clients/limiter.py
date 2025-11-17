@@ -3,6 +3,7 @@ import threading
 import time
 import math
 import random
+import logging
 from typing import Callable, Optional, Tuple
 
 
@@ -152,11 +153,22 @@ class RateLimiter:
         self._sem.acquire()
         try:
             # Wait until budgets allow
+            t0 = time.monotonic()
             self._await_budgets(token_cost)
+            t1 = time.monotonic()
             # Perform call with retries
             result = self._call_with_retries(fn)
+            t2 = time.monotonic()
             with self._lock:
                 self._completed += 1
+            # Lightweight timing log to help spot bottlenecks
+            try:
+                logger = logging.getLogger("core.llm.limiter")
+                logger.debug(
+                    "limiter_execute: wait_sec=%.3f call_sec=%.3f", (t1 - t0), (t2 - t1)
+                )
+            except Exception:
+                pass
             return result
         finally:
             try:
@@ -208,4 +220,3 @@ global_limiter = RateLimiter(
     concurrency=_DEFAULT_CONCURRENCY,
     max_retries=_DEFAULT_RETRIES,
 )
-

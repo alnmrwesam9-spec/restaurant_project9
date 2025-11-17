@@ -19,6 +19,8 @@ class JobState:
     eta_minutes: Optional[float] = None
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    cancel_requested: bool = False
+    cancelled_at: Optional[float] = None
 
 
 class JobManager:
@@ -87,12 +89,44 @@ class JobManager:
             st.finished_at = time.time()
             st.error = error
 
+    # -------- cancellation support --------
+    def cancel(self, job_id: str) -> None:
+        """Mark a job as cancel requested. The running worker should check and stop ASAP."""
+        with self._lock:
+            st = self._jobs.get(job_id)
+            if not st:
+                return
+            st.cancel_requested = True
+            st.message = st.message or "cancel requested"
+
+    def is_cancel_requested(self, job_id: str) -> bool:
+        with self._lock:
+            st = self._jobs.get(job_id)
+            return bool(st and st.cancel_requested)
+
+    def cancelled(self, job_id: str, partial_result: Optional[Dict[str, Any]] = None) -> None:
+        with self._lock:
+            st = self._jobs.get(job_id)
+            if not st:
+                return
+            st.status = "cancelled"
+            st.cancelled_at = time.time()
+            st.finished_at = st.cancelled_at
+            if partial_result is not None:
+                st.result = partial_result
+            st.error = (st.error or "Cancelled by user")
+
     def spawn(self, job: JobState, target: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
         def _runner():
             try:
                 self.start(job.id, message="running")
                 result = target(job, *args, **kwargs)
-                self.done(job.id, result=result if isinstance(result, dict) else {"result": result})
+                # target may already mark as cancelled; only set done if still active
+                with self._lock:
+                    st = self._jobs.get(job.id)
+                    already_final = st and st.status in {"done", "error", "cancelled"}
+                if not already_final:
+                    self.done(job.id, result=result if isinstance(result, dict) else {"result": result})
             except Exception as e:
                 self.fail(job.id, error=str(e))
 
@@ -101,4 +135,3 @@ class JobManager:
 
 
 job_manager = JobManager()
-
