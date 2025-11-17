@@ -5,7 +5,7 @@ import axios from '../services/axios';
 import {
   Container, Typography, Box, Card, CardContent,
   CardMedia, Grid, TextField, Button, Snackbar,
-  InputAdornment, Stack, Chip, IconButton, Divider, Alert
+  InputAdornment, Stack, Chip, IconButton, Divider, Alert, Switch, FormControlLabel
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import SaveIcon from '@mui/icons-material/Save';
@@ -151,7 +151,12 @@ const AdminMenuEditorPage = () => {
       formData.append('name', dish.name);
       formData.append('description', dish.description || '');
       formData.append('section', sectionId);
-      formData.append('allergy_info', dish.allergy_info ?? '');
+      const manual = String(dish.manual_codes || '').trim();
+      // Sync legacy allergy_info with codes for older displays
+      formData.append('allergy_info', manual);
+      // Auto-enable manual override when codes are provided
+      formData.append('has_manual_codes', '1');
+      formData.append('manual_codes', manual);
       if (dish.image instanceof File) formData.append('image', dish.image);
 
       await axios.patch(`/dishes/${dish.id}/`, formData, {
@@ -321,10 +326,10 @@ const AdminMenuEditorPage = () => {
                         </Grid>
                         <Grid item xs={12} sm={3}>
                           <TextField
-                            label={t('allergy_info')}
+                            label={t('labels.codes') || 'Allergen codes'}
                             fullWidth
-                            value={dish.allergy_info || ''}
-                            onChange={(e) => updateDishField(section.id, index, { allergy_info: e.target.value })}
+                            value={dish.manual_codes || dish.display_codes || dish.allergy_info || ''}
+                            onChange={(e) => updateDishField(section.id, index, { manual_codes: e.target.value })}
                           />
                         </Grid>
                         <Grid item xs={12} sm={3}>
@@ -452,3 +457,9 @@ const AdminMenuEditorPage = () => {
 };
 
 export default AdminMenuEditorPage;
+
+
+
+
+
+

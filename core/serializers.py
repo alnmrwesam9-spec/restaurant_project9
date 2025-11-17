@@ -606,10 +606,11 @@ class SectionSerializer(serializers.ModelSerializer):
 class MenuSerializer(serializers.ModelSerializer):
     sections = SectionSerializer(many=True, read_only=True)
     public_slug = serializers.CharField(read_only=True)
+    owner_id = serializers.IntegerField(source='user_id', read_only=True)  # 👈 جديد
 
     class Meta:
         model = Menu
-        fields = ['id', 'name', 'is_published', 'public_slug', 'sections']
+        fields = ['id', 'name', 'is_published', 'public_slug', 'owner_id', 'sections']  # 👈 أ
 
 
 # ===================== MenuDisplaySettings =====================
@@ -743,6 +744,10 @@ class MenuAggregateDishSerializer(serializers.ModelSerializer):
     image = AbsoluteImageURLField(read_only=True)
     image_url = serializers.SerializerMethodField(read_only=True)
     prices = DishPriceSerializer(many=True, read_only=True)
+    # Expose computed allergen info in admin aggregator too
+    display_codes = serializers.CharField(read_only=True)
+    allergen_explanation_de = serializers.SerializerMethodField(read_only=True)
+    allergen_rows = DishAllergenSerializer(many=True, read_only=True)
 
     class Meta:
         model = Dish
@@ -751,11 +756,20 @@ class MenuAggregateDishSerializer(serializers.ModelSerializer):
             'price', 'prices',
             'image', 'image_url',
             'allergy_info',
+            # Allergen info for admin dialog
+            'display_codes', 'allergen_explanation_de', 'allergen_rows',
         ]
-        read_only_fields = ['image', 'image_url', 'prices']
+        read_only_fields = ['image', 'image_url', 'prices', 'display_codes', 'allergen_explanation_de', 'allergen_rows']
 
     def get_image_url(self, obj):
         return _resolve_dish_image_url(obj, self.context.get('request'))
+
+    def get_allergen_explanation_de(self, obj):
+        display = (getattr(obj, "display_codes", "") or "").strip()
+        if not display:
+            display = (getattr(obj, "manual_codes", "") or "").strip() or (getattr(obj, "generated_codes", "") or "").strip()
+        letters = _extract_letter_codes_from_display(display)
+        return _build_explanation_de_from_codes(letters)
 
 
 class MenuAggregateSectionSerializer(serializers.ModelSerializer):

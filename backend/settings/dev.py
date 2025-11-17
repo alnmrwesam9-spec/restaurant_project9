@@ -23,7 +23,16 @@ ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "nginx"]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
     "http://127.0.0.1",
+    # Explicit dev ports for clarity when not using Vite proxy
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    # Add Vite default dev server ports
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
+
+# In dev, allow all CORS to simplify local iteration (Vite proxy or direct)
+CORS_ALLOW_ALL_ORIGINS = True
 
 # --- Local dev DB override -------------------------------------------------
 # Allows running without Postgres by setting USE_SQLITE=1 in .env

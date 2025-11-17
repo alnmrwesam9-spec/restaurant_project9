@@ -789,23 +789,53 @@ function MenusPage({ token }) {
         if (c.mapped_ingredient_id) continue;
         const key = `${it.dish_id}::${c.term}`;
         const arr = sanitizeCodesArray(splitCodes(c.guess_codes || '')).ok;
-        next[key] = { checked: false, term: c.term, codesArr: arr, dishId: it.dish_id, confidence: c.confidence || 0 };
+        // ملاحظة: إن أردت الاستفادة من guess_codes/labels داخل handleUpsertSelected
+        // يمكن تمريرهما هنا كذلك، لكن الدالة الجديدة تتعامل بأمان مع عدم وجودهما.
+        next[key] = {
+          checked: false,
+          term: c.term,
+          codesArr: arr,
+          dishId: it.dish_id,
+          confidence: c.confidence || 0,
+          // guess_codes: c.guess_codes,           // (اختياري)
+          // labels: c.labels,                     // (اختياري) قد تحتوي suggested
+        };
       }
     }
     setLlmSelect(next);
   }, [genLLM]);
 
+  // ✅ (مُعدّلة) حفظ المصطلحات المختارة إلى القاموس الخاص/المالك
   const handleUpsertSelected = async () => {
+    // helper: يحوّل مصفوفة أو سترينغ إلى حروف أكواد منسّقة A..R أو E123
+    const normalizeCodes = (src) => {
+      const str = Array.isArray(src) ? src.join(',') : String(src || '');
+      const m = str.match(/\b(?:[A-R]|E\d{3,4})\b/gi) || [];
+      return [...new Set(m.map((s) => s.toUpperCase()))].join(',');
+    };
+
     const entries = Object.entries(llmSelect)
       .filter(([, v]) => v.checked && (v.term || '').trim())
-      .map(([, v]) => ({ term: String(v.term || '').trim(), allergen_codes: joinCodes(sanitizeCodesArray(v.codesArr || []).ok) }))
-      .filter((it) => it.term && it.allergen_codes);
+      .map(([, v]) => {
+        const typed = normalizeCodes(v.codesArr || []);           // من محرر الأكواد
+        const fromGuess = normalizeCodes(v.guess_codes || '');    // إن وُجدت
+        const fromLabel = normalizeCodes(v.labels?.suggested || '');
+        const codes = typed || fromLabel || fromGuess;            // أولويّة: المُدخل يدويًا ثم المقترَح
+        return { term: String(v.term || '').trim(), allergen_codes: codes };
+      })
+      .filter((it) => it.term && it.allergen_codes);              // تأكد أن في أكواد فعلاً
 
     if (!entries.length) { setSnack({ open: true, msg: t('errors.select_at_least_one') }); return; }
 
     setUpsertBusy(true);
     try {
-      const payload = { lang: (genLang || 'de').toLowerCase(), as_global: isAdmin ? !!saveAsGlobal : false, items: entries };
+      const effOwnerId = (isAdmin && saveAsGlobal) ? null : (selectedMenu?.owner_id ?? null);
+      const payload = {
+        lang: (genLang || 'de').toLowerCase(),
+        owner_id: selectedMenu?.owner_id ?? null,                 // من Step 2
+        items: entries,
+      };
+      payload.owner_id = effOwnerId;
       await api.post('/lexicon/llm-add/', payload, { timeout: 60000 });
       setSnack({ open: true, msg: t('toast.saved') });
     } catch (e) {
@@ -957,4 +987,3 @@ function MenusPage({ token }) {
 }
 
 export default MenusPage;
-

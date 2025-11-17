@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from django import forms
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
@@ -93,6 +94,46 @@ def action_clear_manual_codes(modeladmin, request, queryset):
         modeladmin.message_user(request, _(f"Cleared for {changed} dish(es)."))
 
 
+class DishAdminForm(forms.ModelForm):
+    codes = forms.CharField(
+        label=_("Codes"), required=False,
+        help_text=_("Single field for allergen letters A..R, comma-separated (e.g. A,G,K)."),
+    )
+
+    class Meta:
+        model = Dish
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        inst = self.instance
+        initial_codes = ""
+        if inst and getattr(inst, "pk", None):
+            initial_codes = (getattr(inst, "manual_codes", "") or getattr(inst, "generated_codes", "") or "").strip()
+        self.fields["codes"].initial = initial_codes
+        for f in ("generated_codes", "manual_codes", "has_manual_codes"):
+            if f in self.fields:
+                self.fields[f].widget = forms.HiddenInput()
+                self.fields[f].required = False
+
+    def clean_codes(self):
+        import re
+        raw = (self.cleaned_data.get("codes") or "").upper()
+        letters = re.findall(r"[A-R]", raw)
+        seen = set(); out = []
+        for c in letters:
+            if c not in seen:
+                seen.add(c); out.append(c)
+        return ",".join(out)
+
+    def save(self, commit=True):
+        codes = (self.cleaned_data.get("codes") or "").strip()
+        self.instance.manual_codes = codes or None
+        self.instance.has_manual_codes = True
+        self.instance.allergy_info = codes
+        return super().save(commit)
+
+
 @admin.register(Dish)
 class DishAdmin(admin.ModelAdmin):
     list_display = (
@@ -117,6 +158,10 @@ class DishAdmin(admin.ModelAdmin):
         action_copy_generated_to_manual,
         action_clear_manual_codes,
     )
+
+    # Use unified single-field admin form
+    form = DishAdminForm
+    exclude = ("generated_codes", "manual_codes", "has_manual_codes")
 
 
 @admin.register(DishPrice)
@@ -334,3 +379,4 @@ class NegationCueAdmin(admin.ModelAdmin):
             )
         }),
     )
+

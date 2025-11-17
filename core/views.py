@@ -20,7 +20,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateAPIView, ListAPIView
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.throttling import ScopedRateThrottle  # ← NEW
 
 from core.utils.auth import is_admin
 from core.permissions import IsAdmin
@@ -33,10 +32,10 @@ from .models import (
     MenuDisplaySettings,
     DishPrice,
     Profile,
-    Ingredient,
-    Allergen,        # لاستخدام M2M الأكواد
-    DishAllergen,    # سجلات التتبّع لكل كود
+    DishAllergen,
 )
+
+from core.models import Allergen, Ingredient
 
 from .serializers import (
     RegisterSerializer,
@@ -69,7 +68,7 @@ from core.llm_clients.limiter import global_limiter as _llm_limiter
 from core.utils.jobs import job_manager, JobState
 
 # نموذج القاموس
-from core.dictionary_models import KeywordLexeme
+from core.dictionary_models import KeywordLexeme, normalize_text
 
 User = get_user_model()
 
@@ -112,6 +111,32 @@ def _split_letter_codes(codes_str: str) -> List[str]:
     return uniq
 
 
+# ================== NEW helper for LLM code extraction ==================
+
+CODE_RE = re.compile(r"(?:[A-R]|E?\d{3,4})", re.IGNORECASE)
+
+
+def _extract_codes_str(codes_in: str) -> str:
+    """
+    يأخذ سترينغ مثل 'G, K, E330' أو '%0=… G, K, E330'
+    ويرجّع 'G,K,E330' بعد التنظيف وبدون تكرار.
+    """
+    if not codes_in:
+        return ""
+    raw = str(codes_in)
+    tokens = CODE_RE.findall(raw)
+    cleaned = []
+    seen = set()
+    for t in tokens:
+        t = t.upper().strip()
+        if not t:
+            continue
+        if t not in seen:
+            seen.add(t)
+            cleaned.append(t)
+    return ",".join(cleaned)
+
+
 @transaction.atomic
 def _sync_dish_allergen_rows_from_codes(
     dish: Dish,
@@ -129,7 +154,13 @@ def _sync_dish_allergen_rows_from_codes(
     if (not force) and getattr(dish, "has_manual_codes", False):
         return 0
 
-    codes = _split_letter_codes(codes_str)
+    # Robustly extract letter codes A..R from any formatted string like '(A,G,12)'
+    tokens = re.findall(r"(?i)\b([A-R])\b", str(codes_str or ""))
+    codes = []
+    for c in tokens:
+        cu = (c or "").upper()
+        if cu and cu not in codes:
+            codes.append(cu)
     if not codes:
         return 0
 
@@ -495,9 +526,11 @@ def llm_jobs_status(request, job_id: str):
     st = job_manager.get(job_id)
     if not st:
         return Response({"detail": "job not found"}, status=status.HTTP_404_NOT_FOUND)
+
     def _ts(x):
         import datetime
         return datetime.datetime.utcfromtimestamp(x).isoformat() + "Z" if x else None
+
     data = {
         "id": st.id,
         "status": st.status,
@@ -559,9 +592,9 @@ class UserDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
 # ============================================================
 class MeProfileAPIView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class   = ProfileSerializer
+    serializer_class = ProfileSerializer
     # توحيد الـ parsers (حل 415 عند JSON)
-    parser_classes     = [MultiPartParser, FormParser, JSONParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
         profile, _ = Profile.objects.get_or_create(user=self.request.user)
@@ -760,9 +793,12 @@ class MenuAggregateView(APIView):
         dishes_qs = (
             Dish.objects
             .filter(section__menu=menu)
-            .only("id", "name", "description", "price", "image", "allergy_info", "section_id")
+            .only("id", "name", "description", "price", "image", "allergy_info", "section_id", "generated_codes", "has_manual_codes", "manual_codes")
             .select_related("section__menu__user__profile")
-            .prefetch_related("prices")
+            .prefetch_related(
+                "prices",
+                "allergen_rows__allergen",
+            )
             .order_by("id")
         )
         sections_qs = (
@@ -1092,17 +1128,18 @@ def dictionary_batch_upsert_lexemes(request):
     # تحديد المالك بشكل آمن
     if is_admin(request.user):
         eff_owner_id = data.get("owner_id")
-        if eff_owner_id is None:
-            return Response({"detail": "owner_id is required for admin."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            eff_owner_id = int(eff_owner_id)
-        except Exception:
-            return Response({"detail": "owner_id must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+        # allow null => global lexicon for admins
+        if str(eff_owner_id).lower() in {"", "none", "null"}:
+            eff_owner_id = None
+        elif eff_owner_id is not None:
+            try:
+                eff_owner_id = int(eff_owner_id)
+            except Exception:
+                return Response({"detail": "owner_id must be an integer or null."}, status=status.HTTP_400_BAD_REQUEST)
     else:
         eff_owner_id = request.user.id
 
-    owner_user = get_object_or_404(User, pk=eff_owner_id)
-
+    owner_user = None if eff_owner_id is None else get_object_or_404(User, pk=eff_owner_id)
     created = 0
     updated = 0
     out_items = []
@@ -1150,7 +1187,7 @@ def dictionary_batch_upsert_lexemes(request):
                 lx.ingredient = ing
                 lx.save(update_fields=["ingredient"])
 
-            # إذا أُرسلت أكواد؛ حدّث مكوّن/lexeme بالأكواد (M2M على Allergen)
+            # إذا أُرسلت أكواد؛ حدّث مكوّن/lexeme بالأكواد (مجموعات M2M على Allergen)
             if codes_set:
                 ing_existing = set(ing.allergens.values_list("code", flat=True))
                 union = sorted(ing_existing | codes_set)
@@ -1188,91 +1225,139 @@ def dictionary_batch_upsert_lexemes(request):
 
 
 # ============================================================
-# (اختياري) حفظ سريع من LLM لقاموس المستخدم الحالي
+# (اختياري) حفظ سريع من LLM لقاموس محدد + Ingredient / Synonyms
 # POST /api/dictionary/llm-add-terms/
 # ============================================================
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def llm_add_terms_to_lexicon(request):
     """
-    يحفظ مصطلحات مقترحة من LLM لقاموس المستخدم الحالي.
-    للأدمن فقط: as_global=true يحفظ في القاموس العام (owner=None).
-    """
-    user = request.user
-    # Always save to the caller's private lexicon (owner=request.user).
-    # We intentionally ignore any as_global flag to avoid polluting global lexicon.
-    data = request.data or {}
-    lang = (data.get("lang") or "de").lower().strip()
-    items = data.get("items") or []
-    as_global = False
+    تضيف المصطلحات التي اختارها المستخدم من شاشة LLM إلى:
+      - KeywordLexeme (قاموس نصّي خاص بالمالك أو عام)
+      - Ingredient (مكوّن مهيكل خاص بالمالك) + ربط الحساسيّات والمرادفات
 
-    results = []
+    Body مثال:
+    {
+      "lang": "de",
+      "owner_id": 11,   # صاحب المنيو (قاموس خاص) أو null للقاموس العام
+      "items": [
+        { "term": "kaese", "allergen_codes": "G" },
+        { "term": "mascarpone", "allergen_codes": "G,K" }
+      ]
+    }
+    """
+    data = request.data or {}
+    lang = (data.get("lang") or "de").strip().lower() or "de"
+
+    owner_id = data.get("owner_id")
+    # نسمح بـ null/None = قاموس عام (لكن Ingredient يحتاج owner دائماً)
+    if owner_id in ("", "null", "None"):
+        owner_id = None
+
+    items = data.get("items") or []
+    if not isinstance(items, list) or not items:
+        return Response(
+            {"detail": "items must be a non-empty list."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     created = 0
     updated = 0
-    skipped = 0
+    out_items = []
 
     for it in items:
         term = (it.get("term") or "").strip()
-        codes_in = (it.get("allergen_codes") or it.get("codes") or "").strip()
         if not term:
-            results.append({"term": term, "status": "error", "reason": "empty_term"})
-            skipped += 1
             continue
 
-        codes_norm = _merge_codes_str(codes_in)
-        norm = _norm(term)
+        # 1) الأكواد → كائنات Allergen
+        codes_in = it.get("allergen_codes") or it.get("codes") or ""
+        codes_str = _extract_codes_str(codes_in)
 
-        qs = KeywordLexeme.objects.filter(lang__iexact=lang, normalized_term=norm)
-        qs = qs.filter(owner=user)
+        allergen_objs = []
+        if codes_str:
+            code_list = [c for c in re.split(r"[,\s]+", codes_str) if c]
+            if code_list:
+                allergen_objs = list(Allergen.objects.filter(code__in=code_list))
 
-        obj = qs.first()
-        if obj:
-            if codes_norm:
-                existing = ",".join(sorted(obj.allergens.values_list("code", flat=True)))
-                merged = _merge_codes_str(existing, codes_norm)
-                if merged != existing:
-                    alls = list(Allergen.objects.filter(code__in=re.split(r"[,\s]+", merged)))
-                    obj.allergens.set(alls)
-                    obj.is_active = True
-                    obj.save(update_fields=["is_active"])
-                    updated += 1
-                    results.append({"term": term, "id": obj.id, "status": "updated"})
-                else:
-                    skipped += 1
-                    results.append({"term": term, "id": obj.id, "status": "exists"})
-            else:
-                skipped += 1
-                results.append({"term": term, "id": obj.id, "status": "exists"})
-            continue
+        normalized = normalize_text(term)
 
-        # إنشاء جديد
-        create_kwargs = {
-            "term": term,
-            "lang": lang,
-            "is_regex": False,
-            "is_active": True,
-            "normalized_term": norm,
-        }
-        obj = KeywordLexeme.objects.create(owner=user, **create_kwargs)
+        # 2) إنشاء / تحديث KeywordLexeme
+        lexeme, is_created = KeywordLexeme.objects.get_or_create(
+            owner_id=owner_id,
+            lang=lang,
+            term=term,
+            defaults={
+                "normalized_term": normalized,
+                "is_regex": False,
+                "is_active": True,
+            },
+        )
 
-        if codes_norm:
-            alls = list(Allergen.objects.filter(code__in=re.split(r"[,\s]+", codes_norm)))
-            obj.allergens.set(alls)
+        if not is_created:
+            lexeme.normalized_term = normalized
+            lexeme.is_active = True
+            lexeme.lang = lang
+            lexeme.owner_id = owner_id
 
-        created += 1
-        results.append({"term": term, "id": obj.id, "status": "created"})
+        lexeme.save()
 
-    return Response({
-        "ok": True,
-        "lang": lang,
-        "as_global": False,
-        "created": created,
-        "updated": updated,
-        "skipped": skipped,
-        "items": results[:1000],
-        "note": "Saved into user's private lexicon unless admin + as_global=true.",
-    }, status=status.HTTP_200_OK)
+        if allergen_objs:
+            lexeme.allergens.set(allergen_objs)
+
+        # 3) إنشاء / تحديث Ingredient خاص بالمالك (إن كان owner_id معروف)
+        ingredient = None
+        if owner_id is not None:
+            ingredient, _ = Ingredient.objects.get_or_create(
+                owner_id=owner_id,
+                name=term,
+                defaults={
+                    "additives": [],
+                    "synonyms": [term],
+                },
+            )
+
+            # ربط الحساسيّات بنفس الأكواد
+            if allergen_objs:
+                ingredient.allergens.set(allergen_objs)
+
+            # تأكد أن الـ term موجود في synonyms
+            syns = list(ingredient.synonyms or [])
+            if term not in syns:
+                syns.append(term)
+                ingredient.synonyms = syns
+                ingredient.save(update_fields=["synonyms"])
+
+            # ربط الـ lexeme بهذا الـ ingredient (لو ما كان مربوط أصلاً)
+            if not lexeme.ingredient_id:
+                lexeme.ingredient = ingredient
+                lexeme.save(update_fields=["ingredient"])
+
+        if is_created:
+            created += 1
+        else:
+            updated += 1
+
+        out_items.append(
+            {
+                "id": lexeme.id,
+                "term": lexeme.term,
+                "codes": [a.code for a in allergen_objs],
+                "ingredient_id": ingredient.id if ingredient else None,
+                "created": is_created,
+            }
+        )
+
+    return Response(
+        {
+            "created": created,
+            "updated": updated,
+            "items": out_items,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 # ============================================================
@@ -1507,7 +1592,7 @@ email_available = throttle_classes([ScopedRateThrottle])(email_available)
 # ============================================================
 @api_view(["GET"])
 @permission_classes([AllowAny])
-def healthz(request):
+def healthz_api(request):
     from django.db import connection
     ok_db = True
     try:
@@ -1561,7 +1646,7 @@ MeProfileView = MeProfileAPIView
 
 
 # ============================================================
-# Healthcheck endpoint (no auth)
+# Healthcheck endpoint (no auth) – JSONResponse variant
 # ============================================================
 import os  # noqa: E402,F401
 from django.conf import settings  # noqa: E402,F401
@@ -1617,3 +1702,4 @@ try:
 except Exception:
     # If import order or name lookup fails in some contexts, ignore.
     pass
+

@@ -1,5 +1,5 @@
-// src/pages/DishPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
+
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from '../services/axios';
 import {
@@ -60,6 +60,26 @@ const DishPage = () => {
 
   const [query, setQuery] = useState('');
 
+
+  // Normalize input codes for allergens (letters) and additives (numbers).
+  // - Accept single letters A..Z and integer numbers (e.g., 1, 2, 330)
+  // - Ignore parentheses and extra spaces; deduplicate while preserving order
+  const normalizeCodes = (raw) => {
+    const s = String(raw || "").toUpperCase().replace(/[()]/g, "");
+    const parts = s.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
+    const out = [];
+    const seen = new Set();
+    for (const p of parts) {
+      if (/^[A-Z]$/.test(p)) {
+        if (!seen.has(p)) { seen.add(p); out.push(p); }
+      } else if (/^\d+$/.test(p)) {
+        const n = String(Number(p)); // strip leading zeros
+        if (!seen.has(n)) { seen.add(n); out.push(n); }
+      }
+    }
+    return out.join(",");
+  };
+
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDish, setPreviewDish] = useState(null);
 
@@ -68,6 +88,9 @@ const DishPage = () => {
     description: '',
     image: null,
     allergy_info: '',
+    // Manual allergen control
+    has_manual_codes: false,
+    manual_codes: '',
   });
 
   // ✅ معاينة لحظية للصورة المختارة
@@ -142,7 +165,12 @@ const DishPage = () => {
     formData.append('name', newDish.name);
     formData.append('description', newDish.description);
     formData.append('section', sectionId);
-    formData.append('allergy_info', newDish.allergy_info);
+    const manual = (newDish.manual_codes || '').trim();
+    // Keep legacy allergy_info in sync with manual codes for backward displays
+    formData.append('allergy_info', manual);
+    // Send manual override fields to backend (auto-enable when not empty)
+    formData.append('has_manual_codes', '1');
+    formData.append('manual_codes', manual);
     if (newDish.image) formData.append('image', newDish.image);
 
     const pricesClean = formPrices
@@ -174,7 +202,7 @@ const DishPage = () => {
         await Promise.all(toDelete.map((id) => axios.delete(`/v2/dishes/${dishId}/prices/${id}/`)));
       }
 
-      setNewDish({ name: '', description: '', image: null, allergy_info: '' });
+      setNewDish({ name: '', description: '', image: null, allergy_info: '', has_manual_codes: false, manual_codes: '' });
       setFormPrices([{ id: undefined, label: '', price: '', is_default: true, sort_order: 0 }]);
       setOriginalPriceIds(new Set());
       setEditingDishId(null);
@@ -191,6 +219,10 @@ const DishPage = () => {
       description: dish.description || '',
       image: null,
       allergy_info: dish.allergy_info || '',
+      has_manual_codes: !!dish.has_manual_codes,
+      // Pre-fill with existing generated/display codes if no manual yet,
+      // so the user can edit or delete the visible codes directly.
+      manual_codes: (dish.manual_codes || dish.display_codes || dish.allergy_info || ''),
     });
     const rows = (dish.prices || []).slice().sort(bySort);
     setFormPrices(
@@ -306,12 +338,12 @@ const DishPage = () => {
 
               <TextField
                 size="small"
-                label={t('allergy_info')}
-                name="allergy_info"
-                placeholder="e.g. GF, DF, NF"
-                value={newDish.allergy_info}
+                label={t('labels.codes') || 'Allergen codes'}
+                name="manual_codes"
+                placeholder="A,G,K"
+                value={newDish.manual_codes}
                 onChange={handleInputChange}
-                fullWidth
+                onBlur={(e) => setNewDish((p) => ({ ...p, manual_codes: normalizeCodes(e.target.value) }))}
               />
 
               {/* رفع صورة */}
@@ -571,11 +603,10 @@ const DishPage = () => {
                               sx={{ flex: '0 0 auto' }}
                             />
                           ))}
-                          {!!dish.allergy_info &&
-                            dish.allergy_info.split(',').slice(0, 6).map((tag, i) => (
+                          {(dish.display_codes || dish.allergy_info) && (dish.display_codes || dish.allergy_info).split(',').slice(0, 6).map((tag, i) => (
                               <Chip key={`alg-${i}`} size="small" label={tag.trim()} variant="outlined" sx={{ flex: '0 0 auto' }} />
                             ))
-                          }
+                          } 
                         </Box>
                       </Box>
 
@@ -666,11 +697,11 @@ const DishPage = () => {
                 </Stack>
               </Box>
 
-              {!!previewDish.allergy_info && (
+              {(previewDish.display_codes || previewDish.allergy_info) && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: .5, fontWeight: 800 }}>{t('allergy_info') || 'Allergy Info'}</Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {previewDish.allergy_info.split(',').map((tag, i) => (
+                    {(previewDish.display_codes || previewDish.allergy_info).split(',').map((tag, i) => (
                       <Chip key={`pv-alg-${i}`} size="small" variant="outlined" label={tag.trim()} />
                     ))}
                   </Stack>
@@ -693,3 +724,10 @@ const DishPage = () => {
 };
 
 export default DishPage;
+
+
+
+
+
+
+

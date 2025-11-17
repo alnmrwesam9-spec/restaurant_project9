@@ -30,23 +30,30 @@ _NON_ALNUM_RE = re.compile(r"[^\w\s]", flags=re.UNICODE)
 
 def normalize_text(s: str) -> str:
     """
-    NFKD + إزالة accents، تبسيط الألمانية، إزالة التشكيل العربي،
-    إزالة الرموز غير الألفانوميرية (مع الإبقاء على المسافات)، lowercase + دمج المسافات.
+    NFKC + تبسيط الألمانية (ä→ae, ö→oe, ü→ue, ß→ss)،
+    إزالة التشكيل العربي، إزالة الرموز غير الألفانوميرية،
+    lowercase + دمج المسافات.
+
+    يجب أن تبقى متطابقة مع core/dictionary_models.normalize_text.
     """
     if not s:
         return ""
-    x = unicodedata.normalize("NFKD", str(s))
-    x = "".join(ch for ch in x if not unicodedata.combining(ch))
+
+    x = unicodedata.normalize("NFKC", str(s))
+
     x = (
-        x.replace("ä", "ae")
-         .replace("ö", "oe")
-         .replace("ü", "ue")
+        x.replace("ä", "ae").replace("Ä", "Ae")
+         .replace("ö", "oe").replace("Ö", "Oe")
+         .replace("ü", "ue").replace("Ü", "Ue")
          .replace("ß", "ss")
     )
+
+    x = "".join(ch for ch in x if not unicodedata.combining(ch))
     x = _AR_DIACRITICS_RE.sub("", x)
     x = _NON_ALNUM_RE.sub(" ", x)
     x = " ".join(x.strip().lower().split())
     return x
+
 
 
 # -----------------------
@@ -198,14 +205,21 @@ def _resolve_lexemes(owner_id: int | None, lang: str, extra_owner_ids: Iterable[
     owner_q = Q()
     if owner_id is not None:
         owner_q |= Q(owner_id=owner_id)
+
     for oid in extra_owner_ids:
         try:
             owner_q |= Q(owner_id=int(oid))
         except Exception:
             pass
-    owner_q |= Q(owner__isnull=True)
+
+    # قاموس عام:
+    #   - owner IS NULL
+    #   - أي مالك superuser (قاموس المنصّة العام)
+    owner_q |= Q(owner__isnull=True) | Q(owner__is_superuser=True)
+
     if _GLOBAL_OWNER_ID is not None:
         owner_q |= Q(owner_id=_GLOBAL_OWNER_ID)
+
 
     filters = Q(is_active=True, lang__iexact=lang) & owner_q
 

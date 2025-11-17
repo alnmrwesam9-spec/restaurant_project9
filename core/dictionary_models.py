@@ -27,24 +27,40 @@ _NON_ALNUM_RE = re.compile(r"[^\w\s]", flags=re.UNICODE)
 
 def normalize_text(value: str) -> str:
     """
-    NFKD + إزالة العلامات (accents)، تبسيط الألمانية، إزالة التشكيل العربي،
-    إزالة الرموز غير الألفانوميرية (نبقي المسافات)، lowercase + دمج المسافات.
-    متوافقة مع services/allergen_rules.normalize_text
+    NFKC + تبسيط الألمانية (ä→ae, ö→oe, ü→ue, ß→ss)،
+    إزالة التشكيل العربي، إزالة الرموز غير الألفانوميرية
+    (مع الإبقاء على المسافات)، lowercase + دمج المسافات.
+
+    مهم: هذه الدالة يجب أن تكون متطابقة مع
+    services/allergen_rules.normalize_text
+    حتى يتطابق القاموس مع نصوص الأطباق.
     """
     if not value:
         return ""
-    x = unicodedata.normalize("NFKD", str(value))
-    x = "".join(ch for ch in x if not unicodedata.combining(ch))
+
+    # نستخدم NFKC حتى تبقى الأحرف المركّبة مثل ä كما هي
+    x = unicodedata.normalize("NFKC", str(value))
+
+    # أولاً: تبسيط الأحرف الألمانية إلى كتابات بديلة
     x = (
-        x.replace("ä", "ae")
-         .replace("ö", "oe")
-         .replace("ü", "ue")
+        x.replace("ä", "ae").replace("Ä", "Ae")
+         .replace("ö", "oe").replace("Ö", "Oe")
+         .replace("ü", "ue").replace("Ü", "Ue")
          .replace("ß", "ss")
     )
+
+    # ثانياً: إزالة أي حركات/تشكيل (عربي أو غيره)
+    x = "".join(ch for ch in x if not unicodedata.combining(ch))
+
+    # ثالثاً: إزالة التشكيل العربي والرموز غير الألفانوميرية
     x = _AR_DIACRITICS_RE.sub("", x)
     x = _NON_ALNUM_RE.sub(" ", x)
+
+    # رابعاً: lowercase + دمج المسافات
     x = " ".join(x.strip().lower().split())
     return x
+
+
 
 
 # ============================================================

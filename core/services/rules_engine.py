@@ -90,7 +90,11 @@ class OwnerDictionary:
         lexs = (
             KeywordLexeme.objects
             .filter(is_active=True, lang__iexact=dic.lang_hint)
-            .filter(Q(owner_id=owner_id) | Q(owner__isnull=True))
+            .filter(
+                Q(owner_id=owner_id) |
+                Q(owner__isnull=True) |
+                Q(owner__is_superuser=True)
+            )
             .prefetch_related("allergens", "ingredient__allergens")
             .select_related("ingredient")
         )

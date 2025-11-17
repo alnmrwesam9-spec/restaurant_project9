@@ -2,6 +2,7 @@ import React from 'react';
 import {
   AppBar, Toolbar, Typography, Button, Box, MenuItem, Select
 } from '@mui/material';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 const AdminNavbar = ({ onLogout }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const hideLangSwitcher = useMediaQuery('(max-width:768px)');
 
   const handleChangeLanguage = (e) => {
     const selectedLang = e.target.value;
@@ -70,21 +72,24 @@ const AdminNavbar = ({ onLogout }) => {
 
         {/* اليسار */}
         <Box display="flex" alignItems="center" gap={2}>
-          <Select
-            value={i18n.language}
-            onChange={handleChangeLanguage}
-            size="small"
-            sx={{
-              minWidth: 90,
-              color: 'var(--brand-contrast)',
-              '& .MuiSvgIcon-root': { color: 'var(--brand-contrast)' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
-            }}
-          >
-            <MenuItem value="ar">{t('arabic')}</MenuItem>
-            <MenuItem value="en">{t('english')}</MenuItem>
-            <MenuItem value="de">{t('german')}</MenuItem>
-          </Select>
+          {!hideLangSwitcher && (
+            <Select
+              value={i18n.language}
+              onChange={handleChangeLanguage}
+              size="small"
+              sx={{
+                minWidth: 90,
+                color: 'var(--brand-contrast)',
+                '& .MuiSvgIcon-root': { color: 'var(--brand-contrast)' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+                '@media (max-width:768px)': { display: 'none' },
+              }}
+            >
+              <MenuItem value="ar">{t('arabic')}</MenuItem>
+              <MenuItem value="en">{t('english')}</MenuItem>
+              <MenuItem value="de">{t('german')}</MenuItem>
+            </Select>
+          )}
 
           <Button
             onClick={onLogout}

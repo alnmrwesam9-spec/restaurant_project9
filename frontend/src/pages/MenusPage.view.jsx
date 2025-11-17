@@ -1,4 +1,3 @@
-// src/pages/MenusPage.view.jsx
 import React from 'react';
 import { useMenusPage } from './MenusPage.context';
 import { alpha } from '@mui/material/styles';
@@ -98,7 +97,7 @@ function MenusPageView() {
     setPendingDeleteId(null);
   };
 
-  // ���� ���� �������
+  // صورة آمنة (مع fallback)
   const SafeImg = React.forwardRef(function SafeImg(
     { src, alt, fallback, onError, ...props },
     ref
@@ -122,7 +121,7 @@ function MenusPageView() {
     );
   });
 
-  // ���� ��������
+  // مصادر صورة الهيرو
   const HERO_SOURCES = {
     lg: '/assets/hero/brand-4x1.svg',
     md: '/assets/hero/brand-16x9.svg',
@@ -154,7 +153,7 @@ function MenusPageView() {
     );
   }
 
-  // �� ����� ���� (������)
+  // صف تمرير أفقي بسيط (أزرار، الخ)
   const scrollRowSx = {
     display: 'flex',
     gap: 1,
@@ -170,7 +169,7 @@ function MenusPageView() {
     msOverflowStyle: 'none',
   };
 
-  // ����� ������ ������� (������)
+  // تمرير أفقي للكروت (موبايل)
   const cardsHScrollSx = {
     display: 'flex',
     gap: 8,
@@ -213,7 +212,7 @@ function MenusPageView() {
         isRTL={isRTL}
       />
 
-      {/* ������� ������� ������� ������� (���� window) */}
+      {/* منطقة المحتوى الرئيسية (التمرير داخل window) */}
       <Box
         className="main-scroll-area"
         sx={{
@@ -248,7 +247,7 @@ function MenusPageView() {
             onChange={handleExcelChosenKeepWB}
           />
 
-          {/* ���� ���� � ������ */}
+          {/* شريط علوي للموبايل (زر القائمة + اختيار المنيو + اللغة) */}
           <Box
             sx={{
               display: { xs: 'flex', md: 'none' },
@@ -293,14 +292,14 @@ function MenusPageView() {
             </Select>
           </Box>
 
-          {/* ������� + ����� ����� ����� */}
+          {/* العنوان + إنشاء منيو جديد */}
           <Box sx={{ maxWidth: CONTENT_MAX, mx: 'auto', mb: 2, minWidth: 0 }}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ md: 'center' }} justifyContent="space-between">
               <Typography variant="h2" fontWeight={700} data-tour="menus-title">
                 {t('my_menus')}
               </Typography>
 
-              {/* ����� ��� ������� + �� ������� */}
+              {/* حقل اسم المنيو الجديد + زر الإنشاء */}
               <Stack direction="row" spacing={1} sx={{ width: '100%', maxWidth: 520 }} data-tour="menu-create">
                 <TextField
                   fullWidth
@@ -368,7 +367,7 @@ function MenusPageView() {
             <Grid container spacing={2} alignItems="stretch" justifyContent="center" sx={{ overflowX: 'clip', pb: { xs: 8, md: 4 } }}>
               <Grid item xs={12}>
                 <Box sx={{ maxWidth: CONTENT_MAX, mx: 'auto', minWidth: 0 }}>
-                  {/* ����� ������� �������� */}
+                  {/* بطاقة معلومات المنيو المختار */}
                   <Card
                     variant="outlined"
                     sx={{
@@ -406,7 +405,7 @@ function MenusPageView() {
                             {t('actions.settings')}
                           </Button>
 
-                          {/* ����� ���� � ����� ���� ��� xs */}
+                          {/* أزرار سريعة للموبايل */}
                           <Box sx={{ display: { xs: 'block', sm: 'none' }, mb: 1 }}>
                             <Box sx={scrollRowSx}>
                               <Button
@@ -431,7 +430,7 @@ function MenusPageView() {
                               >
                                 {exportingId === selectedMenu.id ? t('export.exporting') : t('export.export_excel')}
                               </Button>
-                              {/* �� ������� (������) */}
+                              {/* زر توليد الأكواد (موبايل) */}
                               <Button
                                 size="small"
                                 startIcon={<ScienceIcon />}
@@ -468,7 +467,7 @@ function MenusPageView() {
                             </Box>
                           </Box>
 
-                          {/* ����� ���� � ����� ���� */}
+                          {/* أزرار سطح المكتب */}
                           <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" sx={{ mb: 1, display: { xs: 'none', sm: 'flex' } }}>
                             <Button
                               component={Link}
@@ -527,7 +526,7 @@ function MenusPageView() {
                             )}
                           </Stack>
 
-                          {/* ����� ������ � ������ ��� */}
+                          {/* أزرار أخرى (نسخ الرابط + حذف) للموبايل */}
                           <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
                             <Box sx={scrollRowSx}>
                               {!!selectedMenu.is_published && !!selectedMenu.public_slug && (
@@ -554,7 +553,7 @@ function MenusPageView() {
                             </Box>
                           </Box>
 
-                          {/* ����� ������ � ����� ���� */}
+                          {/* أزرار أخرى لسطح المكتب */}
                           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ display: { xs: 'none', sm: 'flex' } }}>
                             {!!selectedMenu.is_published && !!selectedMenu.public_slug && (
                               <Button
@@ -581,7 +580,7 @@ function MenusPageView() {
                         </CardContent>
                       </Grid>
 
-                      {/* Placeholder ���� ������ ��� ���� */}
+                      {/* Placeholder لعرض الهيرو أثناء التحميل */}
                       {displayLoading && (
                         <Grid
                           item
@@ -598,7 +597,7 @@ function MenusPageView() {
                       )}
                     </Grid>
 
-                    {/* ������ ������� ���� ������� */}
+                    {/* صورة الهيرو / معاينة المنيو */}
                     <Box sx={{ px: { xs: 1.5, md: 2 }, pb: 2 }}>
                       {displayLoading ? (
                         <Skeleton variant="rectangular" height={170} sx={{ borderRadius: 2 }} />
@@ -617,7 +616,7 @@ function MenusPageView() {
                     </Box>
                   </Card>
 
-                  {/* ������� �������� */}
+                  {/* الأقسام والأطباق */}
                   <Box mt={4}>
                     {sections.map((section) => (
                       <Box key={section.id} mb={4}>
@@ -627,7 +626,7 @@ function MenusPageView() {
                           </Typography>
                         </Fade>
 
-                        {/* ������: ����� ���� */}
+                        {/* موبايل: كروت أفقية */}
                         <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
                           <Box sx={cardsHScrollSx} data-tour="dish-cards" data-vp="mobile">
                             {(dishesBySection[section.id] || []).map((dish, idx) => {
@@ -709,7 +708,7 @@ function MenusPageView() {
                           </Box>
                         </Box>
 
-                        {/* �������: Grid */}
+                        {/* سطح المكتب: Grid للكروت */}
                         <Grid
                           container
                           spacing={2}
@@ -879,7 +878,7 @@ function MenusPageView() {
                               secondary={
                                 <Box component="span" sx={{ direction: 'ltr', display: 'inline' }}>
                                   <strong>{t('excel.detected_columns')}:</strong>{' '}
-                                  {['name','description','price','allergy'].map((k) => (
+                                  {['name', 'description', 'price', 'allergy'].map((k) => (
                                     <Chip
                                       key={k}
                                       size="small"
@@ -922,7 +921,7 @@ function MenusPageView() {
 
           {/* Progress dialog for Excel import */}
           <Dialog open={excelRun} onClose={() => {}} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-            <DialogTitle sx={{ fontWeight: 800 }}>{t('excel.importing') || 'Importing�'}</DialogTitle>
+            <DialogTitle sx={{ fontWeight: 800 }}>{t('excel.importing') || 'Importing…'}</DialogTitle>
             <DialogContent dividers>
               <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary">
@@ -941,7 +940,7 @@ function MenusPageView() {
             </DialogContent>
           </Dialog>
 
-          {/* ������ ����� */}
+          {/* Dialog تفاصيل الطبق */}
           <Dialog open={dishOpen} onClose={() => setDishOpen(false)} maxWidth="sm" fullWidth
                   PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>
@@ -1015,20 +1014,20 @@ function MenusPageView() {
                               <ListItemIcon>
                                 <Chip size="small" label={row.allergen_code} color="warning" variant="outlined" />
                               </ListItemIcon>
-                            <ListItemText
-                              primaryTypographyProps={{ component: 'div' }}
-                              secondaryTypographyProps={{ component: 'div' }}
-                              primary={
-                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                                  <Chip size="small" variant="outlined" label={row.source || 'regex'} />
-                                  {typeof row.confidence === 'number' && (
-                                    <Chip size="small" variant="outlined" label={`${t('labels.conf')} ${(row.confidence*100).toFixed(0)}%`} />
-                                  )}
-                                  {row.is_confirmed && <Chip size="small" color="success" label={t('labels.confirmed')} />}
-                                </Stack>
-                              }
-                              secondary={(row.rationale && row.rationale.trim()) ? row.rationale : t('labels.no_reason_given')}
-                            />
+                              <ListItemText
+                                primaryTypographyProps={{ component: 'div' }}
+                                secondaryTypographyProps={{ component: 'div' }}
+                                primary={
+                                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                    <Chip size="small" variant="outlined" label={row.source || 'regex'} />
+                                    {typeof row.confidence === 'number' && (
+                                      <Chip size="small" variant="outlined" label={`${t('labels.conf')} ${(row.confidence * 100).toFixed(0)}%`} />
+                                    )}
+                                    {row.is_confirmed && <Chip size="small" color="success" label={t('labels.confirmed')} />}
+                                  </Stack>
+                                }
+                                secondary={(row.rationale && row.rationale.trim()) ? row.rationale : t('labels.no_reason_given')}
+                              />
                             </ListItem>
                           ))}
                         </List>
@@ -1049,22 +1048,33 @@ function MenusPageView() {
             </DialogActions>
           </Dialog>
 
-          {/* Dialog ����� ������� */}
+          {/* Dialog توليد أكواد الحساسية */}
           <Dialog open={genOpen} onClose={() => !genBusy && setGenOpen(false)} maxWidth="md" fullWidth
                   PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>
               {t('actions.generate_allergens')}
             </DialogTitle>
+
+            {/* DialogContent المبسّط */}
             <DialogContent dividers>
               <Stack spacing={2}>
                 <Alert severity="info" icon={<InfoOutlinedIcon />}>
                   {t('notes.allergen_generate_note')}
                 </Alert>
 
+                {/* تفعيل / تعطيل استخدام الذكاء الاصطناعي (LLM) */}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <Tooltip title={t('tooltips.force_regenerate')}>
                     <Box data-tour="allergen-toggle-force">
-                      <FormControlLabel control={<Switch checked={genForce} onChange={(e) => setGenForce(e.target.checked)} />} label={t('force_regenerate')} />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={genForce}
+                            onChange={(e) => setGenForce(e.target.checked)}
+                          />
+                        }
+                        label={t('force_regenerate')}
+                      />
                     </Box>
                   </Tooltip>
                   <Tooltip title={t('tooltips.use_llm')}>
@@ -1076,79 +1086,24 @@ function MenusPageView() {
                             onChange={(e) => setGenUseLLM(e.target.checked)}
                           />
                         }
-                        label="use_llm"
+                        label={t('use_llm')}
                       />
-                    </Box>
-                  </Tooltip>
-                  <Tooltip title={t('tooltips.llm_dry_run')}>
-                    <Box data-tour="allergen-toggle-llm-dry-run">
-                      <FormControlLabel control={<Switch checked={genLLMDryRun} onChange={(e) => setGenLLMDryRun(e.target.checked)} />} label="llm_dry_run" />
-                    </Box>
-                  </Tooltip>
-                  <Tooltip title={t('tooltips.llm_guess_codes')}>
-                    <Box data-tour="allergen-toggle-llm-guess-codes">
-                      <FormControlLabel control={<Switch checked={llmGuessCodes} onChange={(e) => setLlmGuessCodes(e.target.checked)} />} label="llm_guess_codes" />
-                    </Box>
-                  </Tooltip>
-                  <Tooltip title={t('tooltips.llm_debug')}>
-                    <Box data-tour="allergen-toggle-llm-debug">
-                      <FormControlLabel control={<Switch checked={llmDebug} onChange={(e) => setLlmDebug(e.target.checked)} />} label="llm_debug" />
                     </Box>
                   </Tooltip>
                 </Stack>
 
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <Tooltip title={t('tooltips.lang')}>
-                      <TextField fullWidth label="lang" value={genLang} onChange={(e) => setGenLang(e.target.value)} helperText={t('helpers.lang')} />
-                    </Tooltip>
-                  </Grid>
-                  <Grid item xs={12} sm={8}>
-                    <Tooltip title={t('tooltips.dish_ids')}>
-                      <TextField fullWidth label={t('dish_ids_optional')} value={genDishIdsText} onChange={(e) => setGenDishIdsText(e.target.value)} helperText={t('helpers.dish_ids')} />
-                    </Tooltip>
-                  </Grid>
+                {/* اختيار الأطباق المستهدفة (اختياري) */}
+                <Tooltip title={t('tooltips.dish_ids')}>
+                  <TextField
+                    fullWidth
+                    label={t('dish_ids')}
+                    value={genDishIdsText}
+                    onChange={(e) => setGenDishIdsText(e.target.value)}
+                    helperText={t('helpers.dish_ids')}
+                  />
+                </Tooltip>
 
-                  {/* ?? ���� LLM �� ���� ������ */}
-                  <Grid item xs={12} sm={6}>
-                    <Tooltip title={t('tooltips.llm_model')}>
-                      <TextField
-                        fullWidth
-                        label="llm_model"
-                        value={genModel}
-                        onChange={(e) => setGenModel(e.target.value)}
-                        inputProps={{ 'data-tour': 'allergen-llm-model' }}
-                      />
-                    </Tooltip>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <Tooltip title={t('tooltips.llm_max_terms')}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label="llm_max_terms"
-                        value={genMaxTerms}
-                        onChange={(e) => setGenMaxTerms(e.target.value)}
-                        inputProps={{ min: 1, max: 20, 'data-tour': 'allergen-llm-max-terms' }}
-                      />
-                    </Tooltip>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <Tooltip title={t('tooltips.llm_temperature')}>
-                      <Box data-tour="allergen-llm-temperature">
-                        <TextField
-                          fullWidth
-                          type="number"
-                          label="llm_temperature"
-                          value={genTemperature}
-                          onChange={(e) => setGenTemperature(e.target.value)}
-                          inputProps={{ step: 0.1, min: 0, max: 1 }}
-                        />
-                      </Box>
-                    </Tooltip>
-                  </Grid>
-                </Grid>
-
+                {/* الأزرار: معاينة ثم تنفيذ */}
                 <Stack direction="row" spacing={1}>
                   <Tooltip title={t('tooltips.preview')}>
                     <span>
@@ -1181,12 +1136,18 @@ function MenusPageView() {
                   </Tooltip>
                 </Stack>
 
+                {/* من هنا وطالع: نفس المنطق السابق للنتائج / المعاينة / LLM */}
+
                 {genCounts && (
                   <>
                     <Alert severity="success">
                       {(genDryRun ? t('results.preview_result') : t('results.run_result'))}
                       : {` ${t('results.processed')}: ${genCounts.processed} | ${t('results.skipped')}: ${genCounts.skipped} | ${t('results.changed')}: ${genCounts.changed}`}
-                      {typeof genCounts.missingAfterRules === 'number' && (<> | {t('results.missing_after_rules')}: {genCounts.missingAfterRules}</>)}
+                      {typeof genCounts.missingAfterRules === 'number' && (
+                        <>
+                          {' '}| {t('results.missing_after_rules')}: {genCounts.missingAfterRules}
+                        </>
+                      )}
                     </Alert>
                     {genCounts.processed > 0 && genCounts.changed === 0 && (
                       <Alert severity="warning" sx={{ mt: 1 }}>
@@ -1206,7 +1167,10 @@ function MenusPageView() {
                         {genPreview.slice(0, 300).map((row, idx) => (
                           <ListItem key={`${row.id}-${idx}`}>
                             <ListItemIcon>
-                              {(row.action === 'no_change' || row.action === 'skip_manual') ? <WarningAmberIcon color="warning" /> : <CheckCircleIcon color="success" />}
+                              {(row.action === 'no_change' || row.action === 'skip_manual')
+                                ? <WarningAmberIcon color="warning" />
+                                : <CheckCircleIcon color="success" />
+                              }
                             </ListItemIcon>
                             <ListItemText
                               primary={`${row.name} � ${t(`row_action.${row.action}`)}${row.reason ? ` (${row.reason})` : ''}`}
@@ -1236,7 +1200,13 @@ function MenusPageView() {
                         onChange={(e) => setCandFilter(e.target.value)}
                         placeholder={t('placeholders.filter_term')}
                         sx={{ ml: 1, minWidth: 220 }}
-                        InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>) }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <SearchIcon fontSize="small" />
+                            </InputAdornment>
+                          )
+                        }}
                       />
                       <Box sx={{ flexGrow: 1 }} />
                       <Chip size="small" color="primary" variant="outlined" label={`${selectedCount} ${t('labels.selected')}`} />
@@ -1256,16 +1226,33 @@ function MenusPageView() {
                               {Array.isArray(it.candidates) && it.candidates.length ? (
                                 it.candidates.map((c) => {
                                   const key = `${it.dish_id}::${c.term}`;
-                                  const sel = llmSelect[key] || { checked: false, term: c.term, codesArr: (c.guess_codes || '').split(/[,\s]+/).filter(Boolean), confidence: c.confidence || 0 };
+                                  const sel = llmSelect[key] || {
+                                    checked: false,
+                                    term: c.term,
+                                    codesArr: (c.guess_codes || '').split(/[,\s]+/).filter(Boolean),
+                                    confidence: c.confidence || 0
+                                  };
                                   return (
                                     <ListItem key={key} sx={{ py: .75, alignItems: 'flex-start' }}>
                                       <ListItemIcon sx={{ mt: .25 }}>
-                                        {c.mapped_ingredient_id ? <CheckCircleIcon color="success" /> : (
+                                        {c.mapped_ingredient_id ? (
+                                          <CheckCircleIcon color="success" />
+                                        ) : (
                                           <Checkbox
                                             edge="start"
                                             checked={!!sel.checked}
                                             onChange={(e) =>
-                                              setLlmSelect((p) => ({ ...p, [key]: { ...(p[key]||{}), checked: e.target.checked, term: sel.term, codesArr: sel.codesArr, dishId: it.dish_id, confidence: sel.confidence } }))
+                                              setLlmSelect((p) => ({
+                                                ...p,
+                                                [key]: {
+                                                  ...(p[key] || {}),
+                                                  checked: e.target.checked,
+                                                  term: sel.term,
+                                                  codesArr: sel.codesArr,
+                                                  dishId: it.dish_id,
+                                                  confidence: sel.confidence
+                                                }
+                                              }))
                                             }
                                             tabIndex={-1}
                                             disableRipple
@@ -1274,7 +1261,7 @@ function MenusPageView() {
                                       </ListItemIcon>
                                       <ListItemText
                                         sx={{ mr: 1 }}
-                                        primary={`${c.term}${c.mapped_ingredient_id ? ` [#${c.mapped_ingredient_id}]` : ''}${(c.confidence!=null) ? ` � ${t('labels.conf')}=${(c.confidence*100).toFixed(0)}%` : ''}`}
+                                        primary={`${c.term}${c.mapped_ingredient_id ? ` [#${c.mapped_ingredient_id}]` : ''}${(c.confidence != null) ? ` � ${t('labels.conf')}=${(c.confidence * 100).toFixed(0)}%` : ''}`}
                                         secondary={(c.reason ? `� ${c.reason}` : '') + (c.guess_codes ? ` � ${t('labels.suggested')}: ${c.guess_codes}` : '')}
                                       />
                                       {!c.mapped_ingredient_id && (
@@ -1284,14 +1271,32 @@ function MenusPageView() {
                                             label={t('labels.term')}
                                             value={sel.term}
                                             onChange={(e) =>
-                                              setLlmSelect((p) => ({ ...p, [key]: { ...(p[key]||{}), term: e.target.value, dishId: it.dish_id, codesArr: sel.codesArr, confidence: sel.confidence } }))
+                                              setLlmSelect((p) => ({
+                                                ...p,
+                                                [key]: {
+                                                  ...(p[key] || {}),
+                                                  term: e.target.value,
+                                                  dishId: it.dish_id,
+                                                  codesArr: sel.codesArr,
+                                                  confidence: sel.confidence
+                                                }
+                                              }))
                                             }
                                             sx={{ width: { xs: '100%', sm: 260 } }}
                                           />
                                           <CodesEditor
                                             value={sel.codesArr}
                                             onChange={(arr) =>
-                                              setLlmSelect((p) => ({ ...p, [key]: { ...(p[key]||{}), codesArr: arr, term: sel.term, dishId: it.dish_id, confidence: sel.confidence } }))
+                                              setLlmSelect((p) => ({
+                                                ...p,
+                                                [key]: {
+                                                  ...(p[key] || {}),
+                                                  codesArr: arr,
+                                                  term: sel.term,
+                                                  dishId: it.dish_id,
+                                                  confidence: sel.confidence
+                                                }
+                                              }))
                                             }
                                             label={t('labels.codes')}
                                             helper={t('helpers.codes_helper')}
@@ -1313,14 +1318,27 @@ function MenusPageView() {
                         <Divider sx={{ my: 1 }} />
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
                           {isAdmin ? (
-                            <FormControlLabel control={<Switch checked={saveAsGlobal} onChange={(e) => setSaveAsGlobal(e.target.checked)} />} label={t('labels.save_as_global')} />
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={saveAsGlobal}
+                                  onChange={(e) => setSaveAsGlobal(e.target.checked)}
+                                />
+                              }
+                              label={t('labels.save_as_global')}
+                            />
                           ) : (
                             <Typography variant="caption" color="text.secondary">
                               {t('helpers.save_to_private_lexicon')}
                             </Typography>
                           )}
-                          <Button variant="contained" color="primary" disabled={upsertBusy || selectedCount === 0} onClick={handleUpsertSelected}
-                                  sx={{ borderRadius: 999, boxShadow: 'none' }}>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            disabled={upsertBusy || selectedCount === 0}
+                            onClick={handleUpsertSelected}
+                            sx={{ borderRadius: 999, boxShadow: 'none' }}
+                          >
                             {upsertBusy ? t('loading') : t('actions.add_selected_to_lexicon')}
                           </Button>
                         </Stack>
@@ -1340,6 +1358,7 @@ function MenusPageView() {
                 )}
               </Stack>
             </DialogContent>
+
             <DialogActions>
               <Button onClick={() => setGenOpen(false)} disabled={genBusy}>
                 {t('actions.close')}

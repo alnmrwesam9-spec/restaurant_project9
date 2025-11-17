@@ -525,7 +525,7 @@ class AdditiveBulkUploadView(APIView):
                 raise PermissionDenied("Invalid owner value.")
         # إن لم يُرسل owner في الـ query نعتبره المستخدم الحالي
         if owner_q is None:
-            owner_id = getattr(request.user, "id", None)
+            owner_id = None if is_admin(request.user) else getattr(request.user, "id", None)
 
         _ensure_owner_write_permission(request, owner_id)
 
@@ -704,18 +704,30 @@ class KeywordLexemeExportCSV(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        # ✅ خطوة 5 — تقييد التصدير بحسب المالك
         owner_q = request.query_params.get("owner") or kwargs.get("owner")
-        if owner_q and not is_admin(request.user):
-            raise PermissionDenied("Only admins can export for other owners.")
-        owner_id = (owner_q if owner_q else request.user.id)
 
-        qs = (
-            KeywordLexeme.objects
-            .filter(owner_id=owner_id)
-            .select_related("ingredient")
-            .prefetch_related("allergens")
-        )
+        # تحديد الـ owner الهدف
+        if not is_admin(request.user):
+            # المستخدم العادي يصدّر فقط قاموسه
+            owner_id = request.user.id
+            owner_is_global = False
+        else:
+            if not owner_q or str(owner_q).lower() in {"null", "none", "global"}:
+                owner_id = None
+                owner_is_global = True
+            else:
+                try:
+                    owner_id = int(owner_q)
+                    owner_is_global = False
+                except (TypeError, ValueError):
+                    raise PermissionDenied("Invalid owner value.")
+
+        qs = KeywordLexeme.objects.select_related("ingredient").prefetch_related("allergens")
+
+        if owner_id is None and owner_is_global:
+            qs = qs.filter(owner__isnull=True)
+        else:
+            qs = qs.filter(owner_id=owner_id)
 
         # فلاتر إضافية اختيارية
         lang = (request.query_params.get("lang") or "").strip()
@@ -729,20 +741,29 @@ class KeywordLexemeExportCSV(APIView):
             qs = qs.filter(normalized_term__icontains=q)
         qs = qs.order_by("priority", "weight", "id")
 
-        header = ["lang", "term", "is_regex", "allergens_ids", "ingredient_id", "is_active", "priority", "weight"]
+        header = ["lang", "term", "is_regex", "allergens_ids",
+                  "ingredient_id", "is_active", "priority", "weight"]
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(header)
         for x in qs:
             al = ",".join(str(a.id) for a in x.allergens.all())
             ing = x.ingredient_id or ""
-            w.writerow(
-                [x.lang, x.term or "", int(x.is_regex), al, ing, int(x.is_active), x.priority or 0, x.weight or 0]
-            )
+            w.writerow([
+                x.lang,
+                x.term or "",
+                int(x.is_regex),
+                al,
+                ing,
+                int(x.is_active),
+                x.priority or 0,
+                x.weight or 0,
+            ])
 
         resp = HttpResponse(buf.getvalue(), content_type="text/csv; charset=utf-8")
-        resp["Content-Disposition"] = 'attachment; filename="lexemes.csv"'
+        resp["Content-Disposition"] = 'attachment; filename=\"lexemes.csv\"'
         return resp
+
 
 
 class KeywordLexemeImportCSV(APIView):
@@ -766,7 +787,7 @@ class KeywordLexemeImportCSV(APIView):
             except Exception:
                 raise PermissionDenied("Invalid owner value.")
         if owner_q is None:
-            owner_id = getattr(request.user, "id", None)
+            owner_id = None if is_admin(request.user) else getattr(request.user, "id", None)
         _ensure_owner_write_permission(request, owner_id)
 
         f = request.FILES.get("file")
@@ -1036,14 +1057,28 @@ class KeywordLexemeViewSet(ModelViewSet):
     queryset = KeywordLexeme.objects.all().select_related("ingredient").prefetch_related("allergens")
 
     def get_queryset(self):
-        # ✅ خطوة 5 — نفس منطق Ingredients لمنع تسريب بيانات مالكين آخرين
         qs = super().get_queryset()
         req = self.request
 
         owner_q = (req.query_params.get("owner") or "").strip()
-        if is_admin(req.user) and owner_q:
-            qs = qs.filter(owner_id=owner_q)
+
+        if is_admin(req.user):
+            # الأدمن:
+            #   - بدون owner ⇒ القاموس العام (owner IS NULL)
+            #   - owner=global/null/None ⇒ القاموس العام
+            #   - owner=<id> رقمي ⇒ قاموس هذا المالك
+            val = owner_q.lower()
+            if not owner_q or val in {"null", "none", "global"}:
+                qs = qs.filter(owner__isnull=True)
+            else:
+                try:
+                    owner_id = int(owner_q)
+                    qs = qs.filter(owner_id=owner_id)
+                except (TypeError, ValueError):
+                    # قيمة غير صحيحة ⇒ نرجع للقاموس العام
+                    qs = qs.filter(owner__isnull=True)
         else:
+            # المستخدم العادي يرى فقط قاموسه الخاص من خلال هذه الواجهة
             qs = qs.filter(owner_id=req.user.id)
 
         lang = (req.query_params.get("lang") or "").strip()
@@ -1055,12 +1090,32 @@ class KeywordLexemeViewSet(ModelViewSet):
         if active in ("0", "1"):
             qs = qs.filter(is_active=(active == "1"))
         if q:
-            # ابحث بالـ term والـ normalized_term لمرونة أكبر
-            qs = qs.filter(Q(term__icontains=q) | Q(normalized_term__icontains=q))
+            qs = qs.filter(
+                Q(term__icontains=q) |
+                Q(normalized_term__icontains=q)
+            )
 
-        # ترتيب آمن (افتراضي: priority ثم weight ثم id)
         ordering = (req.query_params.get("ordering") or "priority,weight,id")
         allowed = {"priority", "weight", "id", "term", "lang"}
         parts = [p.strip() for p in ordering.split(",") if p.strip()]
         safe = [p for p in parts if p.lstrip("-") in allowed] or ["priority", "weight", "id"]
+        return qs.order_by(*safe)
+
+    # Ensure admin can create global lexemes by default; non-admins are scoped to self
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        if is_admin(request.user):
+            ov = data.get("owner")
+            # Treat missing/blank/global as None (global)
+            if ov in (None, "", "null", "None", "global"):
+                data["owner"] = None
+        else:
+            # Force owner to the current user for non-admins
+            data["owner"] = getattr(request.user, "id", None)
+
+        ser = self.get_serializer(data=data)
+        ser.is_valid(raise_exception=True)
+        obj = ser.save()
+        out = self.get_serializer(obj).data
+        return Response(out, status=status.HTTP_201_CREATED)
         return qs.order_by(*safe)
