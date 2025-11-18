@@ -128,6 +128,7 @@ REST_FRAMEWORK = {
         "register": "3/min",
         "availability": os.getenv("DRF_AVAILABILITY_RATE", "20/min"),
         "llm": os.getenv("DRF_LLM_RATE", "10/min"),
+        "password_change": os.getenv("DRF_PASSWORD_CHANGE_RATE", "5/min"),
     },
 }
 

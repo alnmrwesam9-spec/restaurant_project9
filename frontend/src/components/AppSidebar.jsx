@@ -25,6 +25,8 @@ import { keyframes } from "@mui/system";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import api from "../services/axios";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import { useNavigate } from "react-router-dom";
 
 // ثوابت العرض
 export const RAIL_WIDTH = 72;
@@ -53,6 +55,7 @@ export default function AppSidebar({
   const theme = useTheme();
   const mdUp = useMediaQuery(theme.breakpoints.up("md"));
   const side = isRTL ? "right" : "left";
+  const navigate = useNavigate();
 
   // الحالة المحلية للملف الشخصي + الانشغال بالرفع
   const [profile, setProfile] = useState(null);
@@ -312,6 +315,35 @@ export default function AppSidebar({
     </Box>
   );
 
+  const ProfileButton = (
+    <Box sx={{ px: 1, py: 0.5 }}>
+      <List dense disablePadding>
+        <ListItemButton
+          onClick={() => {
+            navigate('/account/profile');
+            onMobileClose?.();
+          }}
+          sx={{
+            borderRadius: 1.5,
+            mb: 0.5,
+            position: "relative",
+            overflow: "hidden",
+            transition: "all .2s ease",
+            "&:hover": {
+              background: "rgba(0,0,0,0.04)",
+              transform: "translateX(2px)",
+            },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <AccountCircleIcon />
+          </ListItemIcon>
+          <ListItemText primary={t("my_profile") || "My Profile"} />
+        </ListItemButton>
+      </List>
+    </Box>
+  );
+
   // محتوى اللوحة الكاملة
   const FullPanel = (
     <Box
@@ -328,6 +360,7 @@ export default function AppSidebar({
     >
       {HeaderFull}
       <Divider />
+      {ProfileButton}
       {MenusList}
       {ImportButton}
     </Box>

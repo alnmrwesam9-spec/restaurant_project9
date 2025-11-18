@@ -54,6 +54,8 @@ urlpatterns = [
     re_path(r"^token/?$",            EmailOrUsernameTokenObtainPairView.as_view(), name="token_obtain_pair"),
     re_path(r"^token/refresh/?$",    TokenRefreshView.as_view(),                    name="token_refresh"),
     re_path(r"^auth/whoami/?$",  WhoAmI.as_view(),              name="whoami"),
+    re_path(r"^auth/me/?$",      views.MeAPIView.as_view(),     name="auth_me"),
+    re_path(r"^auth/me/change-password/?$", views.MeChangePasswordAPIView.as_view(), name="auth_me_change_password"),
 
     # ---------- Users / Profile ----------
     re_path(r"^users/?$",              views.UserListAdminView.as_view(),   name="user_list_admin"),

@@ -11,6 +11,9 @@ import logging
 from django.db import transaction, IntegrityError
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
 
 from rest_framework import generics, status, viewsets, permissions
@@ -214,6 +217,24 @@ class WhoAmI(APIView):
             "is_authenticated": bool(u.is_authenticated),
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class MeAPIView(RetrieveUpdateAPIView):
+    """
+    GET /api/auth/me/
+    PATCH /api/auth/me/
+
+    Returns and updates the authenticated user's profile data (safe fields only).
+    Uses the existing ProfileSerializer and operates on request.user.profile.
+    Accepts JSON or multipart/form-data when updating avatar.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProfileSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_object(self):
+        profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        return profile
 
 
 @api_view(["GET"])
@@ -722,6 +743,44 @@ class MeProfileAPIView(RetrieveUpdateAPIView):
         ctx = super().get_serializer_context()
         ctx["request"] = self.request          # حتى يشتغل avatar_url
         return ctx
+
+
+class MeChangePasswordAPIView(APIView):
+    """
+    POST /api/auth/me/change-password/
+
+    Payload: { current_password, new_password, confirm_password }
+    Validates current password, enforces Django validators for new password,
+    and updates the authenticated user's password.
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_change"
+
+    def post(self, request):
+        u = request.user
+        data = request.data if isinstance(request.data, dict) else {}
+        current = (data.get("current_password") or "").strip()
+        new = (data.get("new_password") or "").strip()
+        confirm = (data.get("confirm_password") or "").strip()
+
+        if not current or not new or not confirm:
+            return Response({"detail": "Missing required fields."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new != confirm:
+            return Response({"confirm_password": ["Passwords do not match."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not u.check_password(current):
+            return Response({"current_password": ["Incorrect current password."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            validate_password(new, user=u)
+        except DjangoValidationError as e:
+            return Response({"new_password": list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        u.set_password(new)
+        u.save(update_fields=["password"])
+        return Response({"detail": "Password updated successfully."}, status=status.HTTP_200_OK)
 
 
 # ============================================================

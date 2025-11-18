@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.templatetags.static import static
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework.throttling import ScopedRateThrottle  # ✅ ثروتل سكوب
 
@@ -124,19 +125,24 @@ def _build_explanation_de_from_codes(codes: list[str]) -> str:
 class ProfileSerializer(serializers.ModelSerializer):
     # حقول للقراءة من User
     username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.EmailField(source='user.email', read_only=True)
+    email = serializers.EmailField(source='user.email', required=False, allow_blank=True)
     first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
     last_name  = serializers.CharField(source='user.last_name',  required=False, allow_blank=True)
 
+    # Convenience fields for UI
+    full_name = serializers.CharField(required=False, allow_blank=True)
+    display_name = serializers.CharField(required=False, allow_blank=True)
+
     # رابط جاهز للصورة
     avatar_url = serializers.SerializerMethodField(read_only=True)
+    can_change_email = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model  = Profile
         fields = [
             "id", "username", "email",
-            "first_name", "last_name",
-            "avatar_url", "avatar",
+            "first_name", "last_name", "full_name", "display_name",
+            "avatar_url", "avatar", "can_change_email",
         ]
         extra_kwargs = {
             "avatar": {"required": False, "allow_null": True},
@@ -180,8 +186,83 @@ class ProfileSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        # Clean avatar if needed
         validated_data = self._clean_images_in_data(validated_data)
-        return super().update(instance, validated_data)
+
+        # Nested user data
+        user = getattr(instance, "user", None)
+        user_data = validated_data.pop("user", {}) if isinstance(validated_data, dict) else {}
+
+        # full_name support (split into first/last)
+        full_name = validated_data.pop("full_name", None)
+        if full_name is not None:
+            name = (str(full_name) or "").strip()
+            if name:
+                parts = name.split()
+                if len(parts) == 1:
+                    user_data.setdefault("first_name", parts[0])
+                    user_data.setdefault("last_name", "")
+                else:
+                    user_data.setdefault("first_name", " ".join(parts[:-1]))
+                    user_data.setdefault("last_name", parts[-1])
+            else:
+                user_data.setdefault("first_name", "")
+                user_data.setdefault("last_name", "")
+
+        # Optional display_name
+        if "display_name" in validated_data:
+            instance.display_name = str(validated_data.get("display_name") or "")
+            validated_data.pop("display_name", None)
+
+        # Email policy + uniqueness
+        allow_email_change = bool(getattr(settings, "ALLOW_EMAIL_CHANGE", False))
+        email_in = user_data.get("email", None)
+        if email_in is not None and user is not None:
+            new_email = (email_in or "").strip()
+            if not allow_email_change and new_email != (getattr(user, "email", "") or ""):
+                raise serializers.ValidationError({"email": "Email change not allowed."})
+            if new_email:
+                UserModel = get_user_model()
+                qs = UserModel.objects.filter(email__iexact=new_email).exclude(pk=getattr(user, "pk", None))
+                if qs.exists():
+                    raise serializers.ValidationError({"email": "Email already in use"})
+
+        # Apply user fields
+        if user is not None and isinstance(user_data, dict):
+            for attr in ("first_name", "last_name"):
+                if attr in user_data:
+                    setattr(user, attr, user_data.get(attr) or "")
+            if email_in is not None:
+                user.email = (email_in or "").strip()
+            # Persist only changed fields
+            update_fields = [
+                f for f in [
+                    "first_name" if "first_name" in user_data else None,
+                    "last_name" if "last_name" in user_data else None,
+                    "email" if email_in is not None else None,
+                ] if f
+            ]
+            if update_fields:
+                user.save(update_fields=update_fields)
+
+        # Save profile (avatar and others)
+        updated = super().update(instance, validated_data)
+        return updated
+
+    def get_can_change_email(self, obj):
+        return bool(getattr(settings, "ALLOW_EMAIL_CHANGE", False))
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            fn = data.get("first_name") or ""
+            ln = data.get("last_name") or ""
+            data["full_name"] = (fn + " " + ln).strip()
+        except Exception:
+            pass
+        if "display_name" not in data:
+            data["display_name"] = getattr(instance, "display_name", "") or ""
+        return data
 
 
 # ===================== Auth =====================

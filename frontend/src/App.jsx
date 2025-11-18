@@ -47,6 +47,7 @@ const AdminMenuEditorPage = React.lazy(() => import('./pages/AdminMenuEditorPage
 const MenuPublicSettings = React.lazy(() => import('./pages/MenuPublicSettings'))
 const PublicMenuPage = React.lazy(() => import('./pages/PublicMenuPage'))
 const AdminAllergensPage = React.lazy(() => import('./pages/AdminAllergensPage'))
+const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'))
 
 /* ------------------------- JWT utils ------------------------- */
 function isJwtValidMaybe(token) {
@@ -274,6 +275,18 @@ export default function App() {
           />
 
           {/* 👤 مسارات لوحة المستخدم (محميّة) */}
+          <Route
+            path="/account/profile"
+            element={
+              <PrivateRoute token={token}>
+                <>
+                  <UserNavbar onLogout={handleLogout} />
+                  <UserProfilePage />
+                </>
+              </PrivateRoute>
+            }
+          />
+
           <Route
             path="/menus"
             element={
