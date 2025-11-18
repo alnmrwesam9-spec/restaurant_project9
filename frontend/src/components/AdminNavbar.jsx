@@ -5,7 +5,6 @@ import {
 import useMediaQuery from '@mui/material/useMediaQuery';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import HomeIcon from '@mui/icons-material/Home';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -37,9 +36,14 @@ const AdminNavbar = ({ onLogout }) => {
         }}
       >
         {/* اليمين */}
-        <Box display="flex" alignItems="center" gap={2}>
+        <Box display="flex" alignItems="center" gap={2} sx={{ '@media (max-width:640px)': { gap: 1 } }}>
           <AdminPanelSettingsIcon />
-          <Typography variant="h6" fontWeight={700}>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            onClick={() => navigate('/admin')}
+            sx={{ cursor: 'pointer' }}
+          >
             {t('admin_dashboard')}
           </Typography>
 
@@ -49,29 +53,23 @@ const AdminNavbar = ({ onLogout }) => {
             sx={{
               textTransform: 'none',
               gap: 1,
+              px: 1.25,
+              '@media (max-width:640px)': {
+                px: 0.75,
+                minWidth: 'unset',
+                fontSize: '0.9rem',
+                gap: 0.75,
+              },
               '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
             }}
           >
             <ArrowBackIcon />
             {t('back')}
           </Button>
-
-          <Button
-            color="inherit"
-            onClick={() => navigate('/admin/users')}
-            sx={{
-              textTransform: 'none',
-              gap: 1,
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.15)' },
-            }}
-          >
-            <HomeIcon />
-            {t('home')}
-          </Button>
         </Box>
 
         {/* اليسار */}
-        <Box display="flex" alignItems="center" gap={2}>
+        <Box display="flex" alignItems="center" gap={2} sx={{ '@media (max-width:640px)': { gap: 1 } }}>
           {!hideLangSwitcher && (
             <Select
               value={i18n.language}
@@ -98,6 +96,12 @@ const AdminNavbar = ({ onLogout }) => {
               color: 'var(--brand-contrast)',
               borderColor: 'var(--brand-contrast)',
               textTransform: 'none',
+              px: 1.5,
+              '@media (max-width:640px)': {
+                px: 0.9,
+                minWidth: 'unset',
+                fontSize: '0.9rem',
+              },
               '&:hover': {
                 backgroundColor: 'rgba(255,255,255,0.15)',
                 borderColor: 'var(--brand-contrast)',

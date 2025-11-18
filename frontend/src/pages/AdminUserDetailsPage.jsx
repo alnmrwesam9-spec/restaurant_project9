@@ -31,6 +31,11 @@ const formatEuro = (v) => {
   catch { return n.toFixed(2); }
 };
 
+// Normalize allergen codes like in Public menus
+const normalizeCodes = (d) => (
+  d?.allergen_codes || d?.display_codes || d?.allergy_info || ''
+);
+
 const AdminUserDetailsPage = () => {
   const { t } = useTranslation();
   const { userId } = useParams();
@@ -160,6 +165,28 @@ const AdminUserDetailsPage = () => {
                         <Typography variant="body2">
                           {dish.description || t('no_description')}
                         </Typography>
+                        {(() => {
+                          const codes = String(normalizeCodes(dish) || '').trim();
+                          return codes ? (
+                            <Box mt={0.75}>
+                              <Chip
+                                size="small"
+                                label={codes}
+                                variant="filled"
+                                sx={{
+                                  zIndex: 2,
+                                  bgcolor: '#fff',
+                                  color: '#111827',
+                                  border: '1px solid #e5e7eb',
+                                  boxShadow: '0 2px 10px rgba(0,0,0,.08)',
+                                  fontWeight: 800,
+                                  height: 26,
+                                  '& .MuiChip-label': { px: 1.25, letterSpacing: .25 },
+                                }}
+                              />
+                            </Box>
+                          ) : null;
+                        })()}
                         {dish.allergy_info && (
                           <Typography variant="body2" color="error">
                             {t('allergy_info')}: {dish.allergy_info}
