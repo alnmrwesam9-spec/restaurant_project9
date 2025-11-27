@@ -1,3 +1,4 @@
+
 // src/pages/MenusPage.container.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -29,6 +30,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import LanguageIcon from '@mui/icons-material/Language';
+import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
 
 // defer loading xlsx to cut initial bundle size
 let _XLSX = null;
@@ -55,7 +57,7 @@ import LLMOverlay from '../components/LLMOverlay';
 /** أبعاد بطاقات الأطباق */
 const CARD_W = 280;
 const CARD_H = 300;
-const IMG_H  = 160;
+const IMG_H = 160;
 const NAME_MIN_H = 44;
 const PRICE_ROW_H = 26;
 
@@ -63,7 +65,7 @@ const PRICE_ROW_H = 26;
 const CONTENT_MAX = 1040;
 
 /** خيارات للأكواد */
-const COMMON_CODES = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R'];
+const COMMON_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'];
 
 const splitCodes = (v) =>
   String(v || '')
@@ -74,7 +76,7 @@ const splitCodes = (v) =>
 
 const sanitizeCodesArray = (arr) => {
   const clean = new Set();
-  const bad   = new Set();
+  const bad = new Set();
   arr.forEach((raw) => {
     const token = String(raw || '').toUpperCase().trim();
     if (!token) return;
@@ -243,9 +245,7 @@ function MenusPage({ token }) {
   const dishCardImage = (dish) =>
     firstValid(
       safeSrc(dish?.image),
-      safeSrc(dish?.image_url),
-      safeSrc(profile?.avatar),
-      PLACEHOLDER
+      safeSrc(dish?.image_url)
     );
 
   const bySort = (a, b) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0) || (a?.id || 0) - (b?.id || 0);
@@ -367,7 +367,7 @@ function MenusPage({ token }) {
         const role = (d?.user?.role || d?.role || '').toString().toLowerCase();
         setIsAdmin(role === 'admin');
       }
-    } catch {}
+    } catch { }
   }, [token, t]);
 
   useEffect(() => { fetchMenus(); fetchMyProfile(); }, []); // eslint-disable-line
@@ -491,10 +491,10 @@ function MenusPage({ token }) {
   // ====== LLM helpers (كما كانت) ======
   const headerSynonyms = useMemo(
     () => ({
-      name: ['name','item','title','dish','dishname','اسم','اسم الطبق','الاسم','الصنف','طبق','اسم الوجبة','gericht','gerichtname','name des gerichts','speise'],
-      description: ['description','desc','details','about','الوصف','وصف','تفاصيل','نبذة','beschreibung','details de','beschreibungstext'],
-      price: ['price','cost','amount','unitprice','€','eur','euro','preis','kosten','السعر','سعر','ثمن'],
-      allergy: ['allergy','allergies','allergen','allergyinfo','allergy info','allergens','الحساسية','عناصر الحساسية','تحذير حساسية','مسببات الحساسية','allergie','allergien','allergenhinweise'],
+      name: ['name', 'item', 'title', 'dish', 'dishname', 'اسم', 'اسم الطبق', 'الاسم', 'الصنف', 'طبق', 'اسم الوجبة', 'gericht', 'gerichtname', 'name des gerichts', 'speise'],
+      description: ['description', 'desc', 'details', 'about', 'الوصف', 'وصف', 'تفاصيل', 'نبذة', 'beschreibung', 'details de', 'beschreibungstext'],
+      price: ['price', 'cost', 'amount', 'unitprice', '€', 'eur', 'euro', 'preis', 'kosten', 'السعر', 'سعر', 'ثمن'],
+      allergy: ['allergy', 'allergies', 'allergen', 'allergyinfo', 'allergy info', 'allergens', 'الحساسية', 'عناصر الحساسية', 'تحذير حساسية', 'مسببات الحساسية', 'allergie', 'allergien', 'allergenhinweise'],
     }),
     []
   );
@@ -879,10 +879,10 @@ function MenusPage({ token }) {
   const cancelLlmJob = async () => {
     try {
       if (llmController) {
-        try { llmController.abort(); } catch {}
+        try { llmController.abort(); } catch { }
       }
       if (llmJobId) {
-        await api.post(`/llm/jobs/${llmJobId}/cancel/`).catch(() => {});
+        await api.post(`/llm/jobs/${llmJobId}/cancel/`).catch(() => { });
       }
     } finally {
       setLlmOverlayOpen(false);
@@ -1080,7 +1080,7 @@ function MenusPage({ token }) {
     Icons: {
       AddIcon, FolderIcon, DeleteIcon, FileDownloadIcon, LinkIcon, ContentCopyIcon, SettingsIcon,
       UploadFileIcon, CheckCircleIcon, WarningAmberIcon, ScienceIcon, RefreshIcon, MenuIcon,
-      InfoOutlinedIcon, SearchIcon, LanguageIcon,
+      InfoOutlinedIcon, SearchIcon, LanguageIcon, ImageNotSupportedIcon,
     },
     MUI: {
       Container, Typography, TextField, Button, Stack, Card, CardContent, Box, Alert,

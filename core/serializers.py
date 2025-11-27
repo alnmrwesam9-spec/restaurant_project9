@@ -43,7 +43,7 @@ class AbsoluteImageURLField(serializers.ImageField):
 def _resolve_dish_image_url(obj, request=None):
     """
     يُعيد URL الصورة بالترتيب:
-    dish.image -> owner.profile.avatar -> static placeholder.
+    dish.image -> None (لا يوجد صورة افتراضية)
     """
     # 1) صورة الطبق (إن وُجدت)
     try:
@@ -54,20 +54,8 @@ def _resolve_dish_image_url(obj, request=None):
     except Exception:
         pass
 
-    # 2) صورة المستخدم (avatar)
-    try:
-        owner = obj.section.menu.user
-        prof = getattr(owner, "profile", None)
-        if prof and getattr(prof, "avatar", None):
-            url = prof.avatar.url
-            if url:
-                return request.build_absolute_uri(url) if request else url
-    except Exception:
-        pass
-
-    # 3) صورة افتراضية
-    url = static('img/dish-placeholder.png')
-    return request.build_absolute_uri(url) if request else url
+    # 2) لا يوجد صورة - نُرجع None
+    return None
 
 
 def _extract_letter_codes_from_display(display_value: str) -> list[str]:

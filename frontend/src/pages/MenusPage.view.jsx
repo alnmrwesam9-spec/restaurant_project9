@@ -72,7 +72,7 @@ function MenusPageView() {
   const {
     AddIcon, FolderIcon, DeleteIcon, FileDownloadIcon, LinkIcon, ContentCopyIcon, SettingsIcon,
     UploadFileIcon, CheckCircleIcon, WarningAmberIcon, ScienceIcon, RefreshIcon, MenuIcon,
-    InfoOutlinedIcon, SearchIcon, LanguageIcon,
+    InfoOutlinedIcon, SearchIcon, LanguageIcon, ImageNotSupportedIcon,
   } = Icons;
 
   // Delete confirmation dialog state
@@ -665,12 +665,17 @@ function MenusPageView() {
                                     )}
 
                                     <CardActionArea sx={{ height: '100%' }} onClick={() => openDish(dish)}>
-                                      <SafeImg
-                                        src={dishCardImage(dish)}
-                                        fallback={PLACEHOLDER}
-                                        alt={dish.name || t('labels.dish')}
-                                        sx={{ width: '100%', height: IMG_H, objectFit: 'cover', display: 'block' }}
-                                      />
+                                      {dishCardImage(dish) ? (
+                                        <SafeImg
+                                          src={dishCardImage(dish)}
+                                          alt={dish.name || t('labels.dish')}
+                                          sx={{ width: '100%', height: IMG_H, objectFit: 'cover', display: 'block' }}
+                                        />
+                                      ) : (
+                                        <Box sx={{ width: '100%', height: IMG_H, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled' }}>
+                                          <ImageNotSupportedIcon fontSize="large" />
+                                        </Box>
+                                      )}
                                       <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                                         <Typography
                                           variant="subtitle1"
@@ -761,12 +766,17 @@ function MenusPageView() {
                                     )}
 
                                     <CardActionArea sx={{ height: '100%' }} onClick={() => openDish(dish)}>
-                                      <SafeImg
-                                        src={dishCardImage(dish)}
-                                        fallback={PLACEHOLDER}
-                                        alt={dish.name || t('labels.dish')}
-                                        sx={{ width: '100%', height: IMG_H, objectFit: 'cover', display: 'block' }}
-                                      />
+                                      {dishCardImage(dish) ? (
+                                        <SafeImg
+                                          src={dishCardImage(dish)}
+                                          alt={dish.name || t('labels.dish')}
+                                          sx={{ width: '100%', height: IMG_H, objectFit: 'cover', display: 'block' }}
+                                        />
+                                      ) : (
+                                        <Box sx={{ width: '100%', height: IMG_H, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled' }}>
+                                          <ImageNotSupportedIcon fontSize="large" />
+                                        </Box>
+                                      )}
                                       <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                                         <Typography
                                           variant="subtitle1"
@@ -813,7 +823,7 @@ function MenusPageView() {
 
           {/* Delete confirmation dialog */}
           <Dialog open={confirmDeleteOpen} onClose={handleCancelDelete} maxWidth="xs" fullWidth
-                  PaperProps={{ sx: { borderRadius: 3 } }}>
+            PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>{t('actions.delete')}</DialogTitle>
             <DialogContent dividers>
               <Typography variant="body2" color="text.secondary">
@@ -836,7 +846,7 @@ function MenusPageView() {
 
           {/* Import dialog */}
           <Dialog open={excelDialog} onClose={() => !excelBusy && setExcelDialog(false)} maxWidth="md" fullWidth
-                  PaperProps={{ sx: { borderRadius: 3 } }}>
+            PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>{t('excel.preview_title')}</DialogTitle>
             <DialogContent dividers>
               <Stack spacing={2}>
@@ -920,7 +930,7 @@ function MenusPageView() {
           </Dialog>
 
           {/* Progress dialog for Excel import */}
-          <Dialog open={excelRun} onClose={() => {}} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <Dialog open={excelRun} onClose={() => { }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>{t('excel.importing') || 'Importing…'}</DialogTitle>
             <DialogContent dividers>
               <Stack spacing={2}>
@@ -942,19 +952,24 @@ function MenusPageView() {
 
           {/* Dialog تفاصيل الطبق */}
           <Dialog open={dishOpen} onClose={() => setDishOpen(false)} maxWidth="sm" fullWidth
-                  PaperProps={{ sx: { borderRadius: 3 } }}>
+            PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>
               {dishSel?.name || ''}
             </DialogTitle>
             <DialogContent dividers>
               {dishSel && (
                 <Stack spacing={2}>
-                  <SafeImg
-                    src={dishCardImage(dishSel)}
-                    fallback={PLACEHOLDER}
-                    alt={dishSel.name || t('labels.dish')}
-                    sx={{ width: '100%', height: 260, objectFit: 'cover', borderRadius: 8, display: 'block' }}
-                  />
+                  {dishCardImage(dishSel) ? (
+                    <SafeImg
+                      src={dishCardImage(dishSel)}
+                      alt={dishSel.name || t('labels.dish')}
+                      sx={{ width: '100%', height: 260, objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                    />
+                  ) : (
+                    <Box sx={{ width: '100%', height: 260, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled', borderRadius: 8 }}>
+                      <ImageNotSupportedIcon fontSize="large" />
+                    </Box>
+                  )}
                   <Box>
                     <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 800 }}>
                       {t('labels.prices')}
@@ -1050,7 +1065,7 @@ function MenusPageView() {
 
           {/* Dialog توليد أكواد الحساسية */}
           <Dialog open={genOpen} onClose={() => !genBusy && setGenOpen(false)} maxWidth="md" fullWidth
-                  PaperProps={{ sx: { borderRadius: 3 } }}>
+            PaperProps={{ sx: { borderRadius: 3 } }}>
             <DialogTitle sx={{ fontWeight: 800 }}>
               {t('actions.generate_allergens')}
             </DialogTitle>
