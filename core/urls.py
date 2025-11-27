@@ -74,6 +74,12 @@ urlpatterns = [
     path('auth/username-available/', username_available),
     path('auth/email-available/', email_available),
 
+
+    # تسجيل مستخدم جديد
+    path('register/', RegisterView.as_view(), name='register'),
+    path('auth/username-available/', username_available),
+    path('auth/email-available/', email_available),
+
     # ---------- Menus / Sections / Dishes (v1) ----------
     re_path(r"^menus/?$",                     views.MenuListCreateView.as_view(), name="menu_list_create"),
     re_path(r"^menus/(?P<pk>\d+)/?$",         views.MenuDetailView.as_view(),      name="menu_detail"),
@@ -81,6 +87,8 @@ urlpatterns = [
     re_path(r"^menus/(?P<pk>\d+)/unpublish/?$", views.MenuUnpublishView.as_view(), name="menu_unpublish"),
 
     re_path(r"^sections/?$",              views.SectionListCreateView.as_view(), name="section_list_create"),
+    re_path(r"^sections/reorder/?$",       views.section_reorder, name="section_reorder"),
+
 
     re_path(r"^dishes/?$",                views.DishListCreateView.as_view(),    name="dish_list_create"),
     re_path(r"^dishes/(?P<pk>\d+)/?$",    views.DishDetailView.as_view(),        name="dish_detail"),

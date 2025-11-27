@@ -849,15 +849,48 @@ class SectionListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         menu_id = self.request.query_params.get("menu")
         qs = Section.objects.all() if is_admin(user) else Section.objects.filter(menu__user=user)
-        return qs.filter(menu_id=menu_id) if menu_id else qs
+        return qs.filter(menu_id=menu_id).order_by('sort_order') if menu_id else qs.order_by('sort_order')
 
     def perform_create(self, serializer):
-        # إغلاق ثغرة إنشاء Section تحت Menu لا تملكه
         menu = serializer.validated_data.get("menu")
         if not (is_admin(self.request.user) or (menu and menu.user_id == self.request.user.id)):
             raise PermissionDenied("You cannot create a section under another user's menu.")
-        # المالك يُشتق من menu.user — لا نمرّر user هنا
         serializer.save()
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def section_reorder(request):
+    """
+    POST /api/sections/reorder/
+    Body: { "menu": <menu_id>, "order": [section_id1, section_id2, ...] }
+    """
+    menu_id = request.data.get("menu")
+    order = request.data.get("order", [])
+    
+    if not menu_id or not isinstance(order, list):
+        return Response(
+            {"detail": "Invalid request. Provide 'menu' and 'order' array."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    menu = get_object_or_404(Menu, pk=menu_id)
+    if not (is_admin(request.user) or menu.user_id == request.user.id):
+        return Response(
+            {"detail": "You do not have permission to reorder sections in this menu."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    with transaction.atomic():
+        for index, section_id in enumerate(order):
+            try:
+                section = Section.objects.get(pk=section_id, menu=menu)
+                section.sort_order = index
+                section.save(update_fields=["sort_order"])
+            except Section.DoesNotExist:
+                continue
+    
+    return Response({"ok": True, "message": "Sections reordered successfully."}, status=status.HTTP_200_OK)
 
 
 class DishListCreateView(generics.ListCreateAPIView):
@@ -876,7 +909,6 @@ class DishListCreateView(generics.ListCreateAPIView):
         return qs.filter(section_id=section_id) if section_id else qs
 
     def perform_create(self, serializer):
-        # إغلاق ثغرة إنشاء Dish تحت Section لا تملكه
         section = serializer.validated_data.get("section")
         if not (is_admin(self.request.user) or (section and section.menu.user_id == self.request.user.id)):
             raise PermissionDenied("You cannot create a dish under another user's section.")
