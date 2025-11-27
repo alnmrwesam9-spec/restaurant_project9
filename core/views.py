@@ -970,8 +970,9 @@ class PublicMenuView(generics.RetrieveAPIView):
             .select_related("section__menu__user__profile")
             .prefetch_related("prices", "allergen_rows__allergen")
         )
+        sections_qs = Section.objects.order_by('sort_order', 'id')
         return Menu.objects.filter(is_published=True).prefetch_related(
-            "sections",
+            Prefetch("sections", queryset=sections_qs),
             Prefetch("sections__dishes", queryset=dishes_qs),
         )
 
@@ -1015,7 +1016,7 @@ class MenuAggregateView(APIView):
             .filter(menu=menu)
             .only("id", "name", "menu_id")
             .prefetch_related(Prefetch("dishes", queryset=dishes_qs))
-            .order_by("id")
+            .order_by("sort_order", "id")
         )
 
         from .serializers import MenuAggregateSectionSerializer  # local import to avoid cycles
