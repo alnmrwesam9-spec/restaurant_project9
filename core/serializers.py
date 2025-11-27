@@ -650,7 +650,7 @@ class SectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ['id', 'name', 'menu', 'dishes']
+        fields = ['id', 'name', 'menu', 'dishes', 'sort_order']
 
     # -------------------- تقييد المالك --------------------
     def validate(self, attrs):
@@ -793,7 +793,7 @@ class PublicSectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ['id', 'name', 'dishes']
+        fields = ['id', 'name', 'dishes', 'sort_order']
 
 
 class PublicMenuSerializer(serializers.ModelSerializer):
@@ -846,7 +846,7 @@ class MenuAggregateSectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ['id', 'name', 'dishes']
+        fields = ['id', 'name', 'dishes', 'sort_order']
 
 
 # ===================== LLM Ingredient Suggestions (Fallback) =====================
