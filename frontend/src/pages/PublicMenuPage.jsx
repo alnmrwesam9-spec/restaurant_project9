@@ -615,6 +615,7 @@ export default function PublicMenuPage() {
             <DialogHeroImage
               sources={publicDishImageSources(selectedDish, ds, rp)}
               alt={selectedDish.name}
+              dish={selectedDish}
             />
           </Box>
 
@@ -656,28 +657,27 @@ export default function PublicMenuPage() {
 
             {/* ⚠️ لا نعرض أي عبارات شرح للحساسية داخل الحوار (رموز فقط) */}
 
-            <Stack direction="row" alignItems="center" spacing={1.25}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
               <Button
-                variant="contained"
-                startIcon={<ShoppingBagIcon />}
-                sx={{ flexGrow: 1, width: '100%', borderRadius: 2, py: 1.1, background: parsedTheme.price_color || '#1d4ed8', boxShadow: 'none', '&:hover': { background: parsedTheme.price_color || '#1d4ed8', opacity: .9, boxShadow: 'none' } }}
-                onClick={() => { alert(isRTL ? 'تم إضافة الطلب (تجريبي).' : 'Order added (demo).'); }}
+                variant="outlined"
+                startIcon={<ShareIcon />}
+                onClick={() => onShare(selectedDish)}
+                sx={{
+                  borderRadius: 2,
+                  py: 1.1,
+                  px: 3,
+                  borderColor: '#e5e7eb',
+                  color: '#0f172a',
+                  fontWeight: 600,
+                  '&:hover': {
+                    borderColor: '#cbd5e1',
+                    bgcolor: '#f8fafc'
+                  }
+                }}
               >
-                {isRTL ? 'اطلب الآن' : 'Order Now'}
+                {t('share') || (isRTL ? 'مشاركة' : 'Share')}
               </Button>
-
-              <Tooltip title={t('share') || (isRTL ? 'مشاركة' : 'Share')}>
-                <IconButton onClick={() => onShare(selectedDish)} sx={{ bgcolor: '#fff', border: '1px solid #e5e7eb' }}>
-                  <ShareIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title={t('print') || (isRTL ? 'طباعة' : 'Print')}>
-                <IconButton onClick={onPrint} sx={{ bgcolor: '#fff', border: '1px solid #e5e7eb' }}>
-                  <PrintIcon />
-                </IconButton>
-              </Tooltip>
-            </Stack>
+            </Box>
           </Box>
 
           {/* زر الإغلاق: يمين و zIndex أعلى من الرموز */}
@@ -710,9 +710,12 @@ export default function PublicMenuPage() {
 }
 
 /* ===== صورة مربع الحوار مع حركة خفيفة ===== */
-function DialogHeroImage({ sources, alt }) {
+function DialogHeroImage({ sources, alt, dish }) {
   const [idx, setIdx] = useState(0);
   const src = sources[idx] || PLACEHOLDER;
+
+  // Check if the dish has an actual image (not placeholder/logo/avatar)
+  const hasRealImage = dish?.image && dish.image.trim() !== '';
 
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
@@ -730,6 +733,44 @@ function DialogHeroImage({ sources, alt }) {
 
   const handleLeave = () => { mx.set(0); my.set(0); };
 
+  // If no real image, show beautiful placeholder
+  if (!hasRealImage) {
+    return (
+      <Box sx={{
+        position: 'relative',
+        width: '100%',
+        height: { xs: 240, md: 360 },
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      }}>
+        <motion.div
+          animate={{
+            scale: [1, 1.1, 1],
+            rotate: [0, 5, -5, 0]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            repeatType: 'mirror',
+            ease: 'easeInOut'
+          }}
+          style={{ fontSize: '6rem', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))' }}
+        >
+          🍽️
+        </motion.div>
+        <Box sx={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.15), transparent 60%)'
+        }} />
+      </Box>
+    );
+  }
+
+  // Otherwise show the image with animation
   return (
     <Box sx={{ position: 'relative', overflow: 'hidden' }}>
       <motion.div style={{ position: 'absolute', inset: 0, rotateX, rotateY }} transition={{ type: 'spring', stiffness: 120, damping: 18 }}>
@@ -754,5 +795,4 @@ function DialogHeroImage({ sources, alt }) {
     </Box>
   );
 }
-
 
