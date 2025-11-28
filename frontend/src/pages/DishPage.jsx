@@ -12,6 +12,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import EditIcon from '@mui/icons-material/Edit';
+
 import DeleteIcon from '@mui/icons-material/Delete';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import SaveIcon from '@mui/icons-material/Save';
@@ -60,6 +61,14 @@ const hardClamp = (value = '', max = 120) => {
 };
 const NAME_MAX = 25;
 const DESC_MAX = 30;
+
+// --- Constants for Price Labels ---
+const PRESET_LABELS = ['Small', 'Medium', 'Large'];
+const CUSTOM_LABEL_MAP = {
+  ar: 'تسمية مخصصة',
+  en: 'Custom Label',
+  de: 'Benutzerdefiniert',
+};
 
 // --- Sortable Item Component ---
 const SortableDishItem = ({
@@ -319,10 +328,29 @@ const DishPage = () => {
   const bySort = (a, b) =>
     (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.id || 0) - (b.id || 0);
 
+  // Extract all unique labels from existing dishes to use as suggestions
+  const existingLabels = useMemo(() => {
+    const set = new Set();
+    dishes.forEach(d => {
+      if (d.prices) {
+        d.prices.forEach(p => {
+          if (p.label) set.add(p.label);
+        });
+      }
+    });
+    return Array.from(set).sort();
+  }, [dishes]);
+
   const addPriceRow = () => {
     setFormPrices((rows) => ([
       ...rows,
-      { id: undefined, label: '', price: '', is_default: rows.length === 0 || !rows.some(r => r.is_default), sort_order: rows.length },
+      {
+        id: undefined,
+        label: 'Small', // Default to 'Small' instead of empty
+        price: '',
+        is_default: rows.length === 0 || !rows.some(r => r.is_default),
+        sort_order: rows.length
+      },
     ]));
   };
   const removePriceRow = (idx) => {
@@ -594,47 +622,86 @@ const DishPage = () => {
                 </Typography>
 
                 <Stack spacing={1}>
-                  {formPrices.map((row, idx) => (
-                    <Grid key={row.id ?? `tmp-${idx}`} container spacing={1} alignItems="center">
-                      <Grid xs={12} sm={5}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          label={t('price_label') || 'Label'}
-                          placeholder={idx === 0 ? (t('small') || 'Small') : idx === 1 ? (t('medium') || 'Medium') : (t('large') || 'Large')}
-                          value={row.label}
-                          onChange={(e) => updatePriceRow(idx, { label: e.target.value })}
-                        />
+                  {formPrices.map((row, idx) => {
+                    // Determine if the current label is one of the presets or a known existing label
+                    // If not, we treat it as "Custom"
+                    const isCustom = !PRESET_LABELS.includes(row.label) && !existingLabels.includes(row.label) && row.label !== '';
+                    const selectValue = isCustom ? 'custom' : row.label;
+
+                    return (
+                      <Grid key={row.id ?? `tmp-${idx}`} container spacing={1} alignItems="center">
+                        <Grid xs={12} sm={5}>
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>{t('price_label') || 'Label'}</InputLabel>
+                              <Select
+                                label={t('price_label') || 'Label'}
+                                value={selectValue}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'custom') {
+                                    // If switching to custom, keep existing if it was already custom, else clear it
+                                    // But here we just set it to empty to let user type, or keep it if it was already not in list?
+                                    // Let's just set it to empty string so the text input shows up empty or they can type.
+                                    // Actually, if they select Custom, we want to show the text input.
+                                    // If they select a preset, we update the label.
+                                    updatePriceRow(idx, { label: '' }); // Clear label to trigger custom input view if we rely on value
+                                  } else {
+                                    updatePriceRow(idx, { label: val });
+                                  }
+                                }}
+                              >
+                                {PRESET_LABELS.map(lbl => (
+                                  <MenuItem key={lbl} value={lbl}>{t(lbl.toLowerCase()) || lbl}</MenuItem>
+                                ))}
+                                {existingLabels.filter(l => !PRESET_LABELS.includes(l)).map(l => (
+                                  <MenuItem key={l} value={l}>{l}</MenuItem>
+                                ))}
+                                <MenuItem value="custom">{CUSTOM_LABEL_MAP[i18n.language] || 'Custom'}</MenuItem>
+                              </Select>
+                            </FormControl>
+                            {/* Show text input if custom or empty (so they can type) */}
+                            {(selectValue === 'custom' || selectValue === '') && (
+                              <TextField
+                                size="small"
+                                sx={{ flex: 1 }}
+                                placeholder={t('price_label')}
+                                value={row.label}
+                                onChange={(e) => updatePriceRow(idx, { label: e.target.value })}
+                              />
+                            )}
+                          </Box>
+                        </Grid>
+                        <Grid xs={7} sm={4}>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            label={t('price_amount') || 'Price'}
+                            value={row.price}
+                            onChange={(e) => updatePriceRow(idx, { price: e.target.value })}
+                            inputProps={{ inputMode: 'decimal' }}
+                          />
+                        </Grid>
+                        <Grid xs={3} sm="auto">
+                          <Button
+                            size="small"
+                            variant={row.is_default ? 'contained' : 'outlined'}
+                            onClick={() => updatePriceRow(idx, { is_default: true })}
+                            sx={{ borderRadius: 999 }}
+                          >
+                            {t('default') || 'Default'}
+                          </Button>
+                        </Grid>
+                        <Grid xs={2} sm="auto">
+                          <Tooltip title={t('remove') || 'Remove'}>
+                            <IconButton color="error" onClick={() => removePriceRow(idx)}>
+                              <RemoveCircleOutlineIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Grid>
                       </Grid>
-                      <Grid xs={7} sm={4}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          label={t('price_amount') || 'Price'}
-                          value={row.price}
-                          onChange={(e) => updatePriceRow(idx, { price: e.target.value })}
-                          inputProps={{ inputMode: 'decimal' }}
-                        />
-                      </Grid>
-                      <Grid xs={3} sm="auto">
-                        <Button
-                          size="small"
-                          variant={row.is_default ? 'contained' : 'outlined'}
-                          onClick={() => updatePriceRow(idx, { is_default: true })}
-                          sx={{ borderRadius: 999 }}
-                        >
-                          {t('default') || 'Default'}
-                        </Button>
-                      </Grid>
-                      <Grid xs={2} sm="auto">
-                        <Tooltip title={t('remove') || 'Remove'}>
-                          <IconButton color="error" onClick={() => removePriceRow(idx)}>
-                            <RemoveCircleOutlineIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Grid>
-                    </Grid>
-                  ))}
+                    );
+                  })}
 
                   <Box>
                     <Button size="small" startIcon={<AddCircleOutlineIcon />} onClick={addPriceRow}>
@@ -740,7 +807,7 @@ const DishPage = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+      </Grid >
 
       <Dialog open={previewOpen} onClose={closePreview} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 800 }}>{previewDish?.name || t('labels.dish')}</DialogTitle>
@@ -816,7 +883,7 @@ const DishPage = () => {
           <Button onClick={closePreview}>{t('actions.close') || 'Close'}</Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Container >
   );
 };
 
