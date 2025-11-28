@@ -225,7 +225,7 @@ export default function PublicMenuPage() {
   const isRTL = i18n.language?.startsWith('ar');
   const dir = isRTL ? 'rtl' : 'ltr';
   // Force German language for public view and remove language switcher
-  useEffect(() => { try { i18n.changeLanguage('de'); } catch {} }, [i18n]);
+  useEffect(() => { try { i18n.changeLanguage('de'); } catch { } }, [i18n]);
 
 
   /* تحميل البيانات */
@@ -234,7 +234,7 @@ export default function PublicMenuPage() {
     setLoading(true); setError('');
     axios.get(`/public/menus/${publicSlug}/?_=${Date.now()}`)
       .then((res) => { if (mounted) setMenu(res.data || null); })
-      .catch(() => { if (mounted) { setMenu(null); setError(t('public_menu_error') || 'تعذر التحميل.'); }})
+      .catch(() => { if (mounted) { setMenu(null); setError(t('public_menu_error') || 'تعذر التحميل.'); } })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, [publicSlug, t]);
@@ -250,16 +250,16 @@ export default function PublicMenuPage() {
   /* تحميل خط جوجل */
   useEffect(() => {
     const full = parsedTheme.font || '';
-    if (!full) return () => {};
+    if (!full) return () => { };
     let family = '';
     const m = full.match(/^\s*(["'])(.*?)\1/);
     family = m ? m[2] : (full.split(',')[0]?.trim().replace(/^(["'])|(["'])$/g, '') || '');
-    if (!family) return () => {};
-    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g,'+')}\:wght@400;600;700;800&display=swap`;
+    if (!family) return () => { };
+    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}\:wght@400;600;700;800&display=swap`;
     let link = document.getElementById('public-font-link');
     if (!link) { link = document.createElement('link'); link.id = 'public-font-link'; link.rel = 'stylesheet'; document.head.appendChild(link); }
     link.href = href;
-    return () => { const el = document.getElementById('public-font-link'); if (el && el.href === href) try { el.remove(); } catch {} };
+    return () => { const el = document.getElementById('public-font-link'); if (el && el.href === href) try { el.remove(); } catch { } };
   }, [parsedTheme.font]);
 
   const sections = useMemo(() => {
@@ -277,7 +277,7 @@ export default function PublicMenuPage() {
     const q = query.trim();
     const list = q ? sections : (activeSectionId ? sections.filter((s) => (s.id ?? slugify(s.name)) === activeSectionId) : sections);
     return list.map((s) => ({ ...s, dishes: (s.dishes || []).filter((d) => isMatch(q, d.name, d.description, d.display_codes)) }))
-               .filter((s) => s.dishes && s.dishes.length > 0);
+      .filter((s) => s.dishes && s.dishes.length > 0);
   }, [sections, query, activeSectionId]);
 
   const publicUrl = useMemo(() => `${window.location.origin}/show/menu/${publicSlug}`, [publicSlug]);
@@ -287,13 +287,13 @@ export default function PublicMenuPage() {
       const url = dish ? `${publicUrl}#dish-${dish.id ?? slugify(dish?.name)}` : publicUrl;
       if (navigator.share) await navigator.share({ title, text: title, url });
       else { await navigator.clipboard.writeText(url); alert(t('copied') || 'Copied'); }
-    } catch {}
+    } catch { }
   };
   const onPrint = () => window.print();
   useScrollTrigger({ disableHysteresis: true, threshold: 120 });
 
   if (loading) {
-    return <Container maxWidth="lg" sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress/></Container>;
+    return <Container maxWidth="lg" sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Container>;
   }
   if (error || !menu) {
     return <Container maxWidth="lg" sx={{ mt: 6 }}><Alert severity="error" sx={{ mb: 2 }}>{error || (t('public_menu_not_available') || 'القائمة غير متاحة.')}</Alert></Container>;
@@ -344,7 +344,7 @@ export default function PublicMenuPage() {
             }}
           />
         ))}
-        {extra > 0 && <Chip size="small" label={`+${extra}`} sx={{ borderRadius: 999, bgcolor: '#f1f5f9', color: '#0f172a', fontWeight: 800, height: 26, fontSize: `calc(0.8125rem * ${priceScale})` }}/>}
+        {extra > 0 && <Chip size="small" label={`+${extra}`} sx={{ borderRadius: 999, bgcolor: '#f1f5f9', color: '#0f172a', fontWeight: 800, height: 26, fontSize: `calc(0.8125rem * ${priceScale})` }} />}
       </Stack>
     );
   };
@@ -385,14 +385,34 @@ export default function PublicMenuPage() {
         }}
       >
         {/* شارة الأكواد بخلفية بيضاء واضحة */}
-        <AllergenChip dish={dish} withTooltip sx={{ position: 'absolute', top: 8, left: 8 }} />
+        <AllergenChip dish={dish} withTooltip sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }} />
 
-        {showImages ? <DishImage sources={imgSources} alt={dish.name} /> : null}
+        {/* If showImages is ON and dish has image */}
+        {showImages && dish.image && <DishImage sources={imgSources} alt={dish.name} />}
+
+        {/* If showImages is ON but dish has NO image - show placeholder */}
+        {showImages && !dish.image && (
+          <Box sx={{ width: '100%', height: 160, borderTopLeftRadius: 12, borderTopRightRadius: 12, background: 'linear-gradient(135deg,#f5f7fa,#e8edf3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.2rem', opacity: 0.5 }}>
+            🍽️
+          </Box>
+        )}
+
+        {/* If showImages is OFF -  show beautiful header */}
+        {!showImages && (
+          <Box sx={{ width: '100%', py: 2.5, px: 2, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
+            <Typography sx={{ fontSize: '2.5rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>🍽️</Typography>
+            <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700, textAlign: 'center', fontSize: `calc(0.875rem * ${parsedTheme.scale || 1})`, textShadow: '0 1px 2px rgba(0,0,0,0.15)', letterSpacing: '0.3px' }}>
+              {dish.name}
+            </Typography>
+          </Box>
+        )}
 
         <CardContent sx={{ flexGrow: 1, py: 1.5, fontFamily: parsedTheme.font || 'inherit' }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '2.4em', fontSize: `calc(1rem * ${parsedTheme.scale || 1})` }} title={dish.name}>
-            {dish.name}
-          </Typography>
+          {showImages && (
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '2.4em', fontSize: `calc(1rem * ${parsedTheme.scale || 1})` }} title={dish.name}>
+              {dish.name}
+            </Typography>
+          )}
 
           <PriceBlock dish={dish} locale={i18n.language === 'ar' ? 'de-DE' : i18n.language} color={priceColor} scale={priceScale} />
 
@@ -448,7 +468,7 @@ export default function PublicMenuPage() {
                     const active = activeSectionId === opt.id;
                     return (
                       <Chip key={opt.id} label={opt.name} onClick={() => scrollToSection(opt.id)} clickable
-                        sx={{ flex: '0 0 auto', borderRadius: 999, bgcolor: active ? '#0f172a' : '#e5e7eb', color: active ? '#fff' : '#0f172a', fontWeight: 700, height: 28, '& .MuiChip-label': { px: 1.2 } }}/>
+                        sx={{ flex: '0 0 auto', borderRadius: 999, bgcolor: active ? '#0f172a' : '#e5e7eb', color: active ? '#fff' : '#0f172a', fontWeight: 700, height: 28, '& .MuiChip-label': { px: 1.2 } }} />
                     );
                   })}
                 </Box>
@@ -501,7 +521,7 @@ export default function PublicMenuPage() {
                     {dishes.map((dish, i) => {
                       const imgSources = publicDishImageSources(dish, ds, rp);
                       return (
-                        <Box key={dish.id} sx={{ width: 280, flex: '0 0 auto' }} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(i===0 ? { 'data-tour': 'public-dish-card' } : {})}>
+                        <Box key={dish.id} sx={{ width: 280, flex: '0 0 auto' }} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(i === 0 ? { 'data-tour': 'public-dish-card' } : {})}>
                           <DishCard dish={dish} imgSources={imgSources} index={i} />
                         </Box>
                       );
@@ -527,7 +547,7 @@ export default function PublicMenuPage() {
                                 const globalIndex = start + i;
                                 const imgSources = publicDishImageSources(dish, ds, rp);
                                 return (
-                                  <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(globalIndex===0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
+                                  <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(globalIndex === 0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
                                     <DishCard dish={dish} imgSources={imgSources} index={globalIndex} fixedHeight={CARD_HEIGHT_MD} />
                                   </Box>
                                 );
@@ -545,7 +565,7 @@ export default function PublicMenuPage() {
                       {dishes.map((dish, i) => {
                         const imgSources = publicDishImageSources(dish, ds, rp);
                         return (
-                          <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(i===0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
+                          <Box key={dish.id} id={`dish-${dish.id ?? slugify(dish.name)}`} {...(i === 0 ? { 'data-tour': 'public-dish-card' } : {})} sx={{ height: { md: CARD_HEIGHT_MD } }}>
                             <DishCard dish={dish} imgSources={imgSources} index={i} fixedHeight={CARD_HEIGHT_MD} />
                           </Box>
                         );
