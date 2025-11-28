@@ -76,6 +76,7 @@ const SortableDishItem = ({
   isRTL,
   handleEditDish,
   handleDeleteDish,
+  setDeleteConfirm,
   openPreview,
   formatEuro,
   bySort
@@ -246,7 +247,7 @@ const SortableDishItem = ({
           </IconButton>
         </Tooltip>
         <Tooltip title="Delete">
-          <IconButton size="small" color="error" onClick={() => handleDeleteDish(dish.id)}>
+          <IconButton size="small" color="error" onClick={() => setDeleteConfirm({ open: true, id: dish.id })}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -291,6 +292,7 @@ const DishPage = () => {
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDish, setPreviewDish] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
 
   const [newDish, setNewDish] = useState({
     name: '',
@@ -549,17 +551,6 @@ const DishPage = () => {
             </Typography>
 
             <Stack spacing={1.25}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('language') || 'Language'}</InputLabel>
-                <Select
-                  label={t('language') || 'Language'}
-                  value={i18n.language ?? 'de'}
-                  onChange={(e) => i18n.changeLanguage(e.target.value)}
-                >
-                  {LANGS.map((l) => (<MenuItem key={l.code} value={l.code}>{l.label}</MenuItem>))}
-                </Select>
-              </FormControl>
-
               <TextField
                 size="small"
                 label={t('dish_name')}
@@ -804,6 +795,7 @@ const DishPage = () => {
                         isRTL={isRTL}
                         handleEditDish={handleEditDish}
                         handleDeleteDish={handleDeleteDish}
+                        setDeleteConfirm={setDeleteConfirm}
                         openPreview={openPreview}
                         formatEuro={formatEuro}
                         bySort={bySort}
@@ -889,6 +881,30 @@ const DishPage = () => {
             </Button>
           )}
           <Button onClick={closePreview}>{t('actions.close') || 'Close'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, id: null })}
+      >
+        <DialogTitle>تأكيد الحذف</DialogTitle>
+        <DialogContent>
+          هل تريد حذف هذا الطبق نهائيًا؟
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm({ open: false, id: null })}>
+            إلغاء
+          </Button>
+          <Button
+            color="error"
+            onClick={async () => {
+              await handleDeleteDish(deleteConfirm.id);
+              setDeleteConfirm({ open: false, id: null });
+            }}
+          >
+            حذف
+          </Button>
         </DialogActions>
       </Dialog>
     </Container >
