@@ -7,7 +7,7 @@ import {
   Card, CardContent, CardMedia, IconButton, Alert, Chip,
   Select, MenuItem, InputLabel, FormControl, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, GlobalStyles,
-  InputAdornment
+  InputAdornment, Autocomplete
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
@@ -20,7 +20,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useTranslation } from 'react-i18next';
@@ -423,7 +423,7 @@ const DishPage = () => {
           return axios.post(`/v2/dishes/${dishId}/prices/`, payload);
         }));
         const toDelete = [...originalPriceIds].filter(id => !currentIds.has(id));
-        await Promise.all(toDelete.map((id) => axios.delete(`/v2/dishes/${dishId}/prices/${id}/`)));
+        await Promise.all(toDelete.map((id) => axios.delete(`/v2/dishes/${id}/prices/${id}/`)));
       }
 
       setNewDish({ name: '', description: '', image: null, allergy_info: '', has_manual_codes: false, manual_codes: '' });
@@ -484,7 +484,7 @@ const DishPage = () => {
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    if (active.id !== over.id) {
+    if (!over || active.id !== over.id) {
       setDishes((items) => {
         const oldIndex = items.findIndex((i) => i.id === active.id);
         const newIndex = items.findIndex((i) => i.id === over.id);
@@ -621,90 +621,98 @@ const DishPage = () => {
                   {t('prices') || 'Multi-Price Editor'}
                 </Typography>
 
+                {/* ====== HERE: price rows with bigger label / smaller price ====== */}
                 <Stack spacing={1}>
-                  {formPrices.map((row, idx) => {
-                    // Determine if the current label is one of the presets or a known existing label
-                    // If not, we treat it as "Custom"
-                    const isCustom = !PRESET_LABELS.includes(row.label) && !existingLabels.includes(row.label) && row.label !== '';
-                    const selectValue = isCustom ? 'custom' : row.label;
-
-                    return (
-                      <Grid key={row.id ?? `tmp-${idx}`} container spacing={1} alignItems="center">
-                        <Grid xs={12} sm={5}>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <FormControl fullWidth size="small">
-                              <InputLabel>{t('price_label') || 'Label'}</InputLabel>
-                              <Select
-                                label={t('price_label') || 'Label'}
-                                value={selectValue}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === 'custom') {
-                                    // If switching to custom, keep existing if it was already custom, else clear it
-                                    // But here we just set it to empty to let user type, or keep it if it was already not in list?
-                                    // Let's just set it to empty string so the text input shows up empty or they can type.
-                                    // Actually, if they select Custom, we want to show the text input.
-                                    // If they select a preset, we update the label.
-                                    updatePriceRow(idx, { label: '' }); // Clear label to trigger custom input view if we rely on value
-                                  } else {
-                                    updatePriceRow(idx, { label: val });
+                  {formPrices.map((row, idx) => (
+                    <Grid
+                      key={row.id ?? `tmp-${idx}`}
+                      container
+                      spacing={1}
+                      alignItems="center"
+                    >
+                      {/* Label + Price on the same row */}
+                      <Grid xs={12} sm={9}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Box sx={{ flex: 2 }}>
+                            <Autocomplete
+                              freeSolo
+                              size="small"
+                              options={[
+                                'Small',
+                                'Medium',
+                                'Large',
+                                ...existingLabels.filter(
+                                  (l) => !['Small', 'Medium', 'Large'].includes(l)
+                                ),
+                              ]}
+                              value={row.label || ''}
+                              onChange={(event, newValue) => {
+                                updatePriceRow(idx, { label: newValue || '' });
+                              }}
+                              onInputChange={(event, newInputValue) => {
+                                updatePriceRow(idx, { label: newInputValue });
+                              }}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label={t('price_label') || 'Label'}
+                                  placeholder={
+                                    idx === 0
+                                      ? t('small') || 'Small'
+                                      : idx === 1
+                                        ? t('medium') || 'Medium'
+                                        : t('large') || 'Large'
                                   }
-                                }}
-                              >
-                                {PRESET_LABELS.map(lbl => (
-                                  <MenuItem key={lbl} value={lbl}>{t(lbl.toLowerCase()) || lbl}</MenuItem>
-                                ))}
-                                {existingLabels.filter(l => !PRESET_LABELS.includes(l)).map(l => (
-                                  <MenuItem key={l} value={l}>{l}</MenuItem>
-                                ))}
-                                <MenuItem value="custom">{CUSTOM_LABEL_MAP[i18n.language] || 'Custom'}</MenuItem>
-                              </Select>
-                            </FormControl>
-                            {/* Show text input if custom or empty (so they can type) */}
-                            {(selectValue === 'custom' || selectValue === '') && (
-                              <TextField
-                                size="small"
-                                sx={{ flex: 1 }}
-                                placeholder={t('price_label')}
-                                value={row.label}
-                                onChange={(e) => updatePriceRow(idx, { label: e.target.value })}
-                              />
-                            )}
+                                />
+                              )}
+                            />
                           </Box>
-                        </Grid>
-                        <Grid xs={7} sm={4}>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            label={t('price_amount') || 'Price'}
-                            value={row.price}
-                            onChange={(e) => updatePriceRow(idx, { price: e.target.value })}
-                            inputProps={{ inputMode: 'decimal' }}
-                          />
-                        </Grid>
-                        <Grid xs={3} sm="auto">
-                          <Button
-                            size="small"
-                            variant={row.is_default ? 'contained' : 'outlined'}
-                            onClick={() => updatePriceRow(idx, { is_default: true })}
-                            sx={{ borderRadius: 999 }}
-                          >
-                            {t('default') || 'Default'}
-                          </Button>
-                        </Grid>
-                        <Grid xs={2} sm="auto">
-                          <Tooltip title={t('remove') || 'Remove'}>
-                            <IconButton color="error" onClick={() => removePriceRow(idx)}>
-                              <RemoveCircleOutlineIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </Grid>
+
+                          <Box sx={{ flex: 1 }}>
+                            <TextField
+                              size="small"
+                              fullWidth
+                              label={t('price_amount') || 'Price'}
+                              value={row.price}
+                              onChange={(e) =>
+                                updatePriceRow(idx, { price: e.target.value })
+                              }
+                              inputProps={{ inputMode: 'decimal' }}
+                            />
+                          </Box>
+                        </Box>
                       </Grid>
-                    );
-                  })}
+
+                      {/* Default + Remove buttons */}
+                      <Grid xs={6} sm="auto">
+                        <Button
+                          size="small"
+                          variant={row.is_default ? 'contained' : 'outlined'}
+                          onClick={() => updatePriceRow(idx, { is_default: true })}
+                          sx={{ borderRadius: 999 }}
+                        >
+                          {t('default') || 'Default'}
+                        </Button>
+                      </Grid>
+                      <Grid xs={6} sm="auto">
+                        <Tooltip title={t('remove') || 'Remove'}>
+                          <IconButton
+                            color="error"
+                            onClick={() => removePriceRow(idx)}
+                          >
+                            <RemoveCircleOutlineIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Grid>
+                    </Grid>
+                  ))}
 
                   <Box>
-                    <Button size="small" startIcon={<AddCircleOutlineIcon />} onClick={addPriceRow}>
+                    <Button
+                      size="small"
+                      startIcon={<AddCircleOutlineIcon />}
+                      onClick={addPriceRow}
+                    >
                       {t('add_price') || 'Add price'}
                     </Button>
                   </Box>
