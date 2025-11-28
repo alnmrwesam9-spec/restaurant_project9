@@ -21,7 +21,25 @@ import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useTranslation } from 'react-i18next';
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 import { toImageUrl } from '../utils/imageUrl';
 import { useFilePreview } from '../hooks/useFilePreview';
@@ -43,6 +61,191 @@ const hardClamp = (value = '', max = 120) => {
 const NAME_MAX = 25;
 const DESC_MAX = 30;
 
+// --- Sortable Item Component ---
+const SortableDishItem = ({
+  dish,
+  isRTL,
+  handleEditDish,
+  handleDeleteDish,
+  openPreview,
+  formatEuro,
+  bySort
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: dish.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+  };
+
+  const prices = (dish.prices || []).slice().sort(bySort);
+
+  return (
+    <Box
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `32px ${ITEM_THUMB}px 1fr`,
+        alignItems: 'center',
+        columnGap: 1.2,
+        p: 1,
+        borderRadius: 2,
+        minHeight: ITEM_MIN_H,
+        cursor: 'default',
+        userSelect: 'none',
+        overflow: 'hidden',
+        maxWidth: '100%',
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover' }
+      }}
+    >
+      {/* Drag Handle */}
+      <Box
+        {...attributes}
+        {...listeners}
+        sx={{
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'text.secondary',
+          height: '100%',
+          '&:active': { cursor: 'grabbing' }
+        }}
+      >
+        <DragIndicatorIcon fontSize="small" />
+      </Box>
+
+      {/* Image */}
+      <Card
+        elevation={0}
+        onClick={() => openPreview(dish)}
+        sx={{
+          width: ITEM_THUMB, height: ITEM_THUMB, borderRadius: 2, overflow: 'hidden',
+          bgcolor: 'grey.100',
+          cursor: 'pointer',
+          '&:hover img': { transform: 'scale(1.6)' }
+        }}
+      >
+        {dish.image ? (
+          <CardMedia
+            component="img"
+            image={toImageUrl(dish.image)}
+            alt={dish.name}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .25s ease' }}
+          />
+        ) : (
+          <Box sx={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: 'text.disabled' }}>
+            <RestaurantIcon />
+          </Box>
+        )}
+      </Card>
+
+      {/* Content */}
+      <Box
+        onClick={() => openPreview(dish)}
+        sx={{ minWidth: 0, overflow: 'hidden', cursor: 'pointer', ...(isRTL ? { pl: `${ACTIONS_W}px` } : { pr: `${ACTIONS_W}px` }) }}
+      >
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 800, lineHeight: 1.2,
+            whiteSpace: 'normal',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            overflowWrap: 'anywhere', wordBreak: 'break-all', hyphens: 'auto',
+            direction: 'inherit', unicodeBidi: 'plaintext',
+          }}
+          title={dish.name || ''}
+        >
+          {hardClamp(dish.name, NAME_MAX)}
+        </Typography>
+
+        {!!dish.description && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              mt: .25,
+              whiteSpace: 'normal',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden', textOverflow: 'ellipsis',
+              overflowWrap: 'anywhere', wordBreak: 'break-all', hyphens: 'auto',
+              direction: 'inherit', unicodeBidi: 'plaintext',
+            }}
+            title={dish.description}
+          >
+            {hardClamp(dish.description, DESC_MAX)}
+          </Typography>
+        )}
+
+        {/* Prices/Tags */}
+        <Box sx={{ mt: .75, display: 'flex', gap: .5, alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden', minWidth: 0 }}>
+          {prices.map((p) => (
+            <Chip
+              key={p.id || `p-${p.sort_order}`}
+              size="small"
+              label={`${p.label ? p.label + ' ' : ''}${formatEuro(p.price)}€`}
+              variant={p.is_default ? 'filled' : 'outlined'}
+              color={p.is_default ? 'primary' : 'default'}
+              sx={{ flex: '0 0 auto' }}
+            />
+          ))}
+          {(dish.display_codes || dish.allergy_info) && (dish.display_codes || dish.allergy_info).split(',').slice(0, 6).map((tag, i) => (
+            <Chip key={`alg-${i}`} size="small" label={tag.trim()} variant="outlined" sx={{ flex: '0 0 auto' }} />
+          ))
+          }
+        </Box>
+      </Box>
+
+      {/* Actions */}
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          position: 'absolute',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          ...(isRTL ? { left: 8 } : { right: 8 }),
+          width: ACTIONS_W,
+          justifyContent: isRTL ? 'flex-start' : 'flex-end',
+          pointerEvents: 'auto',
+          whiteSpace: 'nowrap'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Tooltip title="Edit">
+          <IconButton size="small" color="primary" onClick={() => handleEditDish(dish)}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Delete">
+          <IconButton size="small" color="error" onClick={() => handleDeleteDish(dish.id)}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Box>
+  );
+};
+
 const DishPage = () => {
   const { sectionId } = useParams();
   const navigate = useNavigate();
@@ -50,7 +253,7 @@ const DishPage = () => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
 
-  // نقرأ menuId من كويري سترِنغ إن وُجد
+  // Read menuId from query string if present
   const qs = new URLSearchParams(location.search);
   const menuFromQuery = qs.get('menu');
 
@@ -60,10 +263,7 @@ const DishPage = () => {
 
   const [query, setQuery] = useState('');
 
-
-  // Normalize input codes for allergens (letters) and additives (numbers).
-  // - Accept single letters A..Z and integer numbers (e.g., 1, 2, 330)
-  // - Ignore parentheses and extra spaces; deduplicate while preserving order
+  // Normalize input codes
   const normalizeCodes = (raw) => {
     const s = String(raw || "").toUpperCase().replace(/[()]/g, "");
     const parts = s.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
@@ -88,12 +288,10 @@ const DishPage = () => {
     description: '',
     image: null,
     allergy_info: '',
-    // Manual allergen control
     has_manual_codes: false,
     manual_codes: '',
   });
 
-  // ✅ معاينة لحظية للصورة المختارة
   const previewUrl = useFilePreview(newDish.image);
 
   const [formPrices, setFormPrices] = useState([
@@ -166,9 +364,7 @@ const DishPage = () => {
     formData.append('description', newDish.description);
     formData.append('section', sectionId);
     const manual = (newDish.manual_codes || '').trim();
-    // Keep legacy allergy_info in sync with manual codes for backward displays
     formData.append('allergy_info', manual);
-    // Send manual override fields to backend (auto-enable when not empty)
     formData.append('has_manual_codes', '1');
     formData.append('manual_codes', manual);
     if (newDish.image) formData.append('image', newDish.image);
@@ -220,8 +416,6 @@ const DishPage = () => {
       image: null,
       allergy_info: dish.allergy_info || '',
       has_manual_codes: !!dish.has_manual_codes,
-      // Pre-fill with existing generated/display codes if no manual yet,
-      // so the user can edit or delete the visible codes directly.
       manual_codes: (dish.manual_codes || dish.display_codes || dish.allergy_info || ''),
     });
     const rows = (dish.prices || []).slice().sort(bySort);
@@ -254,6 +448,30 @@ const DishPage = () => {
   const openPreview = (dish) => { setPreviewDish(dish); setPreviewOpen(true); };
   const closePreview = () => setPreviewOpen(false);
 
+  // --- Drag and Drop Logic ---
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setDishes((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+
+        // Call API
+        const orderIds = newOrder.map(d => d.id);
+        axios.post('/dishes/reorder/', { section: sectionId, order: orderIds })
+          .catch(err => console.error("Reorder failed", err));
+
+        return newOrder;
+      });
+    }
+  };
+
   const filteredDishes = useMemo(() => {
     const q = (query || '').toString().toLowerCase().trim();
     if (!q) return dishes;
@@ -279,7 +497,6 @@ const DishPage = () => {
 
       <Box sx={(theme) => ({ ...theme.mixins.toolbar, mb: { xs: 1, md: 2 } })} />
 
-      {/* ⬅️ زر الرجوع إلى صفحة الأقسام */}
       <Box sx={{ mb: 1.5, display: 'flex', justifyContent: isRTL ? 'flex-end' : 'flex-start' }}>
         <Button
           size="small"
@@ -296,8 +513,8 @@ const DishPage = () => {
       </Box>
 
       <Grid container spacing={2} alignItems="flex-start">
-        {/* اليسار */}
-        <Grid item xs={12} md={4} sx={{ minWidth: 0 }}>
+        {/* Left: Form */}
+        <Grid xs={12} md={4} sx={{ minWidth: 0 }}>
           <Card variant="outlined" sx={{ borderRadius: 3, p: { xs: 2, md: 2 }, position: { md: 'sticky' }, top: { xs: 8, sm: 72 } }}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
               {t('dish_management') || 'Dish Management'}
@@ -346,7 +563,6 @@ const DishPage = () => {
                 onBlur={(e) => setNewDish((p) => ({ ...p, manual_codes: normalizeCodes(e.target.value) }))}
               />
 
-              {/* رفع صورة */}
               <Box
                 sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 2, p: 2, textAlign: 'center', bgcolor: 'background.default' }}
                 data-tour="dish-form-image"
@@ -361,7 +577,6 @@ const DishPage = () => {
                     {t('image_hint') || 'PNG, JPG (up to 10MB)'}
                   </Typography>
 
-                  {/* ✅ معاينة لحظية للصورة المرفوعة */}
                   {(previewUrl || newDish?.image) && (
                     <Box sx={{ mt: 1, width: '100%', height: 120, borderRadius: 2, overflow: 'hidden', bgcolor: 'grey.100' }}>
                       <Box component="img" src={previewUrl} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -370,7 +585,6 @@ const DishPage = () => {
                 </Stack>
               </Box>
 
-              {/* Multi-Price */}
               <Box
                 sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}
                 data-tour="dish-form-prices"
@@ -382,7 +596,7 @@ const DishPage = () => {
                 <Stack spacing={1}>
                   {formPrices.map((row, idx) => (
                     <Grid key={row.id ?? `tmp-${idx}`} container spacing={1} alignItems="center">
-                      <Grid item xs={12} sm={5}>
+                      <Grid xs={12} sm={5}>
                         <TextField
                           size="small"
                           fullWidth
@@ -392,7 +606,7 @@ const DishPage = () => {
                           onChange={(e) => updatePriceRow(idx, { label: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={7} sm={4}>
+                      <Grid xs={7} sm={4}>
                         <TextField
                           size="small"
                           fullWidth
@@ -402,7 +616,7 @@ const DishPage = () => {
                           inputProps={{ inputMode: 'decimal' }}
                         />
                       </Grid>
-                      <Grid item xs={3} sm="auto">
+                      <Grid xs={3} sm="auto">
                         <Button
                           size="small"
                           variant={row.is_default ? 'contained' : 'outlined'}
@@ -412,7 +626,7 @@ const DishPage = () => {
                           {t('default') || 'Default'}
                         </Button>
                       </Grid>
-                      <Grid item xs={2} sm="auto">
+                      <Grid xs={2} sm="auto">
                         <Tooltip title={t('remove') || 'Remove'}>
                           <IconButton color="error" onClick={() => removePriceRow(idx)}>
                             <RemoveCircleOutlineIcon />
@@ -447,9 +661,8 @@ const DishPage = () => {
           </Card>
         </Grid>
 
-        {/* اليمين */}
-        <Grid item xs={12} md={8} sx={{ minWidth: 0 }}>
-          {/* شريط البحث */}
+        {/* Right: List */}
+        <Grid xs={12} md={8} sx={{ minWidth: 0 }}>
           <Box sx={{ mb: 2 }}>
             <TextField
               fullWidth
@@ -474,7 +687,6 @@ const DishPage = () => {
             />
           </Box>
 
-          {/* بانر إبراز الهوية بالـ primary */}
           <Card sx={{ borderRadius: 3, mb: 2, overflow: 'hidden', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
             <CardContent sx={{ py: { xs: 3, md: 4 } }}>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
@@ -501,145 +713,30 @@ const DishPage = () => {
             </CardContent>
           </Card>
 
-          {/* قائمة الأطباق */}
           <Card variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
             <CardContent sx={{ pb: 1 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.5 }}>
                 {t('dish_list') || 'Dish List'}
               </Typography>
 
-              <Stack spacing={1.25}>
-                {filteredDishes.map((dish) => {
-                  const prices = (dish.prices || []).slice().sort(bySort);
-                  return (
-                    <Box
-                      key={dish.id}
-                      onClick={() => openPreview(dish)}
-                      sx={{
-                        position: 'relative',
-                        display: 'grid',
-                        gridTemplateColumns: `${ITEM_THUMB}px 1fr`,
-                        alignItems: 'center',
-                        columnGap: 1.2,
-                        p: 1,
-                        borderRadius: 2,
-                        minHeight: ITEM_MIN_H,
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        overflow: 'hidden',
-                        maxWidth: '100%',
-                        '&:hover': { bgcolor: 'action.hover' }
-                      }}
-                    >
-                      <Card
-                        elevation={0}
-                        sx={{
-                          width: ITEM_THUMB, height: ITEM_THUMB, borderRadius: 2, overflow: 'hidden',
-                          bgcolor: 'grey.100',
-                          '&:hover img': { transform: 'scale(1.6)' }
-                        }}
-                      >
-                        {dish.image ? (
-                          <CardMedia
-                            component="img"
-                            image={toImageUrl(dish.image)}
-                            alt={dish.name}
-                            sx={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .25s ease' }}
-                          />
-                        ) : (
-                          <Box sx={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: 'text.disabled' }}>
-                            <RestaurantIcon />
-                          </Box>
-                        )}
-                      </Card>
-
-                      <Box sx={{ minWidth: 0, overflow: 'hidden', ...(isRTL ? { pl: `${ACTIONS_W}px` } : { pr: `${ACTIONS_W}px` }) }}>
-                        <Typography
-                          variant="subtitle1"
-                          sx={{
-                            fontWeight: 800, lineHeight: 1.2,
-                            whiteSpace: 'normal',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden', textOverflow: 'ellipsis',
-                            overflowWrap: 'anywhere', wordBreak: 'break-all', hyphens: 'auto',
-                            direction: 'inherit', unicodeBidi: 'plaintext',
-                          }}
-                          title={dish.name || ''}
-                        >
-                          {hardClamp(dish.name, NAME_MAX)}
-                        </Typography>
-
-                        {!!dish.description && (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{
-                              mt: .25,
-                              whiteSpace: 'normal',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden', textOverflow: 'ellipsis',
-                              overflowWrap: 'anywhere', wordBreak: 'break-all', hyphens: 'auto',
-                              direction: 'inherit', unicodeBidi: 'plaintext',
-                            }}
-                            title={dish.description}
-                          >
-                            {hardClamp(dish.description, DESC_MAX)}
-                          </Typography>
-                        )}
-
-                        {/* الأسعار/الوسوم */}
-                        <Box sx={{ mt: .75, display: 'flex', gap: .5, alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden', minWidth: 0 }}>
-                          {prices.map((p) => (
-                            <Chip
-                              key={p.id || `p-${p.sort_order}`}
-                              size="small"
-                              label={`${p.label ? p.label + ' ' : ''}${formatEuro(p.price)}€`}
-                              variant={p.is_default ? 'filled' : 'outlined'}
-                              color={p.is_default ? 'primary' : 'default'}
-                              sx={{ flex: '0 0 auto' }}
-                            />
-                          ))}
-                          {(dish.display_codes || dish.allergy_info) && (dish.display_codes || dish.allergy_info).split(',').slice(0, 6).map((tag, i) => (
-                              <Chip key={`alg-${i}`} size="small" label={tag.trim()} variant="outlined" sx={{ flex: '0 0 auto' }} />
-                            ))
-                          } 
-                        </Box>
-                      </Box>
-
-                      <Stack
-                        direction="row"
-                        spacing={0.5}
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          ...(isRTL ? { left: 8 } : { right: 8 }),
-                          width: ACTIONS_W,
-                          justifyContent: isRTL ? 'flex-start' : 'flex-end',
-                          pointerEvents: 'auto',
-                          whiteSpace: 'nowrap'
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Tooltip title={t('edit') || 'Edit'}>
-                          <IconButton size="small" color="primary" onClick={() => handleEditDish(dish)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('delete') || 'Delete'}>
-                          <IconButton size="small" color="error" onClick={() => handleDeleteDish(dish.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </Box>
-                  );
-                })}
-              </Stack>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={filteredDishes} strategy={verticalListSortingStrategy}>
+                  <Stack spacing={1.25}>
+                    {filteredDishes.map((dish) => (
+                      <SortableDishItem
+                        key={dish.id}
+                        dish={dish}
+                        isRTL={isRTL}
+                        handleEditDish={handleEditDish}
+                        handleDeleteDish={handleDeleteDish}
+                        openPreview={openPreview}
+                        formatEuro={formatEuro}
+                        bySort={bySort}
+                      />
+                    ))}
+                  </Stack>
+                </SortableContext>
+              </DndContext>
             </CardContent>
           </Card>
         </Grid>
@@ -724,10 +821,3 @@ const DishPage = () => {
 };
 
 export default DishPage;
-
-
-
-
-
-
-

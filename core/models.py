@@ -206,8 +206,10 @@ class Dish(models.Model):
         default=list, blank=True, help_text="أرقام إضافية على مستوى الطبق مثل [1,3]"
     )
     codes_updated_at = models.DateTimeField(null=True, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
+        ordering = ['sort_order', 'id']
         indexes = [
             models.Index(fields=["section", "name"]),
             models.Index(fields=["has_manual_codes"]),

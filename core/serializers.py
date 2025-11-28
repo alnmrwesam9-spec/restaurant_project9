@@ -534,10 +534,9 @@ class DishSerializer(serializers.ModelSerializer):
             "allergen_explanation_de",
             # جديد:
             "allergen_rows",
+            "sort_order",
         ]
-        read_only_fields = ["image_url", "display_codes", "allergen_explanation_de", "allergen_rows"]
-
-    # -------------------- تقييد المالك --------------------
+        read_only_fields = ["image_url", "display_codes", "allergen_explanation_de", "allergen_rows", "sort_order"]
     def validate(self, attrs):
         request = self.context.get("request")
         section = attrs.get("section") or getattr(self.instance, "section", None)
@@ -769,8 +768,9 @@ class PublicDishSerializer(serializers.ModelSerializer):
             # الجديد:
             "display_codes",
             "allergen_explanation_de",
+            "sort_order",
         ]
-        read_only_fields = ["image", "image_url", "prices", "display_codes", "allergen_explanation_de"]
+        read_only_fields = ["image", "image_url", "prices", "display_codes", "allergen_explanation_de", "sort_order"]
 
     def get_image_url(self, obj):
         return _resolve_dish_image_url(obj, self.context.get('request'))
@@ -827,8 +827,9 @@ class MenuAggregateDishSerializer(serializers.ModelSerializer):
             'allergy_info',
             # Allergen info for admin dialog
             'display_codes', 'allergen_explanation_de', 'allergen_rows',
+            'sort_order',
         ]
-        read_only_fields = ['image', 'image_url', 'prices', 'display_codes', 'allergen_explanation_de', 'allergen_rows']
+        read_only_fields = ['image', 'image_url', 'prices', 'display_codes', 'allergen_explanation_de', 'allergen_rows', 'sort_order']
 
     def get_image_url(self, obj):
         return _resolve_dish_image_url(obj, self.context.get('request'))

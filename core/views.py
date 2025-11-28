@@ -893,6 +893,41 @@ def section_reorder(request):
     return Response({"ok": True, "message": "Sections reordered successfully."}, status=status.HTTP_200_OK)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def dish_reorder(request):
+    """
+    API to reorder dishes within a section.
+    Payload: { "section": <id>, "order": [<dish_id_1>, <dish_id_2>, ...] }
+    """
+    section_id = request.data.get("section")
+    order = request.data.get("order", [])
+
+    if not section_id or not isinstance(order, list):
+        return Response({"detail": "Invalid data."}, status=status.HTTP_400_BAD_REQUEST)
+
+    section = get_object_or_404(Section, pk=section_id)
+    
+    # Check ownership
+    if not (is_admin(request.user) or section.menu.user_id == request.user.id):
+        return Response(
+            {"detail": "You do not have permission to reorder dishes in this section."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    with transaction.atomic():
+        for index, dish_id in enumerate(order):
+            try:
+                dish = Dish.objects.get(pk=dish_id, section=section)
+                dish.sort_order = index
+                dish.save(update_fields=["sort_order"])
+            except Dish.DoesNotExist:
+                continue
+    
+    return Response({"ok": True, "message": "Dishes reordered successfully."}, status=status.HTTP_200_OK)
+
+
+
 class DishListCreateView(generics.ListCreateAPIView):
     serializer_class = DishSerializer
     permission_classes = [IsAuthenticated]
@@ -904,6 +939,7 @@ class DishListCreateView(generics.ListCreateAPIView):
             Dish.objects
             .select_related("section__menu__user__profile")
             .prefetch_related("prices", "allergen_rows__allergen")
+            .order_by("sort_order", "id")
         )
         qs = base if is_admin(user) else base.filter(section__menu__user=user)
         return qs.filter(section_id=section_id) if section_id else qs
@@ -969,6 +1005,7 @@ class PublicMenuView(generics.RetrieveAPIView):
             Dish.objects
             .select_related("section__menu__user__profile")
             .prefetch_related("prices", "allergen_rows__allergen")
+            .order_by("sort_order", "id")
         )
         sections_qs = Section.objects.order_by('sort_order', 'id')
         return Menu.objects.filter(is_published=True).prefetch_related(
@@ -1009,7 +1046,7 @@ class MenuAggregateView(APIView):
                 "prices",
                 "allergen_rows__allergen",
             )
-            .order_by("id")
+            .order_by("sort_order", "id")
         )
         sections_qs = (
             Section.objects

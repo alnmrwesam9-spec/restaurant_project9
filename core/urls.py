@@ -89,11 +89,10 @@ urlpatterns = [
     re_path(r"^sections/?$",              views.SectionListCreateView.as_view(), name="section_list_create"),
     re_path(r"^sections/reorder/?$",       views.section_reorder, name="section_reorder"),
 
-
     re_path(r"^dishes/?$",                views.DishListCreateView.as_view(),    name="dish_list_create"),
+    re_path(r"^dishes/reorder/?$",         views.dish_reorder,                    name="dish_reorder"),
     re_path(r"^dishes/(?P<pk>\d+)/?$",    views.DishDetailView.as_view(),        name="dish_detail"),
 
-    # ---------- Public menu ----------
     re_path(r"^public/menus/(?P<public_slug>[-a-zA-Z0-9_]+)/?$",
             views.PublicMenuView.as_view(), name="public_menu"),
 
