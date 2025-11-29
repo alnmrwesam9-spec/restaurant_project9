@@ -38,6 +38,28 @@ class AllergenCodeSerializer(serializers.ModelSerializer):
 
 
 # =========================
+# Admin Allergen (German-only for admin/dish workflows)
+# =========================
+class AdminAllergenSerializer(serializers.ModelSerializer):
+    """
+    German-only allergen catalog for admin and dish editing workflows.
+    Exposes ONLY: id, code, name_de
+    Does NOT expose EN/AR fields (they remain in DB but aren't used in German workflow).
+    """
+    name_de = serializers.CharField(source="label_de", allow_blank=True, required=False)
+
+    class Meta:
+        model = Allergen
+        fields = ["id", "code", "name_de"]
+
+    def validate_code(self, value: str) -> str:
+        v = (value or "").strip().upper()
+        if not v:
+            raise serializers.ValidationError("Code is required.")
+        return v
+
+
+# =========================
 # AdditiveLegend (قاموس الإضافات E-Number)
 # =========================
 class AdditiveCodeSerializer(serializers.ModelSerializer):

@@ -32,9 +32,9 @@ const fallback = {
   show_logo: 1, show_hero: 1, show_search: 1, show_sections: 1, show_prices: 1, show_images: 1,
 };
 
-/* ========== شارة الأكواد/الحساسية بخلفية بيضاء واضحة ========== */
+/* ========== German-only allergen chip ========== */
 const AllergenChip = ({ dish, sx, withTooltip = true }) => {
-  const codes = (dish?.allergen_codes || dish?.display_codes || dish?.allergy_info || '').toString().trim();
+  const codes = (dish?.display_codes || '').toString().trim();
   if (!codes) return null;
 
   const chip = (
@@ -58,10 +58,7 @@ const AllergenChip = ({ dish, sx, withTooltip = true }) => {
 
   if (!withTooltip) return chip;
 
-  const tip =
-    dish?.allergen_explanation_de ||
-    dish?.allergen_explanation ||
-    codes;
+  const tip = dish?.allergen_explanation_de || codes;
 
   return (
     <Tooltip title={tip} arrow>
@@ -70,19 +67,18 @@ const AllergenChip = ({ dish, sx, withTooltip = true }) => {
   );
 };
 
-/* ===== DialogAllergenCodes (نسخة جديدة) =====
-   - يأخذ isRTL
-   - يتم وضع الرموز على الجهة المعاكسة لزر الإغلاق (وزر الإغلاق صار يمين)
-   - zIndex و pointerEvents مضبوطان لعدم التعارض مع الصورة/الأزرار
-*/
+/* ===== Dialog Allergen Codes (German-only) =====
+   - Displays allergen codes in dialog
+   - Uses only display_codes field
+ */
 const DialogAllergenCodes = ({ dish, isRTL = false, sx }) => {
-  const raw = (dish?.allergen_codes || dish?.display_codes || dish?.allergy_info || '').toString().trim();
+  const raw = (dish?.display_codes || '').toString().trim();
   if (!raw) return null;
 
   const parts = raw.split(/[\s,;/|]+/g).map(s => s.trim()).filter(Boolean);
   if (!parts.length) return null;
 
-  // زر الإغلاق يمين => الرموز يسار
+  // Close button is on the right => codes on the left
   const sidePosition = isRTL ? { left: 12 } : { left: 12 };
 
   return (
@@ -92,8 +88,8 @@ const DialogAllergenCodes = ({ dish, isRTL = false, sx }) => {
       sx={{
         position: 'absolute',
         top: 12,
-        zIndex: 5,              // فوق الصورة
-        pointerEvents: 'none',  // لا تعيق الضغط على الأزرار
+        zIndex: 5,              // Above image
+        pointerEvents: 'none',  // Don't block button clicks
         ...sidePosition,
         ...sx
       }}
@@ -698,12 +694,13 @@ export default function PublicMenuPage() {
               )}
             </Box>
 
+            {/* German-only allergen display */}
             {(() => {
-              const raw = (selectedDish?.allergen_codes || selectedDish?.display_codes || selectedDish?.allergy_info || '').toString().trim();
+              const raw = (selectedDish?.display_codes || '').toString().trim();
               if (!raw) return null;
               const parts = raw.split(/[\s,;\/|]+/g).map(s => s.trim()).filter(Boolean);
               const codes = parts.join(',');
-              const text = selectedDish?.allergen_text || selectedDish?.allergen_explanation_de || selectedDish?.allergen_explanation || '';
+              const text = selectedDish?.allergen_explanation_de || '';
               return (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 700 }}>{codes}</Typography>

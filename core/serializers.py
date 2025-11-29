@@ -84,20 +84,40 @@ def _extract_letter_codes_from_display(display_value: str) -> list[str]:
     return out
 
 
-def _build_explanation_de_from_codes(codes: list[str]) -> str:
+def _build_explanation_de_from_codes(codes: list[str], labels_by_code: dict = None) -> str:
     """
-    يبني جملة ألمانية مختصرة للأكواد الموجودة باستخدام جدول Allergen.
-    مثال: ['A','G','K'] -> "Enthält Glutenhaltiges Getreide, Milch (einschl. Laktose) und Sesam."
-    يعيد نصًا فارغًا عند عدم توفر ما يكفي من البيانات.
+    Builds German explanation from codes and optional label mapping.
+    
+    Args:
+        codes: List of allergen codes, e.g. ['A', 'G']
+        labels_by_code: Optional dict mapping code -> German label.
+                       If None, fetches from database.
+    
+    Returns:
+        German explanation string, e.g. "Enthält Glutenhaltiges Getreide und Milch."
+    
+    Example:
+        _build_explanation_de_from_codes(['A', 'G'], {
+            'A': 'Glutenhaltiges Getreide',
+            'G': 'Milch (einschl. Laktose)'
+        })
     """
     if not codes:
         return ""
-    labels = list(
-        Allergen.objects.filter(code__in=codes)
-        .order_by("code")
-        .values_list("label_de", flat=True)
-    )
-    labels = [str(x).strip() for x in labels if str(x).strip()]
+    
+    # If labels_by_code provided, use it (for testing)
+    if labels_by_code is not None:
+        labels = [labels_by_code.get(code, '') for code in codes]
+        labels = [str(x).strip() for x in labels if str(x).strip()]
+    else:
+        # Otherwise fetch from database (production use)
+        labels = list(
+            Allergen.objects.filter(code__in=codes)
+            .order_by("code")
+            .values_list("label_de", flat=True)
+        )
+        labels = [str(x).strip() for x in labels if str(x).strip()]
+    
     if not labels:
         return ""
     if len(labels) == 1:

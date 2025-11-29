@@ -92,6 +92,9 @@ urlpatterns = [
     re_path(r"^dishes/?$",                views.DishListCreateView.as_view(),    name="dish_list_create"),
     re_path(r"^dishes/reorder/?$",         views.dish_reorder,                    name="dish_reorder"),
     re_path(r"^dishes/(?P<pk>\d+)/?$",    views.DishDetailView.as_view(),        name="dish_detail"),
+    # Manual allergen assignment (German-only workflow)
+    re_path(r"^dishes/(?P<dish_id>\d+)/manual-allergens/?$", 
+            views.DishManualAllergensView.as_view(), name="dish_manual_allergens"),
 
     re_path(r"^public/menus/(?P<public_slug>[-a-zA-Z0-9_]+)/?$",
             views.PublicMenuView.as_view(), name="public_menu"),

@@ -294,6 +294,10 @@ const DishPage = () => {
   const [previewDish, setPreviewDish] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
 
+  // German-only allergen catalog
+  const [allergenCatalog, setAllergenCatalog] = useState([]);
+  const [selectedAllergens, setSelectedAllergens] = useState([]);
+
   const [newDish, setNewDish] = useState({
     name: '',
     description: '',
@@ -309,6 +313,19 @@ const DishPage = () => {
     { id: undefined, label: '', price: '', is_default: true, sort_order: 0 },
   ]);
   const [originalPriceIds, setOriginalPriceIds] = useState(new Set());
+
+  // Fetch allergen catalog (German-only)
+  useEffect(() => {
+    const fetchAllergenCatalog = async () => {
+      try {
+        const res = await axios.get('/allergens/codes/?ordering=code');
+        setAllergenCatalog(res.data.results || res.data || []);
+      } catch (err) {
+        console.error('Failed to fetch allergen catalog', err);
+      }
+    };
+    fetchAllergenCatalog();
+  }, []);
 
   useEffect(() => { fetchDishes(); /* eslint-disable-next-line */ }, []);
 
@@ -393,10 +410,9 @@ const DishPage = () => {
     formData.append('name', newDish.name);
     formData.append('description', newDish.description);
     formData.append('section', sectionId);
+    // Keep allergy_info for backward compatibility but don't rely on it
     const manual = (newDish.manual_codes || '').trim();
     formData.append('allergy_info', manual);
-    formData.append('has_manual_codes', '1');
-    formData.append('manual_codes', manual);
     if (newDish.image) formData.append('image', newDish.image);
 
     const pricesClean = formPrices
@@ -418,6 +434,11 @@ const DishPage = () => {
       }
 
       if (dishId) {
+        // Save manual allergens using new endpoint
+        const allergenIds = selectedAllergens.map(a => a.id);
+        await axios.put(`/dishes/${dishId}/manual-allergens/`, { allergen_ids: allergenIds });
+
+        // Save prices
         const currentIds = new Set();
         await Promise.all(pricesClean.map((p) => {
           const payload = { label: (p.label || '').trim(), price: p.price, is_default: !!p.is_default, sort_order: p.sort_order ?? 0 };
@@ -425,10 +446,11 @@ const DishPage = () => {
           return axios.post(`/v2/dishes/${dishId}/prices/`, payload);
         }));
         const toDelete = [...originalPriceIds].filter(id => !currentIds.has(id));
-        await Promise.all(toDelete.map((id) => axios.delete(`/v2/dishes/${id}/prices/${id}/`)));
+        await Promise.all(toDelete.map((id) => axios.delete(`/v2/dishes/${dishId}/prices/${id}/`)));
       }
 
       setNewDish({ name: '', description: '', image: null, allergy_info: '', has_manual_codes: false, manual_codes: '' });
+      setSelectedAllergens([]);
       setFormPrices([{ id: undefined, label: '', price: '', is_default: true, sort_order: 0 }]);
       setOriginalPriceIds(new Set());
       setEditingDishId(null);
@@ -448,6 +470,17 @@ const DishPage = () => {
       has_manual_codes: !!dish.has_manual_codes,
       manual_codes: (dish.manual_codes || dish.display_codes || dish.allergy_info || ''),
     });
+
+    // Load manual allergens from allergen_rows
+    if (dish.allergen_rows && Array.isArray(dish.allergen_rows)) {
+      const manualRows = dish.allergen_rows.filter(row => row.source === 'manual');
+      const manualAllergenIds = new Set(manualRows.map(row => row.allergen?.id || row.allergen).filter(Boolean));
+      const selectedFromCatalog = allergenCatalog.filter(a => manualAllergenIds.has(a.id));
+      setSelectedAllergens(selectedFromCatalog);
+    } else {
+      setSelectedAllergens([]);
+    }
+
     const rows = (dish.prices || []).slice().sort(bySort);
     setFormPrices(
       rows.length
@@ -572,14 +605,31 @@ const DishPage = () => {
                 fullWidth
               />
 
-              <TextField
+              {/* German-only allergen multi-select */}
+              <Autocomplete
+                multiple
                 size="small"
-                label={t('labels.codes') || 'Allergen codes'}
-                name="manual_codes"
-                placeholder="A,G,K"
-                value={newDish.manual_codes}
-                onChange={handleInputChange}
-                onBlur={(e) => setNewDish((p) => ({ ...p, manual_codes: normalizeCodes(e.target.value) }))}
+                options={allergenCatalog}
+                getOptionLabel={(option) => `${option.code} – ${option.name_de}`}
+                value={selectedAllergens}
+                onChange={(event, newValue) => setSelectedAllergens(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Allergene (manuelle Auswahl)"
+                    placeholder="Wählen Sie Allergencodes..."
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      label={`${option.code} – ${option.name_de}`}
+                      {...getTagProps({ index })}
+                      size="small"
+                    />
+                  ))
+                }
+                isOptionEqualToValue={(option, value) => option.id === value.id}
               />
 
               <Box

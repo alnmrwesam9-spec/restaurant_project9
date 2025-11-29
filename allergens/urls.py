@@ -6,6 +6,7 @@ from .views import (
     # --- Allergens (يدوي) ---
     AllergenCodesView, AllergenCodeDetailView,
     AllergenBulkUpload, AllergenExportCSV,
+    AllergenGenerateView,  # German-only rule-based generation
 
     # --- Additives (يدوي) ---
     AdditiveCodesView, AdditiveCodeDetailView,
@@ -34,6 +35,8 @@ urlpatterns = [
     path("allergens/codes/<int:pk>/", AllergenCodeDetailView.as_view(), name="allergens-detail"),      # GET + PUT + DELETE
     path("allergens/bulk-upload/", AllergenBulkUpload.as_view(), name="allergens-bulk"),               # POST (multipart)
     path("allergens/export/", AllergenExportCSV.as_view(), name="allergens-export"),                   # GET (CSV)
+    # German-only rule-based generation
+    path("allergens/generate/", AllergenGenerateView.as_view(), name="allergens-generate"),            # POST
 
     # --- Lexemes CSV (ادعم الشكلين: بدون/مع owner في URL) ---
     path("lexemes/export/", KeywordLexemeExportCSV.as_view(), name="lexemes-export"),

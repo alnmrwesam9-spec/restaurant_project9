@@ -992,6 +992,125 @@ class DishDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ============================================================
+# Manual Allergen Assignment (German-only workflow)
+# ============================================================
+class DishManualAllergensView(APIView):
+    """
+    PUT /api/dishes/{dish_id}/manual-allergens/
+    
+    German-only manual allergen assignment for DishPage.
+    Body: {"allergen_ids": [1, 3, 5]}
+    
+    - Deletes existing DishAllergen rows with source="manual" that aren't in new list
+    - Upserts DishAllergen rows for selected allergens with:
+        * source="manual"
+        * is_confirmed=True
+        * confidence=1.0
+    - Updates Dish.manual_codes and Dish.has_manual_codes for backward compatibility
+    """
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, dish_id):
+        # Get dish with permission check
+        user = request.user
+        try:
+            dish = Dish.objects.select_related("section__menu").get(pk=dish_id)
+        except Dish.DoesNotExist:
+            return Response(
+                {"detail": "Dish not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Permission check: owner or admin
+        if not (is_admin(user) or dish.section.menu.user_id == user.id):
+            return Response(
+                {"detail": "You do not have permission to edit this dish."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Parse allergen_ids from request
+        data = request.data if isinstance(request.data, dict) else {}
+        allergen_ids = data.get("allergen_ids", [])
+        if not isinstance(allergen_ids, list):
+            return Response(
+                {"detail": "allergen_ids must be an array"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Convert to set of integers
+        try:
+            allergen_ids_set = {int(aid) for aid in allergen_ids}
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "allergen_ids must contain valid integers"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            # Get all allergens from catalog
+            allergens = {a.id: a for a in Allergen.objects.filter(id__in=allergen_ids_set)}
+            
+            # Get existing manual DishAllergen rows for this dish
+            existing_manual = DishAllergen.objects.filter(
+                dish=dish,
+                source=DishAllergen.Source.MANUAL
+            )
+            existing_ids = {row.allergen_id for row in existing_manual}
+
+            # Delete manual rows that are NOT in the new selection
+            to_delete_ids = existing_ids - allergen_ids_set
+            if to_delete_ids:
+                DishAllergen.objects.filter(
+                    dish=dish,
+                    source=DishAllergen.Source.MANUAL,
+                    allergen_id__in=to_delete_ids
+                ).delete()
+
+            # Upsert manual rows for new selections
+            created_count = 0
+            for allergen_id in allergen_ids_set:
+                allergen = allergens.get(allergen_id)
+                if not allergen:
+                    continue  # Skip invalid IDs
+                
+                # Update or create
+                _, created = DishAllergen.objects.update_or_create(
+                    dish=dish,
+                    allergen=allergen,
+                    defaults={
+                        "source": DishAllergen.Source.MANUAL,
+                        "is_confirmed": True,
+                        "confidence": 1.0,
+                        "rationale": "Manual selection",
+                        "created_by": user,
+                    }
+                )
+                if created:
+                    created_count += 1
+
+            # Update backward compatibility fields
+            # Build manual_codes string from selected allergens
+            codes = sorted([allergens[aid].code for aid in allergen_ids_set if aid in allergens])
+            codes_str = ",".join(codes)
+            
+            dish.manual_codes = codes_str
+            dish.has_manual_codes = bool(codes_str)
+            dish.save(update_fields=["manual_codes", "has_manual_codes"])
+
+        # Return updated dish data
+        return Response(
+            {
+                "dish_id": dish.id,
+                "allergen_ids": list(allergen_ids_set),
+                "manual_codes": codes_str,
+                "created": created_count,
+                "deleted": len(to_delete_ids),
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+# ============================================================
 # Public Menu
 # ============================================================
 

@@ -21,7 +21,8 @@ from core.utils.auth import is_admin
 # وحّد الاستيراد من نفس التطبيق (allergens.serializers)
 from .serializers import (
     AllergenCodeSerializer,
-    AdditiveCodeSerializer,      # بديل AdditiveLegendSerializer
+    AdminAllergenSerializer,      # German-only for admin/dish workflows
+    AdditiveCodeSerializer,         # بديل AdditiveLegendSerializer
     IngredientLiteSerializer,
     KeywordLexemeSerializer,
 )
@@ -51,44 +52,51 @@ def _ensure_owner_write_permission(request, owner_id):
 
 # ==========================================
 # Allergen (قاموس الحساسيّات) — ViewSet قياسي
+# German-only workflow: uses core.Allergen model + AdminAllergenSerializer
 # ==========================================
 class AllergenCodeViewSet(ModelViewSet):
     """
-    CRUD قياسي عبر DRF ViewSet على الجدول Allergen.
-    يدعم q للبحث و ordering للترتيب (code, label_de, label_en, label_ar).
+    CRUD for German-only allergen catalog.
+    Uses core.Allergen model (NOT allergens.AllergenCode).
+    Exposes only: id, code, name_de
+    Supports q for search & ordering (code, name_de).
     """
     queryset = Allergen.objects.all().order_by("code")
-    serializer_class = AllergenCodeSerializer
+    serializer_class = AdminAllergenSerializer  # German-only: id, code, name_de
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = Allergen.objects.all()
 
-        # بحث نصّي
+        # بحث نصّي (German-only: code + name_de)
         q = self.request.query_params.get("q", "").strip()
         if q:
             qs = qs.filter(
                 Q(code__icontains=q)
                 | Q(label_de__icontains=q)
-                | Q(label_en__icontains=q)
-                | Q(label_ar__icontains=q)
             )
 
-        # ترتيب آمن
+        # ترتيب آمن (German-only fields)
         ordering = self.request.query_params.get("ordering", "code").strip()
-        allowed = {"code", "label_de", "label_en", "label_ar"}
-        if ordering.lstrip("-") not in allowed:
+        allowed = {"code", "name_de", "-code", "-name_de"}
+        if ordering not in allowed:
             ordering = "code"
+        # Map name_de to label_de for ORM
+        if ordering == "name_de":
+            ordering = "label_de"
+        elif ordering == "-name_de":
+            ordering = "-label_de"
 
         return qs.order_by(ordering, "id")
 
 
 # ==========================================
 # Allergen (قاموس الحساسيّات) — واجهات API مسطّحة
+# German-only workflow
 # ==========================================
 class AllergenCodesView(APIView):
     """
-    GET: قائمة أكواد الحساسيّات مع فلترة وترتيب وتقسيم صفحات.
+    GET: قائمة أكواد الحساسيّات (German-only) مع فلترة وترتيب وتقسيم صفحات.
     POST: إضافة/تعديل عنصر واحد حسب الكود (قاموس عام واحد).
     """
     permission_classes = [IsAuthenticated]
@@ -97,36 +105,33 @@ class AllergenCodesView(APIView):
     def get(self, request):
         qs = Allergen.objects.all()
 
-        # 🔎 دعم q للبحث العام
+        # 🔎 دعم q للبحث العام (German-only: code + name_de)
         q = (request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(
                 Q(code__icontains=q)
                 | Q(label_de__icontains=q)
-                | Q(label_en__icontains=q)
-                | Q(label_ar__icontains=q)
             )
 
-        # الفلاتر المساندة
+        # الفلاتر المساندة (German-only)
         code = request.query_params.get("code") or request.query_params.get("letter")
-        en = request.query_params.get("en")
-        de = request.query_params.get("de")
-        ar = request.query_params.get("ar")
+        de = request.query_params.get("de") or request.query_params.get("name_de")
 
         if code:
             qs = qs.filter(code__iexact=str(code).strip())
-        if en:
-            qs = qs.filter(label_en__icontains=en)
         if de:
             qs = qs.filter(label_de__icontains=de)
-        if ar:
-            qs = qs.filter(label_ar__icontains=ar)
 
-        # ترتيب آمن
+        # ترتيب آمن (German-only)
         ordering = (request.query_params.get("ordering") or "code").strip()
-        allowed = {"code", "label_en", "label_de", "label_ar"}
-        if ordering.lstrip("-") not in allowed:
+        allowed = {"code", "name_de", "-code", "-name_de"}
+        if ordering not in allowed:
             ordering = "code"
+        # Map name_de to label_de for ORM
+        if ordering == "name_de":
+            ordering = "label_de"
+        elif ordering == "-name_de":
+            ordering = "-label_de"
         qs = qs.order_by(ordering, "id")
 
         # تقسيم صفحات بسيط
@@ -143,7 +148,7 @@ class AllergenCodesView(APIView):
                 "count": total,
                 "next": None if end >= total else f"?page={page+1}&page_size={page_size}",
                 "previous": None if page == 1 else f"?page={page-1}&page_size={page_size}",
-                "results": AllergenCodeSerializer(qs[start:end], many=True).data,
+                "results": AdminAllergenSerializer(qs[start:end], many=True).data,
             },
             status=status.HTTP_200_OK,
         )
@@ -151,55 +156,40 @@ class AllergenCodesView(APIView):
     # -------- POST (Upsert by code) --------
     def post(self, request):
         """
-        يقبل JSON بمفاتيح: code/letter, en|label_en, de|label_de, ar|label_ar
+        يقبل JSON بمفاتيح German-only: code, de|name_de
         - لو الكود موجود → تحديث.
         - لو غير موجود → إنشاء.
-        - إن تم تمرير owner (حتى لو None) ⇒ يتطبق فحص الصلاحيات.
+        - Admin-only writes for global allergen catalog.
         """
-        # ✅ تطبيق خطوة 2 — صلاحيات كتابة
-        # Admin-only writes for global allergen catalog
+        # صلاحيات كتابة (Admin-only for global catalog)
         if not is_admin(request.user):
             return Response({"detail": "Only admins can create or update global allergens."}, status=status.HTTP_403_FORBIDDEN)
-        owner_id = request.data.get("owner")
-        # None يعني global
-        if owner_id in ("null", "None", ""):
-            owner_id = None
-        elif owner_id is not None:
-            try:
-                owner_id = int(owner_id)
-            except Exception:
-                raise PermissionDenied("Invalid owner value.")
-        _ensure_owner_write_permission(request, owner_id)
 
         data = request.data
-        raw_code = data.get("code") or data.get("letter") or data.get("Code")
+        raw_code = data.get("code") or data.get("Code")
         if not raw_code:
             return Response(
-                {"detail": "Field 'code' (or 'letter') is required."},
+                {"detail": "Field 'code' is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         code = str(raw_code).strip().upper()  # A..Z
 
-        def pick(*keys):
-            for k in keys:
-                if data.get(k) is not None:
-                    return str(data.get(k)).strip()
-            return ""
+        # German-only: de / name_de
+        de = data.get("de") or data.get("name_de") or data.get("DE") or ""
+        de = str(de).strip()
 
         defaults = {
-            "label_en": pick("en", "label_en", "name_en", "EN"),
-            "label_de": pick("de", "label_de", "name_de", "DE"),
-            "label_ar": pick("ar", "label_ar", "name_ar", "AR"),
+            "label_de": de,
+            # Don't touch EN/AR fields (they may exist but aren't used in German workflow)
         }
 
         obj, created = Allergen.objects.update_or_create(code=code, defaults=defaults)
         return Response(
             {
                 "created": bool(created),
+                "id": obj.id,
                 "code": obj.code,
-                "en": obj.label_en,
-                "de": obj.label_de,
-                "ar": obj.label_ar,
+                "name_de": obj.label_de,
             },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
@@ -208,8 +198,7 @@ class AllergenCodesView(APIView):
 class AllergenCodeDetailView(APIView):
     """
     GET/PUT/PATCH/DELETE لعنصر واحد في قاموس الحساسيّات العام.
-    - لا نسمح بتغيير code من شاشة التعديل.
-    - الحذف للأدمن فقط (باستخدام is_admin).
+    German-only: يعرض/يقبل code + name_de فقط.
     """
     permission_classes = [IsAuthenticated]
 
@@ -220,38 +209,34 @@ class AllergenCodeDetailView(APIView):
         obj = self._get_obj(pk)
         if not obj:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(AllergenCodeSerializer(obj).data, status=status.HTTP_200_OK)
+        return Response(AdminAllergenSerializer(obj).data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         obj = self._get_obj(pk)
         if not obj:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # ✅ منع تعديل العام لغير الأدمن، أو الكتابة لمالك آخر
-        _ensure_owner_write_permission(request, getattr(obj, "owner_id", None))
-        new_owner = request.data.get("owner", getattr(obj, "owner_id", None))
-        if new_owner in ("null", "None", ""):
-            new_owner = None
-        elif new_owner is not None:
-            try:
-                new_owner = int(new_owner)
-            except Exception:
-                raise PermissionDenied("Invalid owner value.")
-        _ensure_owner_write_permission(request, new_owner)
+        # Admin-only for global catalog        
+        if not is_admin(request.user):
+            return Response(
+                {"detail": "Only admins can update global allergens."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         d = request.data
-        obj.label_en = (d.get("en") or d.get("label_en") or obj.label_en) or ""
-        obj.label_de = (d.get("de") or d.get("label_de") or obj.label_de) or ""
-        obj.label_ar = (d.get("ar") or d.get("label_ar") or obj.label_ar) or ""
+        # German-only: update name_de (maps to label_de)
+        new_name_de = d.get("de") or d.get("name_de")
+        if new_name_de is not None:
+            obj.label_de = str(new_name_de).strip()
         # NOTE: لا نغير code هنا
         obj.save()
-        return Response(AllergenCodeSerializer(obj).data, status=status.HTTP_200_OK)
+        return Response(AdminAllergenSerializer(obj).data, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
         return self.put(request, pk)
 
     def delete(self, request, pk):
-        if not is_admin(request.user):  # ← توحيد معيار الأدمن
+        if not is_admin(request.user):
             return Response(
                 {"detail": "Only admins can delete global allergens."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -268,8 +253,9 @@ class AllergenCodeDetailView(APIView):
 # ==========================================
 class AllergenBulkUpload(APIView):
     """
-    رفع CSV للحساسيّات — أعمدة مرنة:
-    code|letter, en|label_en|name_en, de|label_de|name_de, ar|label_ar|name_ar
+    رفع CSV للحساسيّات — German-only format:
+    Required columns: code, de
+    Example: A,Glutenhaltiges Getreide
     """
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -305,15 +291,14 @@ class AllergenBulkUpload(APIView):
                     return lower[c.lower()]
             return None
 
-        col_code = h("code", "letter", "Code", "Letter")
-        col_en = h("en", "label_en", "name_en", "EN")
-        col_de = h("de", "label_de", "name_de", "DE")
-        col_ar = h("ar", "label_ar", "name_ar", "AR")
+        # German-only: code + de
+        col_code = h("code", "Code")
+        col_de = h("de", "name_de", "DE")
 
-        if any(x is None for x in [col_code, col_en, col_de, col_ar]):
+        if col_code is None or col_de is None:
             return Response(
                 {
-                    "detail": "Missing columns. Accepts: code|letter, en|label_en, de|label_de, ar|label_ar"
+                    "detail": "Missing required columns. Required: code, de"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -324,10 +309,9 @@ class AllergenBulkUpload(APIView):
             if not code:
                 skipped += 1
                 continue
+            # German-only: only update label_de
             defaults = {
-                "label_en": (row.get(col_en) or "").strip(),
                 "label_de": (row.get(col_de) or "").strip(),
-                "label_ar": (row.get(col_ar) or "").strip(),
             }
             _, was_created = Allergen.objects.update_or_create(code=code, defaults=defaults)
             if was_created:
@@ -343,23 +327,132 @@ class AllergenBulkUpload(APIView):
 
 class AllergenExportCSV(APIView):
     """
-    تصدير قاموس الحساسيّات CSV (عام).
+    تصدير قاموس الحساسيّات CSV (German-only).
+    Exports: code, de
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         rows = Allergen.objects.order_by("code", "id").values_list(
-            "code", "label_en", "label_de", "label_ar"
+            "code", "label_de"
         )
         out = io.StringIO()
         w = csv.writer(out)
-        w.writerow(["code", "en", "de", "ar"])
+        w.writerow(["code", "de"])
         for r in rows:
             w.writerow(list(r))
 
         resp = HttpResponse(out.getvalue(), content_type="text/csv; charset=utf-8")
         resp["Content-Disposition"] = 'attachment; filename="allergens.csv"'
         return resp
+
+
+# ==========================================
+# Allergen Rule-Based Generation (German-only workflow)
+# ==========================================
+class AllergenGenerateView(APIView):
+    """
+    POST /allergens/generate/
+    
+    Triggers rule-based allergen generation for specified dishes.
+    German-only workflow: uses ingredient library + lexeme rules (lang="de").
+    
+    Body: {
+        "dish_ids": [1, 2, 3],        # Required: list of dish IDs
+        "use_llm": false,             # Optional: whether to use LLM fallback (default: false)
+        "force_regenerate": false      # Optional: override manual codes (default: false)
+    }
+    
+    Returns: {
+        "rules": {
+            "processed": 3,
+            "changed": 2,
+            "skipped": 1,
+            "items": [
+                {
+                    "dish_id": 1,
+                    "name": "Kartoffelpuffer",
+                    "before": "A",
+                    "after": "A,C,G",
+                    "action": "changed"
+                },
+                ...
+            ]
+        }
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Import the rule-based generation service
+        from core.services.allergen_rules import generate_for_dishes
+        from core.models import Dish
+
+        # Parse request data
+        data = request.data if isinstance(request.data, dict) else {}
+        dish_ids = data.get("dish_ids", [])
+        use_llm = bool(data.get("use_llm", False))
+        force_regenerate = bool(data.get("force_regenerate", False))
+
+        if not isinstance(dish_ids, list) or not dish_ids:
+            return Response(
+                {"detail": "dish_ids must be a non-empty array"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get dishes with permission check
+        user = request.user
+        base = Dish.objects.select_related("section__menu")
+        if is_admin(user):
+            qs = base.filter(id__in=dish_ids)
+        else:
+            qs = base.filter(id__in=dish_ids, section__menu__user=user)
+
+        dishes = list(qs)
+        
+        if not dishes:
+            return Response(
+                {"detail": "No dishes found or you don't have permission to access them"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Determine owner_id
+        owner_id = None
+        if not is_admin(user):
+            owner_id = user.id
+        else:
+            # Admin: infer owner from dishes
+            owner_ids = {getattr(d.section.menu, "user_id", None) for d in dishes}
+            owner_ids.discard(None)
+            owner_id = next(iter(owner_ids)) if len(owner_ids) == 1 else None
+
+        # Call rule-based generation service
+        # German-only: lang="de"
+        rules_result = generate_for_dishes(
+            dishes,
+            owner_id=owner_id,
+            lang="de",  # German-only workflow
+            force=force_regenerate,
+            dry_run=False,  # Actually modify the dishes
+            include_details=True,  # Include provenance
+            extra_owner_ids=[user.id] if user.id != owner_id else None,
+        )
+
+        # TODO: Add LLM fallback if use_llm=True
+        # For now, LLM is not implemented in this simplified endpoint
+        llm_result = None
+        if use_llm:
+            llm_result = {
+                "note": "LLM fallback not yet implemented in this endpoint. Use /api/llm/jobs/start-batch-generate/ for LLM support."
+            }
+
+        return Response(
+            {
+                "rules": rules_result,
+                "llm": llm_result,
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 # ==========================================

@@ -756,10 +756,9 @@ function MenusPage({ token }) {
 
   const buildGenerateBody = (dry) => {
     const base = {
-      force: genForce, dry_run: !!dry, lang: (genLang || 'de').toLowerCase(),
-      use_llm: !!genUseLLM, llm_dry_run: !!genLLMDryRun,
-      llm_model: genModel, llm_max_terms: Number(genMaxTerms) || 8, llm_temperature: Number(genTemperature) || 0.2,
-      llm_guess_codes: !!llmGuessCodes, llm_debug: !!llmDebug, dish_ids: parseDishIds(genDishIdsText),
+      force_regenerate: !!genForce,
+      use_llm: !!genUseLLM,
+      dish_ids: parseDishIds(genDishIdsText),
     };
     if (!base.dish_ids) delete base.dish_ids;
     return base;
@@ -813,7 +812,8 @@ function MenusPage({ token }) {
         setGenDryRun(true);
         return;
       }
-      const res = await api.post('/dishes/batch-generate-allergen-codes/', body, { timeout: 60000 });
+      // Updated to use new German-only generation endpoint
+      const res = await api.post('/allergens/generate/', body, { timeout: 60000 });
       const rules = res?.data?.rules || null;
       const llm = res?.data?.llm || null;
 
@@ -886,7 +886,8 @@ function MenusPage({ token }) {
         if (isNumericId(selectedMenuId)) await fetchSectionsAndDishes(selectedMenuId);
         return;
       }
-      const res = await api.post('/dishes/batch-generate-allergen-codes/', body, { timeout: 60000 });
+      // Updated to use new German-only generation endpoint
+      const res = await api.post('/allergens/generate/', body, { timeout: 60000 });
       const rules = res?.data?.rules || null;
       const llm = res?.data?.llm || null;
 
