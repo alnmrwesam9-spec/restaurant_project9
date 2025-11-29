@@ -743,6 +743,17 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         validated_data = self._clean_images_in_data(validated_data)
+        
+        # Extract show_images from theme string if present
+        theme = validated_data.get('theme', '')
+        if isinstance(theme, str) and 'show_images' in theme:
+            try:
+                # Parse show_images value from theme string
+                value = theme.split('show_images=')[1].split(',')[0].strip()
+                instance.show_images = (value == '1')
+            except Exception:
+                pass
+        
         for k in ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'hero_crop', 'theme', 'show_images']:
             if k in validated_data:
                 setattr(instance, k, validated_data[k])
