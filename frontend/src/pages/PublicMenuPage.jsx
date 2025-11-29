@@ -375,32 +375,32 @@ export default function PublicMenuPage() {
   const sectionVariants = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 90, damping: 16 } } };
   const cardVariants = { hidden: { opacity: 0, y: 24, scale: 0.98 }, show: (i = 0) => ({ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 110, damping: 14, delay: i * 0.05 } }) };
 
-const DishCard = ({ dish, imgSources, index = 0, fixedHeight }) => (
-  <motion.div variants={cardVariants} custom={index} initial="hidden" animate="show" style={{ height: '100%' }}>
-    <Card
-      component={motion.div}
-      whileHover={{ y: -4, boxShadow: '0 10px 26px rgba(15,23,42,0.08)' }}
-      onClick={() => setSelectedDish({ ...dish, imgSources })}
-      elevation={0}
-      sx={{
-        cursor: 'pointer',
-        borderRadius: 3,
-        border: '1px solid #e5e7eb',
-        bgcolor: '#fff',
-        overflow: 'hidden',
-        height: { xs: 'auto', md: fixedHeight ? `${fixedHeight}px` : 'auto' },
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 1px 0 rgba(0,0,0,.02)',
-        position: 'relative',
-
-        // حل مشكلة الحواف الحادة
-        transition: 'all 0.12s ease-out',
-        '&:hover': {
+  const DishCard = ({ dish, imgSources, index = 0, fixedHeight }) => (
+    <motion.div variants={cardVariants} custom={index} initial="hidden" animate="show" style={{ height: '100%' }}>
+      <Card
+        component={motion.div}
+        whileHover={{ y: -4, boxShadow: '0 10px 26px rgba(15,23,42,0.08)' }}
+        onClick={() => setSelectedDish({ ...dish, imgSources })}
+        elevation={0}
+        sx={{
+          cursor: 'pointer',
           borderRadius: 3,
-        },
-      }}
-    >
+          border: '1px solid #e5e7eb',
+          bgcolor: '#fff',
+          overflow: 'hidden',
+          height: { xs: 'auto', md: fixedHeight ? `${fixedHeight}px` : 'auto' },
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 1px 0 rgba(0,0,0,.02)',
+          position: 'relative',
+
+          // حل مشكلة الحواف الحادة
+          transition: 'all 0.12s ease-out',
+          '&:hover': {
+            borderRadius: 3,
+          },
+        }}
+      >
 
         {/* شارة الأكواد بخلفية بيضاء واضحة */}
         <AllergenChip dish={dish} withTooltip sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }} />
@@ -548,11 +548,27 @@ const DishCard = ({ dish, imgSources, index = 0, fixedHeight }) => (
             <Typography variant="h5" sx={{ fontWeight: 900, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
               <span style={{ fontSize: '1.5em' }}>⭐</span> {t('recommended_dishes') || (isRTL ? 'أطباق موصى بها' : 'Recommended Dishes')}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2, mx: -2, px: 2, scrollSnapType: 'x mandatory', '&::-webkit-scrollbar': { display: 'none' } }}>
+            <Box sx={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              pb: 2,
+              mx: -2,
+              px: 2,
+              scrollSnapType: 'x mandatory',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              '&::-webkit-scrollbar': { display: 'none' }
+            }}>
               {favoriteDishes.map((dish, i) => {
                 const imgSources = publicDishImageSources(dish, ds, rp);
                 return (
-                  <Box key={dish.id} sx={{ width: { xs: 280, md: 320 }, flex: '0 0 auto', scrollSnapAlign: 'start' }}>
+                  <Box key={dish.id} sx={{
+                    minWidth: { xs: '85%', sm: '45%', md: '32%', lg: '28%', xl: '24%' },
+                    maxWidth: { xs: '85%', sm: '45%', md: '32%', lg: '28%', xl: '24%' },
+                    flex: '0 0 auto',
+                    scrollSnapAlign: 'start'
+                  }}>
                     <DishCard dish={dish} imgSources={imgSources} index={i} fixedHeight={CARD_HEIGHT_MD} />
                   </Box>
                 );
@@ -677,9 +693,9 @@ const DishCard = ({ dish, imgSources, index = 0, fixedHeight }) => (
               </Typography>
 
               {/* ===== عرض كل الأسعار داخل مربع الحوار ===== */}
-                {parsedTheme.show_prices && (
-                  <PriceChips dish={selectedDish} />
-                )}
+              {parsedTheme.show_prices && (
+                <PriceChips dish={selectedDish} />
+              )}
             </Box>
 
             {(() => {
