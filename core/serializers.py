@@ -685,10 +685,11 @@ class MenuSerializer(serializers.ModelSerializer):
 class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
     logo = AbsoluteImageURLField(required=False, allow_null=True)
     hero_image = AbsoluteImageURLField(required=False, allow_null=True)
+    show_images = serializers.BooleanField(required=False)
 
     class Meta:
         model = MenuDisplaySettings
-        fields = ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'logo', 'hero_image', 'hero_crop', 'theme']
+        fields = ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'logo', 'hero_image', 'hero_crop', 'theme', 'show_images']
 
     # ✅ تنظيف/تحقق الصور (logo, hero_image)
     def validate_logo(self, file):
@@ -706,6 +707,12 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
             return validate_and_clean_image(file)
         except Exception as e:
             raise serializers.ValidationError(str(e))
+
+    def validate_show_images(self, value):
+        """Convert string '0'/'1' to boolean for FormData compatibility"""
+        if value in ['0', 0, False, 'false', 'False', None, '']:
+            return False
+        return True
 
     def _clean_images_in_data(self, validated_data):
         def _is_cleaned(f):
@@ -736,7 +743,7 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         validated_data = self._clean_images_in_data(validated_data)
-        for k in ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'hero_crop', 'theme']:
+        for k in ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'hero_crop', 'theme', 'show_images']:
             if k in validated_data:
                 setattr(instance, k, validated_data[k])
         if 'logo' in validated_data:

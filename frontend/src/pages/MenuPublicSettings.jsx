@@ -36,6 +36,15 @@ const FONT_PRESETS = [
   { id: 'noto-naskh', label: 'Noto Naskh Arabic', css: '"Noto Naskh Arabic", "Inter", system-ui, -apple-system, "Segoe UI", Arial, serif' },
 ];
 
+/* تدرجات لونية جاهزة للخلفيات */
+const GRADIENT_PRESETS = [
+  { id: 'purple', label: 'Purple Dream', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+  { id: 'ocean', label: 'Ocean Blue', gradient: 'linear-gradient(135deg, #2E3192 0%, #1BFFFF 100%)' },
+  { id: 'sunset', label: 'Sunset Orange', gradient: 'linear-gradient(135deg, #FF512F 0%, #F09819 100%)' },
+  { id: 'forest', label: 'Forest Green', gradient: 'linear-gradient(135deg, #134E5E 0%, #71B280 100%)' },
+  { id: 'rose', label: 'Rose Gold', gradient: 'linear-gradient(135deg, #ED4264 0%, #FFEDBC 100%)' },
+];
+
 const defaultParsed = {
   mode: 'default',
   bg: '', text: '', icon: '',
@@ -43,6 +52,7 @@ const defaultParsed = {
   scale: 1,               // global font scale
   price_color: '#1d4ed8',
   price_scale: 1,
+  placeholder_gradient: GRADIENT_PRESETS[0].gradient, // default gradient
   show_logo: 1,
   show_hero: 1,
   show_search: 1,
@@ -91,7 +101,7 @@ const parseTheme = (themeStr) => {
       const k = kv.slice(0, i).trim();
       let v = kv.slice(i + 1).trim();
       if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
-      if (k === 'bg' || k === 'text' || k === 'icon' || k === 'font' || k === 'price_color') out[k] = v;
+      if (k === 'bg' || k === 'text' || k === 'icon' || k === 'font' || k === 'price_color' || k === 'placeholder_gradient') out[k] = v;
       else if (k === 'scale' || k === 'price_scale') {
         const n = parseFloat(String(v).replace(',', '.')); if (Number.isFinite(n)) out[k] = n;
       } else if (k.startsWith('show_')) {
@@ -104,10 +114,13 @@ const parseTheme = (themeStr) => {
 };
 
 const buildThemeString = (f) => {
+  // If user has selected a non-default gradient, force custom mode
+  const hasCustomGradient = f.placeholder_gradient && f.placeholder_gradient !== GRADIENT_PRESETS[0].gradient;
+
   if (f.mode === 'custom3') {
     return `custom3:${f.bg || '#ffffff'},${f.text || '#111111'},${f.icon || '#2bbdbe'}`;
   }
-  if (f.mode === 'custom') {
+  if (f.mode === 'custom' || hasCustomGradient) {
     const parts = [];
     if (f.bg) parts.push(`bg=${f.bg}`);
     if (f.text) parts.push(`text=${f.text}`);
@@ -116,7 +129,8 @@ const buildThemeString = (f) => {
     if (f.scale && f.scale !== 1) parts.push(`scale=${f.scale}`);
     if (f.price_color) parts.push(`price_color=${f.price_color}`);
     if (f.price_scale && f.price_scale !== 1) parts.push(`price_scale=${f.price_scale}`);
-    ['show_logo','show_hero','show_search','show_sections','show_prices','show_images']
+    if (f.placeholder_gradient) parts.push(`placeholder_gradient="${f.placeholder_gradient}"`);
+    ['show_logo', 'show_hero', 'show_search', 'show_sections', 'show_prices', 'show_images']
       .forEach(k => parts.push(`${k}=${f[k] ? 1 : 0}`));
     return `custom:${parts.join(',')}`;
   }
@@ -133,11 +147,11 @@ function PreviewCard({ font, scale, priceColor, priceScale }) {
     const m = full.match(/^\s*(["'])(.*?)\1/);
     if (m) family = m[2]; else family = full.split(',')[0]?.trim().replace(/^(["'])|(["'])$/g, '') || '';
     if (!family) return;
-    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g,'+')}\:wght@400;600;700;800&display=swap`;
+    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}\:wght@400;600;700;800&display=swap`;
     let link = document.getElementById('preview-font-link');
     if (!link) { link = document.createElement('link'); link.id = 'preview-font-link'; link.rel = 'stylesheet'; document.head.appendChild(link); }
     link.href = href;
-    return () => { const el = document.getElementById('preview-font-link'); if (el && el.href === href) try { el.remove(); } catch {} };
+    return () => { const el = document.getElementById('preview-font-link'); if (el && el.href === href) try { el.remove(); } catch { } };
   }, [font]);
   return (
     <Card elevation={1} sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -327,7 +341,7 @@ export default function MenuPublicSettings() {
         try {
           const obj = JSON.parse(val);
           const days = obj?.days || obj;
-          const dks = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+          const dks = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
           const compact = dks.map((k, i) => {
             const d = days?.[k] || {};
             const en = d?.enabled ? 1 : 0;
@@ -343,8 +357,7 @@ export default function MenuPublicSettings() {
       // hero crop position (top/center/bottom)
       fd.append('hero_crop', form.hero_crop || 'center');
       fd.append('theme', buildThemeString(form));
-      // send show_images as a top-level flag (not inside theme)
-      fd.append('show_images', String(form.show_images ? 1 : 0));
+      // show_images is already included in theme string, no need to send separately
       if (form.logo instanceof File) fd.append('logo', form.logo);
       if (form.hero_image instanceof File) fd.append('hero_image', form.hero_image);
 
@@ -352,7 +365,7 @@ export default function MenuPublicSettings() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       // If the menu is already published, republish to push changes to the public endpoint
-      try { if (menu?.is_published) await axios.post(`/menus/${menuId}/publish/`); } catch {}
+      try { if (menu?.is_published) await axios.post(`/menus/${menuId}/publish/`); } catch { }
       // quick verify: re-fetch and compare show_images value
       try {
         const vr = await axios.get(`/menus/${menuId}/display-settings/`);
@@ -374,7 +387,7 @@ export default function MenuPublicSettings() {
   };
 
   if (loading) {
-    return <Container sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress/></Container>;
+    return <Container sx={{ mt: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Container>;
   }
   if (!menu) {
     return <Container sx={{ mt: 6 }}><Typography color="error">{tOr('menu_not_found', 'Menu not found')}</Typography></Container>;
@@ -444,19 +457,19 @@ export default function MenuPublicSettings() {
       </Box>
 
       {/* Help / Guide */}
-     <Accordion
-         sx={{
-           mb: 3,
-           borderRadius: 3,
-           '& .MuiAccordionSummary-content': { my: 0.5 },
-           '& .MuiAccordionDetails-root': {
-             pt: 0,
-             overflowWrap: 'anywhere',
-             wordBreak: 'break-word',
-             lineHeight: 1.7,
-           },
-         }}
-       >
+      <Accordion
+        sx={{
+          mb: 3,
+          borderRadius: 3,
+          '& .MuiAccordionSummary-content': { my: 0.5 },
+          '& .MuiAccordionDetails-root': {
+            pt: 0,
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+            lineHeight: 1.7,
+          },
+        }}
+      >
 
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography fontWeight={800}>{tOr('public.help.title', 'Help & Guide')}</Typography>
@@ -466,20 +479,20 @@ export default function MenuPublicSettings() {
             {tOr('public.help.intro', 'Publish your menu, copy the public link or QR, and customize the look for visitors.')}
           </Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.publish_title','Publish / Unpublish')}</Typography>
-          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.publish_body','Publishing creates a public link to share. You can unpublish to hide the page without deleting anything.')}</Typography>
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.publish_title', 'Publish / Unpublish')}</Typography>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.publish_body', 'Publishing creates a public link to share. You can unpublish to hide the page without deleting anything.')}</Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.link_qr_title','Public link & QR')}</Typography>
-          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.link_qr_body','Use Open to preview, Copy link to share, and Download QR to print and place in the venue.')}</Typography>
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.link_qr_title', 'Public link & QR')}</Typography>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.link_qr_body', 'Use Open to preview, Copy link to share, and Download QR to print and place in the venue.')}</Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.theme_title','Colors & Theme')}</Typography>
-          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.theme_body','Pick a preset or build a custom theme. You can also change price color and scale.')}</Typography>
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.theme_title', 'Colors & Theme')}</Typography>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.theme_body', 'Pick a preset or build a custom theme. You can also change price color and scale.')}</Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.font_title','Fonts & Size')}</Typography>
-          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.font_body','Switch between available fonts and adjust global text scale for readability.')}</Typography>
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.font_title', 'Fonts & Size')}</Typography>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>{tOr('public.help.font_body', 'Switch between available fonts and adjust global text scale for readability.')}</Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.toggles_title','What to show for visitors?')}</Typography>
-          <Typography color="text.secondary">{tOr('public.help.toggles_body','Show/hide logo, hero image, search, section names and prices without changing your data.')}</Typography>
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>{tOr('public.help.toggles_title', 'What to show for visitors?')}</Typography>
+          <Typography color="text.secondary">{tOr('public.help.toggles_body', 'Show/hide logo, hero image, search, section names and prices without changing your data.')}</Typography>
         </AccordionDetails>
       </Accordion>
 
@@ -497,7 +510,7 @@ export default function MenuPublicSettings() {
               data-tour="public-link-field"
             />
             <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-              <Tooltip title={menu?.public_slug ? tOr('open_public_page','افتح') : tOr('publish_first_tooltip','انشر أولًا')}>
+              <Tooltip title={menu?.public_slug ? tOr('open_public_page', 'افتح') : tOr('publish_first_tooltip', 'انشر أولًا')}>
                 <span>
                   <Button
                     variant="contained"
@@ -510,11 +523,11 @@ export default function MenuPublicSettings() {
                     fullWidth={isXsDown}
                     data-tour="public-link-open"
                   >
-                    {tOr('open_link','فتح')}
+                    {tOr('open_link', 'فتح')}
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title={menu?.public_slug ? tOr('copy_public_link','نسخ') : tOr('publish_first_tooltip','انشر أولًا')}>
+              <Tooltip title={menu?.public_slug ? tOr('copy_public_link', 'نسخ') : tOr('publish_first_tooltip', 'انشر أولًا')}>
                 <span>
                   <Button
                     variant="outlined"
@@ -526,11 +539,11 @@ export default function MenuPublicSettings() {
                     fullWidth={isXsDown}
                     data-tour="public-link-copy"
                   >
-                    {tOr('copy_link','نسخ الرابط')}
+                    {tOr('copy_link', 'نسخ الرابط')}
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title={menu?.public_slug ? tOr('download_qr','تنزيل QR') : tOr('publish_first_tooltip','انشر أولًا')}>
+              <Tooltip title={menu?.public_slug ? tOr('download_qr', 'تنزيل QR') : tOr('publish_first_tooltip', 'انشر أولًا')}>
                 <span>
                   <Button
                     variant="outlined"
@@ -542,7 +555,7 @@ export default function MenuPublicSettings() {
                     fullWidth={isXsDown}
                     data-tour="public-link-qr"
                   >
-                    {tOr('download_qr','تنزيل QR')}
+                    {tOr('download_qr', 'تنزيل QR')}
                   </Button>
                 </span>
               </Tooltip>
@@ -573,7 +586,7 @@ export default function MenuPublicSettings() {
               </React.Suspense>
             ) : (
               <Typography color="text.secondary" variant="body2" align="center">
-                {tOr('publish_to_generate_qr','انشر لتوليد QR')}
+                {tOr('publish_to_generate_qr', 'انشر لتوليد QR')}
               </Typography>
             )}
           </Box>
@@ -607,16 +620,16 @@ export default function MenuPublicSettings() {
               borderColor: alpha('#fff', 0.2)
             }}
           >
-            <Typography variant="subtitle1" fontWeight={800} mb={2}>{tOr('settings','الإعدادات')}</Typography>
+            <Typography variant="subtitle1" fontWeight={800} mb={2}>{tOr('settings', 'الإعدادات')}</Typography>
 
             {/* Logo */}
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('logo','الشعار')}</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('logo', 'الشعار')}</Typography>
             <Box
               sx={{
                 width: '100%',
                 height: { xs: 100, sm: 120 },
                 borderRadius: 2,
-                border: `1px dashed ${alpha('#fff',0.35)}`,
+                border: `1px dashed ${alpha('#fff', 0.35)}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -627,8 +640,8 @@ export default function MenuPublicSettings() {
               data-tour="logo-box"
             >
               {(form.logo ? URL.createObjectURL(form.logo) : form.logo_url)
-                ? <CardMedia component="img" image={form.logo ? URL.createObjectURL(form.logo) : form.logo_url} alt="logo" sx={{ objectFit: 'contain', width: '100%', height: '100%' }}/>
-                : <Typography variant="caption" sx={{ color: alpha('#fff', 0.7) }}>{tOr('no_logo','لا يوجد شعار')}</Typography>}
+                ? <CardMedia component="img" image={form.logo ? URL.createObjectURL(form.logo) : form.logo_url} alt="logo" sx={{ objectFit: 'contain', width: '100%', height: '100%' }} />
+                : <Typography variant="caption" sx={{ color: alpha('#fff', 0.7) }}>{tOr('no_logo', 'لا يوجد شعار')}</Typography>}
             </Box>
             <Button
               component="label"
@@ -639,18 +652,18 @@ export default function MenuPublicSettings() {
               fullWidth={isXsDown}
               data-tour="upload-logo"
             >
-              {tOr('upload_logo','رفع الشعار')}
+              {tOr('upload_logo', 'رفع الشعار')}
               <input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const file = e.target.files?.[0]; if (file) update('logo', file); }} />
             </Button>
 
             {/* Hero */}
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('hero','صورة الغلاف')}</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('hero', 'صورة الغلاف')}</Typography>
             <Box
               sx={{
                 width: '100%',
                 height: { xs: 180, sm: 220 },
                 borderRadius: 3,
-                border: `1px dashed ${alpha('#fff',0.35)}`,
+                border: `1px dashed ${alpha('#fff', 0.35)}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -661,8 +674,8 @@ export default function MenuPublicSettings() {
               data-tour="hero-box"
             >
               {(form.hero_image ? URL.createObjectURL(form.hero_image) : form.hero_image_url)
-                ? <CardMedia component="img" image={form.hero_image ? URL.createObjectURL(form.hero_image) : form.hero_image_url} alt="hero" sx={{ objectFit: 'cover', objectPosition: form.hero_crop || 'center', width: '100%', height: '100%' }}/>
-                : <Typography variant="body2" sx={{ color: alpha('#fff', 0.7) }}>{tOr('no_hero','لا توجد صورة')}</Typography>}
+                ? <CardMedia component="img" image={form.hero_image ? URL.createObjectURL(form.hero_image) : form.hero_image_url} alt="hero" sx={{ objectFit: 'cover', objectPosition: form.hero_crop || 'center', width: '100%', height: '100%' }} />
+                : <Typography variant="body2" sx={{ color: alpha('#fff', 0.7) }}>{tOr('no_hero', 'لا توجد صورة')}</Typography>}
             </Box>
             {/* ⬇️ زر رفع لصورة الغلاف */}
             <Button
@@ -674,7 +687,7 @@ export default function MenuPublicSettings() {
               fullWidth={isXsDown}
               data-tour="upload-hero"
             >
-              {tOr('upload_hero','رفع صورة الغلاف')}
+              {tOr('upload_hero', 'رفع صورة الغلاف')}
               <input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const file = e.target.files?.[0]; if (file) update('hero_image', file); }} />
             </Button>
 
@@ -697,7 +710,7 @@ export default function MenuPublicSettings() {
             </Stack>
 
             {/* LIVE PREVIEW */}
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('preview','معاينة')}</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>{tOr('preview', 'معاينة')}</Typography>
             <Box sx={{ bgcolor: '#0b1220', p: 1.25, borderRadius: 2, border: `1px solid ${alpha('#fff', 0.12)}` }} data-tour="live-preview">
               <PreviewCard
                 font={form.font}
@@ -713,12 +726,12 @@ export default function MenuPublicSettings() {
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Paper variant="outlined" sx={{ p: { xs: 1.75, sm: 2.5 }, borderRadius: 3 }}>
             <Typography variant="subtitle1" fontWeight={800} mb={2}>
-              {tOr('display_settings_title','إعدادات عرض هذه القائمة')}
+              {tOr('display_settings_title', 'إعدادات عرض هذه القائمة')}
             </Typography>
 
             <Stack spacing={{ xs: 1.5, sm: 2 }}>
               <TextField
-                label={tOr('display_name','اسم المطعم')}
+                label={tOr('display_name', 'اسم المطعم')}
                 value={form.display_name}
                 onChange={(e) => update('display_name', e.target.value)}
                 fullWidth
@@ -727,7 +740,7 @@ export default function MenuPublicSettings() {
               />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
-                  label={tOr('phone','الهاتف')}
+                  label={tOr('phone', 'الهاتف')}
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
                   fullWidth
@@ -735,7 +748,7 @@ export default function MenuPublicSettings() {
                   sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                 />
                 <TextField
-                  label={tOr('hours','ساعات العمل')}
+                  label={tOr('hours', 'ساعات العمل')}
                   value={form.hours}
                   onChange={(e) => update('hours', e.target.value)}
                   fullWidth
@@ -743,7 +756,7 @@ export default function MenuPublicSettings() {
                   sx={{ display: 'none', '& .MuiInputBase-root': { borderRadius: 2 } }}
                 />
                 <TextField
-                  label={tOr('whatsapp','WhatsApp')}
+                  label={tOr('whatsapp', 'WhatsApp')}
                   value={form.whatsapp}
                   onChange={(e) => update('whatsapp', e.target.value)}
                   fullWidth
@@ -752,13 +765,13 @@ export default function MenuPublicSettings() {
                 />
               </Stack>
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 0.75, fontWeight: 800 }}>{tOr('opening_hours','Opening Hours')}</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 0.75, fontWeight: 800 }}>{tOr('opening_hours', 'Opening Hours')}</Typography>
                 <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <OpeningHoursEditor title={tOr('opening_hours','Opening Hours')} value={form.hours} onChange={(v) => update('hours', v)} language={(i18n && i18n.language) || 'de'} />
+                  <OpeningHoursEditor title={tOr('opening_hours', 'Opening Hours')} value={form.hours} onChange={(v) => update('hours', v)} language={(i18n && i18n.language) || 'de'} />
                 </Paper>
               </Box>
               <TextField
-                label={tOr('address','العنوان')}
+                label={tOr('address', 'العنوان')}
                 value={form.address}
                 onChange={(e) => update('address', e.target.value)}
                 fullWidth
@@ -770,7 +783,7 @@ export default function MenuPublicSettings() {
 
               {/* Theme mode */}
               <Box data-tour="theme-mode">
-                <Typography variant="subtitle2" color="text.secondary" mb={1}>{tOr('theme','الثيم')}</Typography>
+                <Typography variant="subtitle2" color="text.secondary" mb={1}>{tOr('theme', 'الثيم')}</Typography>
                 <ToggleButtonGroup
                   exclusive
                   value={form.mode}
@@ -787,25 +800,25 @@ export default function MenuPublicSettings() {
                     }
                   }}
                 >
-                  <ToggleButton value="default">{tOr('theme_default','افتراضي')}</ToggleButton>
-                  <ToggleButton value="light">{tOr('theme_light','فاتح')}</ToggleButton>
-                  <ToggleButton value="dark">{tOr('theme_dark','داكن')}</ToggleButton>
-                  <ToggleButton value="custom3">{tOr('theme_custom_simple','مخصص (3 ألوان)')}</ToggleButton>
-                  <ToggleButton value="custom">{tOr('theme_custom_advanced','مخصص (متقدم)')}</ToggleButton>
+                  <ToggleButton value="default">{tOr('theme_default', 'افتراضي')}</ToggleButton>
+                  <ToggleButton value="light">{tOr('theme_light', 'فاتح')}</ToggleButton>
+                  <ToggleButton value="dark">{tOr('theme_dark', 'داكن')}</ToggleButton>
+                  <ToggleButton value="custom3">{tOr('theme_custom_simple', 'مخصص (3 ألوان)')}</ToggleButton>
+                  <ToggleButton value="custom">{tOr('theme_custom_advanced', 'مخصص (متقدم)')}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
 
               {/* Colors */}
               {(form.mode === 'custom3' || form.mode === 'custom') && (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} data-tour="colors">
-                  {['bg','text','icon'].map((key) => (
+                  {['bg', 'text', 'icon'].map((key) => (
                     <Box key={key} sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="caption" display="block" mb={0.5}>
-                        {key === 'bg' ? tOr('bg_color','لون الخلفية') : key === 'text' ? tOr('text_color','لون النص') : tOr('icon_color','لون الأيقونات')}
+                        {key === 'bg' ? tOr('bg_color', 'لون الخلفية') : key === 'text' ? tOr('text_color', 'لون النص') : tOr('icon_color', 'لون الأيقونات')}
                       </Typography>
                       <input
                         type="color"
-                        value={form[key] || (key==='bg' ? '#ffffff' : key==='text' ? '#111111' : '#2bbdbe')}
+                        value={form[key] || (key === 'bg' ? '#ffffff' : key === 'text' ? '#111111' : '#2bbdbe')}
                         onChange={(e) => update(key, e.target.value)}
                         style={{
                           width: '100%',
@@ -823,19 +836,19 @@ export default function MenuPublicSettings() {
               {/* Typography & Visibility */}
               {form.mode === 'custom' && (
                 <>
-                  <Divider textAlign="left">{tOr('typography','typography')}</Divider>
+                  <Divider textAlign="left">{tOr('typography', 'typography')}</Divider>
                   <Stack spacing={2}>
                     <Box data-tour="font-select">
                       <Typography variant="caption" display="block" mb={0.5}>font_family</Typography>
                       <Select
                         fullWidth
-                        value={FONT_PRESETS.find(f=>f.css===form.font)?.css || ''}
-                        onChange={(e)=>update('font', e.target.value)}
+                        value={FONT_PRESETS.find(f => f.css === form.font)?.css || ''}
+                        onChange={(e) => update('font', e.target.value)}
                         displayEmpty
                         size={isSmDown ? 'small' : 'medium'}
                         sx={{ borderRadius: 2 }}
                       >
-                        <MenuItem value="">{tOr('system_default','System default')}</MenuItem>
+                        <MenuItem value="">{tOr('system_default', 'System default')}</MenuItem>
                         {FONT_PRESETS.map(f => <MenuItem key={f.id} value={f.css}>{f.label}</MenuItem>)}
                       </Select>
                     </Box>
@@ -847,7 +860,7 @@ export default function MenuPublicSettings() {
                         max={1.25}
                         step={0.01}
                         value={form.scale || 1}
-                        onChange={(_, v)=>update('scale', Number(v))}
+                        onChange={(_, v) => update('scale', Number(v))}
                         valueLabelDisplay="auto"
                         size="small"
                       />
@@ -859,7 +872,7 @@ export default function MenuPublicSettings() {
                         <input
                           type="color"
                           value={form.price_color || '#1d4ed8'}
-                          onChange={(e)=>update('price_color', e.target.value)}
+                          onChange={(e) => update('price_color', e.target.value)}
                           style={{
                             width: '100%',
                             height: 44,
@@ -876,22 +889,52 @@ export default function MenuPublicSettings() {
                           max={1.5}
                           step={0.01}
                           value={form.price_scale || 1}
-                          onChange={(_, v)=>update('price_scale', Number(v))}
+                          onChange={(_, v) => update('price_scale', Number(v))}
                           valueLabelDisplay="auto"
                           size="small"
                         />
                       </Box>
                     </Stack>
+
+                    {/* Gradient Selector */}
+                    <Box data-tour="gradient-selector">
+                      <Typography variant="caption" display="block" mb={1}>
+                        {tOr('placeholder_gradient', 'Dish Placeholder Gradient')}
+                      </Typography>
+                      <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ gap: 1.5 }}>
+                        {GRADIENT_PRESETS.map((preset) => (
+                          <Tooltip key={preset.id} title={preset.label} arrow>
+                            <Box
+                              onClick={() => update('placeholder_gradient', preset.gradient)}
+                              sx={{
+                                width: 80,
+                                height: 50,
+                                borderRadius: 2,
+                                background: preset.gradient,
+                                cursor: 'pointer',
+                                border: form.placeholder_gradient === preset.gradient ? '3px solid #1976d2' : '2px solid #e0e0e0',
+                                boxShadow: form.placeholder_gradient === preset.gradient ? '0 4px 12px rgba(25,118,210,0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                  transform: 'scale(1.05)',
+                                  boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+                                },
+                              }}
+                            />
+                          </Tooltip>
+                        ))}
+                      </Stack>
+                    </Box>
                   </Stack>
 
                   <Divider textAlign="left" sx={{ mt: 2 }}>
-                    {tOr('visibility','العناصر الظاهرة')}
+                    {tOr('visibility', 'العناصر الظاهرة')}
                   </Divider>
                   <Stack direction="row" spacing={2} flexWrap="wrap" data-tour="visibility">
-                    {['show_logo','show_hero','show_search','show_sections','show_prices','show_images'].map((k) => (
+                    {['show_logo', 'show_hero', 'show_search', 'show_sections', 'show_prices', 'show_images'].map((k) => (
                       <FormControlLabel
                         key={k}
-                        control={<Checkbox checked={!!form[k]} onChange={(e)=>update(k, e.target.checked ? 1 : 0)} />}
+                        control={<Checkbox checked={!!form[k]} onChange={(e) => update(k, e.target.checked ? 1 : 0)} />}
                         label={tOr(k, k)}
                       />
                     ))}
@@ -910,20 +953,20 @@ export default function MenuPublicSettings() {
                   fullWidth={isXsDown}
                   data-tour="save"
                 >
-                  {saving ? tOr('saving','حفظ...') : tOr('save','حفظ')}
+                  {saving ? tOr('saving', 'حفظ...') : tOr('save', 'حفظ')}
                 </Button>
               </Box>
-              </Stack>
+            </Stack>
           </Paper>
         </Box>
       </Stack>
 
       <Dialog open={confirmUnpublish} onClose={() => setConfirmUnpublish(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ pb: 1 }}>{tOr('confirm_unpublish_title','إلغاء النشر؟')}</DialogTitle>
-        <DialogContent sx={{ pt: 0 }}>{tOr('confirm_unpublish_body','هل أنت متأكد من إلغاء نشر هذه القائمة؟')}</DialogContent>
+        <DialogTitle sx={{ pb: 1 }}>{tOr('confirm_unpublish_title', 'إلغاء النشر؟')}</DialogTitle>
+        <DialogContent sx={{ pt: 0 }}>{tOr('confirm_unpublish_body', 'هل أنت متأكد من إلغاء نشر هذه القائمة؟')}</DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmUnpublish(false)} size={isSmDown ? 'small' : 'medium'}>{tOr('cancel','إلغاء')}</Button>
-          <Button color="warning" variant="contained" onClick={unpublish} size={isSmDown ? 'small' : 'medium'}>{tOr('unpublish','إلغاء النشر')}</Button>
+          <Button onClick={() => setConfirmUnpublish(false)} size={isSmDown ? 'small' : 'medium'}>{tOr('cancel', 'إلغاء')}</Button>
+          <Button color="warning" variant="contained" onClick={unpublish} size={isSmDown ? 'small' : 'medium'}>{tOr('unpublish', 'إلغاء النشر')}</Button>
         </DialogActions>
       </Dialog>
 

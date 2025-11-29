@@ -335,7 +335,8 @@ class MenuDisplaySettings(models.Model):
     logo = models.ImageField(upload_to=menu_logo_upload_path, blank=True, null=True)
     hero_image = models.ImageField(upload_to=menu_hero_upload_path, blank=True, null=True)
     hero_crop = models.CharField(max_length=16, blank=True, default='center')
-    theme = models.CharField(max_length=255, blank=True, default='default')
+    theme = models.TextField(blank=True, default='default')
+    show_images = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

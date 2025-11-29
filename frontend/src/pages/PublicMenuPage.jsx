@@ -27,6 +27,7 @@ const fallback = {
   mode: 'light', bg: '#f6f8fb', text: '#0f172a', icon: '#ff8a50',
   font: '', scale: 1,
   price_color: '#1d4ed8', price_scale: 1,
+  placeholder_gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   show_logo: 1, show_hero: 1, show_search: 1, show_sections: 1, show_prices: 1, show_images: 1,
 };
 
@@ -149,7 +150,7 @@ function parseTheme(themeStr) {
       const i = kv.indexOf('='); if (i < 0) continue;
       const k = kv.slice(0, i).trim(); let v = kv.slice(i + 1).trim();
       if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
-      if (k === 'bg' || k === 'text' || k === 'icon' || k === 'font' || k === 'price_color') out[k] = v;
+      if (k === 'bg' || k === 'text' || k === 'icon' || k === 'font' || k === 'price_color' || k === 'placeholder_gradient') out[k] = v;
       else if (k === 'scale' || k === 'price_scale') {
         const n = parseFloat(String(v).replace(',', '.'));
         if (Number.isFinite(n)) out[k] = n;
@@ -399,7 +400,7 @@ export default function PublicMenuPage() {
 
         {/* If showImages is OFF -  show beautiful header */}
         {!showImages && (
-          <Box sx={{ width: '100%', py: 2.5, px: 2, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
+          <Box sx={{ width: '100%', py: 2.5, px: 2, background: parsedTheme.placeholder_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, borderTopLeftRadius: 12, borderTopRightRadius: 12 }}>
             <Typography sx={{ fontSize: '2.5rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>🍽️</Typography>
             <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700, textAlign: 'center', fontSize: `calc(0.875rem * ${parsedTheme.scale || 1})`, textShadow: '0 1px 2px rgba(0,0,0,0.15)', letterSpacing: '0.3px' }}>
               {dish.name}
@@ -584,12 +585,6 @@ export default function PublicMenuPage() {
         <Tooltip title={t('to_top') || (isRTL ? 'إلى الأعلى' : 'To top')}>
           <IconButton onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} sx={{ bgcolor: 'var(--c-icon)', color: '#000', '&:hover': { bgcolor: 'var(--c-icon)' } }}><ArrowUpwardIcon /></IconButton>
         </Tooltip>
-        <Tooltip title={t('share') || (isRTL ? 'مشاركة' : 'Share')}>
-          <IconButton onClick={() => onShare()} sx={{ bgcolor: 'var(--c-icon)', color: '#000', '&:hover': { bgcolor: 'var(--c-icon)' } }}><ShareIcon /></IconButton>
-        </Tooltip>
-        <Tooltip title={t('print') || (isRTL ? 'طباعة' : 'Print')}>
-          <IconButton onClick={onPrint} sx={{ bgcolor: 'var(--c-icon)', color: '#000', '&:hover': { bgcolor: 'var(--c-icon)' } }}><PrintIcon /></IconButton>
-        </Tooltip>
       </Stack>
 
       {/* مربع الحوار */}
@@ -616,6 +611,7 @@ export default function PublicMenuPage() {
               sources={publicDishImageSources(selectedDish, ds, rp)}
               alt={selectedDish.name}
               dish={selectedDish}
+              gradientColor={parsedTheme.placeholder_gradient}
             />
           </Box>
 
@@ -710,7 +706,7 @@ export default function PublicMenuPage() {
 }
 
 /* ===== صورة مربع الحوار مع حركة خفيفة ===== */
-function DialogHeroImage({ sources, alt, dish }) {
+function DialogHeroImage({ sources, alt, dish, gradientColor }) {
   const [idx, setIdx] = useState(0);
   const src = sources[idx] || PLACEHOLDER;
 
@@ -740,7 +736,7 @@ function DialogHeroImage({ sources, alt, dish }) {
         position: 'relative',
         width: '100%',
         height: { xs: 240, md: 360 },
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: gradientColor || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
