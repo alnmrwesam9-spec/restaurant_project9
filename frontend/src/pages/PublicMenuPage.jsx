@@ -375,24 +375,33 @@ export default function PublicMenuPage() {
   const sectionVariants = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 90, damping: 16 } } };
   const cardVariants = { hidden: { opacity: 0, y: 24, scale: 0.98 }, show: (i = 0) => ({ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 110, damping: 14, delay: i * 0.05 } }) };
 
-  const DishCard = ({ dish, imgSources, index = 0, fixedHeight }) => (
-    <motion.div variants={cardVariants} custom={index} initial="hidden" animate="show" whileHover={{ y: -4, boxShadow: '0 10px 26px rgba(15,23,42,0.08)' }} transition={{ type: 'spring', stiffness: 250, damping: 18 }} style={{ height: '100%' }}>
-      <Card
-        onClick={() => setSelectedDish({ ...dish, imgSources })}
-        elevation={0}
-        sx={{
-          cursor: 'pointer',
+const DishCard = ({ dish, imgSources, index = 0, fixedHeight }) => (
+  <motion.div variants={cardVariants} custom={index} initial="hidden" animate="show" style={{ height: '100%' }}>
+    <Card
+      component={motion.div}
+      whileHover={{ y: -4, boxShadow: '0 10px 26px rgba(15,23,42,0.08)' }}
+      onClick={() => setSelectedDish({ ...dish, imgSources })}
+      elevation={0}
+      sx={{
+        cursor: 'pointer',
+        borderRadius: 3,
+        border: '1px solid #e5e7eb',
+        bgcolor: '#fff',
+        overflow: 'hidden',
+        height: { xs: 'auto', md: fixedHeight ? `${fixedHeight}px` : 'auto' },
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 1px 0 rgba(0,0,0,.02)',
+        position: 'relative',
+
+        // حل مشكلة الحواف الحادة
+        transition: 'all 0.12s ease-out',
+        '&:hover': {
           borderRadius: 3,
-          border: '1px solid #e5e7eb',
-          bgcolor: '#fff',
-          overflow: 'hidden',
-          height: { xs: 'auto', md: fixedHeight ? `${fixedHeight}px` : 'auto' },
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 1px 0 rgba(0,0,0,.02)',
-          position: 'relative',
-        }}
-      >
+        },
+      }}
+    >
+
         {/* شارة الأكواد بخلفية بيضاء واضحة */}
         <AllergenChip dish={dish} withTooltip sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }} />
 
@@ -667,25 +676,16 @@ export default function PublicMenuPage() {
                 {selectedDish.name}
               </Typography>
 
-              {parsedTheme.show_prices && (
-                <Chip
-                  label={formatPriceEUR(selectedDish.price, i18n.language === 'ar' ? 'de-DE' : i18n.language)}
-                  size="small"
-                  sx={{ borderRadius: 999, bgcolor: parsedTheme.price_color || '#1d4ed8', color: '#fff', fontWeight: 800, height: 28, fontSize: `calc(0.8125rem * ${parsedTheme.price_scale || 1})` }}
-                />
-              )}
+              {/* ===== عرض كل الأسعار داخل مربع الحوار ===== */}
+                {parsedTheme.show_prices && (
+                  <PriceChips dish={selectedDish} />
+                )}
             </Box>
-
-            {selectedDish.description ? (
-              <Typography variant="body1" sx={{ color: '#334155', mb: 2, fontSize: `calc(1rem * ${parsedTheme.scale || 1})` }}>
-                {selectedDish.description}
-              </Typography>
-            ) : null}
 
             {(() => {
               const raw = (selectedDish?.allergen_codes || selectedDish?.display_codes || selectedDish?.allergy_info || '').toString().trim();
               if (!raw) return null;
-              const parts = raw.split(/[\s,;/|]+/g).map(s => s.trim()).filter(Boolean);
+              const parts = raw.split(/[\s,;\/|]+/g).map(s => s.trim()).filter(Boolean);
               const codes = parts.join(',');
               const text = selectedDish?.allergen_text || selectedDish?.allergen_explanation_de || selectedDish?.allergen_explanation || '';
               return (
