@@ -535,6 +535,7 @@ class DishSerializer(serializers.ModelSerializer):
             # جديد:
             "allergen_rows",
             "sort_order",
+            "is_favorite",
         ]
         read_only_fields = ["image_url", "display_codes", "allergen_explanation_de", "allergen_rows", "sort_order"]
     def validate(self, attrs):
@@ -787,6 +788,7 @@ class PublicDishSerializer(serializers.ModelSerializer):
             "display_codes",
             "allergen_explanation_de",
             "sort_order",
+            "is_favorite",
         ]
         read_only_fields = ["image", "image_url", "prices", "display_codes", "allergen_explanation_de", "sort_order"]
 
@@ -846,6 +848,7 @@ class MenuAggregateDishSerializer(serializers.ModelSerializer):
             # Allergen info for admin dialog
             'display_codes', 'allergen_explanation_de', 'allergen_rows',
             'sort_order',
+            'is_favorite',
         ]
         read_only_fields = ['image', 'image_url', 'prices', 'display_codes', 'allergen_explanation_de', 'allergen_rows', 'sort_order']
 

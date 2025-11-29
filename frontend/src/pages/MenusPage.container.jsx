@@ -31,6 +31,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import LanguageIcon from '@mui/icons-material/Language';
 import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 // defer loading xlsx to cut initial bundle size
 let _XLSX = null;
@@ -397,7 +399,40 @@ function MenusPage({ token }) {
       setSections([]); setDishesBySection({}); setSelectedDisplay({ logo: '', hero_image: '' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMenuId, aggMenuData]);
+
+  const handleToggleFavorite = async (dish, e) => {
+    e?.stopPropagation();
+    if (!dish?.id) return;
+
+    // Optimistic update
+    const newFav = !dish.is_favorite;
+    const secId = dish.section;
+
+    // Update local state
+    setDishesBySection(prev => {
+      const sectionDishes = prev[secId] || [];
+      const updatedDishes = sectionDishes.map(d =>
+        d.id === dish.id ? { ...d, is_favorite: newFav } : d
+      );
+      return { ...prev, [secId]: updatedDishes };
+    });
+
+    try {
+      await api.patch(`/dishes/${dish.id}/`, { is_favorite: newFav });
+    } catch (err) {
+      // Revert on error
+      setDishesBySection(prev => {
+        const sectionDishes = prev[secId] || [];
+        const revertedDishes = sectionDishes.map(d =>
+          d.id === dish.id ? { ...d, is_favorite: !newFav } : d
+        );
+        return { ...prev, [secId]: revertedDishes };
+      });
+      setSnack({ open: true, msg: t('errors.update_failed') || 'Update failed' });
+    }
+  };
 
   const handleCreateMenu = async () => {
     if (!newMenuName.trim()) return;
@@ -1068,7 +1103,8 @@ function MenusPage({ token }) {
     previewGenerate, runGenerate, toggleSelectAllVisible, handleUpsertSelected,
 
     // أدوات كروت الأطباق
-    formatEuro, dishCardImage, pickPrimarySecondary,
+    // أدوات كروت الأطباق
+    formatEuro, dishCardImage, pickPrimarySecondary, handleToggleFavorite,
 
     // snack
     snack, setSnack,
@@ -1081,6 +1117,7 @@ function MenusPage({ token }) {
       AddIcon, FolderIcon, DeleteIcon, FileDownloadIcon, LinkIcon, ContentCopyIcon, SettingsIcon,
       UploadFileIcon, CheckCircleIcon, WarningAmberIcon, ScienceIcon, RefreshIcon, MenuIcon,
       InfoOutlinedIcon, SearchIcon, LanguageIcon, ImageNotSupportedIcon,
+      FavoriteIcon, FavoriteBorderIcon,
     },
     MUI: {
       Container, Typography, TextField, Button, Stack, Card, CardContent, Box, Alert,

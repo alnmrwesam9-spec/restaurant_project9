@@ -48,7 +48,7 @@ function MenusPageView() {
     filteredLLMItems, previewGenerate, runGenerate, toggleSelectAllVisible, handleUpsertSelected,
 
     // Utils
-    formatEuro, dishCardImage, pickPrimarySecondary,
+    formatEuro, dishCardImage, pickPrimarySecondary, handleToggleFavorite,
 
     // Feedback
     snack, setSnack,
@@ -73,6 +73,7 @@ function MenusPageView() {
     AddIcon, FolderIcon, DeleteIcon, FileDownloadIcon, LinkIcon, ContentCopyIcon, SettingsIcon,
     UploadFileIcon, CheckCircleIcon, WarningAmberIcon, ScienceIcon, RefreshIcon, MenuIcon,
     InfoOutlinedIcon, SearchIcon, LanguageIcon, ImageNotSupportedIcon,
+    FavoriteIcon, FavoriteBorderIcon,
   } = Icons;
 
   // Delete confirmation dialog state
@@ -664,6 +665,31 @@ function MenusPageView() {
                                       </Tooltip>
                                     )}
 
+                                    {/* Favorite Toggle (Admin) */}
+                                    <IconButton
+                                      onClick={(e) => handleToggleFavorite(dish, e)}
+                                      size="small"
+                                      sx={{
+                                        position: 'absolute',
+                                        top: 8,
+                                        right: 8,
+                                        zIndex: 2,
+                                        bgcolor: 'rgba(255,255,255,0.9)',
+                                        backdropFilter: 'blur(4px)',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        '&:hover': { bgcolor: '#fff', transform: 'scale(1.1)' },
+                                        transition: 'all 0.2s',
+                                        width: 32,
+                                        height: 32,
+                                      }}
+                                    >
+                                      {dish.is_favorite ? (
+                                        <FavoriteIcon sx={{ fontSize: '1.2rem', color: '#ef4444' }} />
+                                      ) : (
+                                        <FavoriteBorderIcon sx={{ fontSize: '1.2rem', color: '#94a3b8' }} />
+                                      )}
+                                    </IconButton>
+
                                     <CardActionArea sx={{ height: '100%' }} onClick={() => openDish(dish)}>
                                       {dishCardImage(dish) ? (
                                         <SafeImg
@@ -764,6 +790,31 @@ function MenusPageView() {
                                         />
                                       </Tooltip>
                                     )}
+
+                                    {/* Favorite Toggle (Admin) */}
+                                    <IconButton
+                                      onClick={(e) => handleToggleFavorite(dish, e)}
+                                      size="small"
+                                      sx={{
+                                        position: 'absolute',
+                                        top: 8,
+                                        right: 8,
+                                        zIndex: 2,
+                                        bgcolor: 'rgba(255,255,255,0.9)',
+                                        backdropFilter: 'blur(4px)',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        '&:hover': { bgcolor: '#fff', transform: 'scale(1.1)' },
+                                        transition: 'all 0.2s',
+                                        width: 32,
+                                        height: 32,
+                                      }}
+                                    >
+                                      {dish.is_favorite ? (
+                                        <FavoriteIcon sx={{ fontSize: '1.2rem', color: '#ef4444' }} />
+                                      ) : (
+                                        <FavoriteBorderIcon sx={{ fontSize: '1.2rem', color: '#94a3b8' }} />
+                                      )}
+                                    </IconButton>
 
                                     <CardActionArea sx={{ height: '100%' }} onClick={() => openDish(dish)}>
                                       {dishCardImage(dish) ? (

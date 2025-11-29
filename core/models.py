@@ -207,12 +207,16 @@ class Dish(models.Model):
     )
     codes_updated_at = models.DateTimeField(null=True, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
+    
+    # Favorite flag for recommended dishes section
+    is_favorite = models.BooleanField(default=False, help_text="Mark as favorite/recommended dish")
 
     class Meta:
         ordering = ['sort_order', 'id']
         indexes = [
             models.Index(fields=["section", "name"]),
             models.Index(fields=["has_manual_codes"]),
+            models.Index(fields=["is_favorite"]),
         ]
 
     def default_price_value(self):

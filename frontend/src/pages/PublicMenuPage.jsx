@@ -16,6 +16,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import CloseIcon from '@mui/icons-material/Close';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
+
 import { useTranslation } from 'react-i18next';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 
@@ -240,6 +241,8 @@ export default function PublicMenuPage() {
     return () => { mounted = false; };
   }, [publicSlug, t]);
 
+  /* Toggle favorite dish removed - Visitor cannot toggle */
+
   const rp = menu?.restaurant_profile || {};
   const ds = menu?.display_settings || {};
   const parsedTheme = useMemo(() => parseTheme(ds?.theme || rp?.theme || 'default'), [ds?.theme, rp?.theme]);
@@ -280,6 +283,11 @@ export default function PublicMenuPage() {
     return list.map((s) => ({ ...s, dishes: (s.dishes || []).filter((d) => isMatch(q, d.name, d.description, d.display_codes)) }))
       .filter((s) => s.dishes && s.dishes.length > 0);
   }, [sections, query, activeSectionId]);
+
+  const favoriteDishes = useMemo(() => {
+    if (query.trim()) return []; // Hide recommendations when searching
+    return (menu?.sections || []).flatMap(s => s.dishes || []).filter(d => d.is_favorite);
+  }, [menu, query]);
 
   const publicUrl = useMemo(() => `${window.location.origin}/show/menu/${publicSlug}`, [publicSlug]);
   const onShare = async (dish) => {
@@ -387,6 +395,9 @@ export default function PublicMenuPage() {
       >
         {/* شارة الأكواد بخلفية بيضاء واضحة */}
         <AllergenChip dish={dish} withTooltip sx={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }} />
+
+        {/* Favorite toggle button */}
+        {/* Favorite toggle button removed for visitors */}
 
         {/* If showImages is ON and dish has image */}
         {showImages && dish.image && <DishImage sources={imgSources} alt={dish.name} />}
@@ -523,6 +534,24 @@ export default function PublicMenuPage() {
             language={i18n.language}
           />
         </Box>
+        {favoriteDishes.length > 0 && !activeSectionId && (
+          <Box sx={{ mb: 6 }}>
+            <Typography variant="h5" sx={{ fontWeight: 900, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span style={{ fontSize: '1.5em' }}>⭐</span> {t('recommended_dishes') || (isRTL ? 'أطباق موصى بها' : 'Recommended Dishes')}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2, mx: -2, px: 2, scrollSnapType: 'x mandatory', '&::-webkit-scrollbar': { display: 'none' } }}>
+              {favoriteDishes.map((dish, i) => {
+                const imgSources = publicDishImageSources(dish, ds, rp);
+                return (
+                  <Box key={dish.id} sx={{ width: { xs: 280, md: 320 }, flex: '0 0 auto', scrollSnapAlign: 'start' }}>
+                    <DishCard dish={dish} imgSources={imgSources} index={i} fixedHeight={CARD_HEIGHT_MD} />
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        )}
+
         {filteredSections.length === 0 ? (
           <Alert severity="info">{t('no_results') || 'لا توجد نتائج.'}</Alert>
         ) : (
