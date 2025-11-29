@@ -27,18 +27,18 @@ export default function AdminAllergensPage() {
   const debouncedQ = useDebouncedValue(q, 450);
   const [ordering, setOrdering] = useState("code");
 
-  // نموذج
-  const [form, setForm] = useState({ code: "", name_de: "", name_en: "", name_ar: "" });
+  // نموذج (German only)
+  const [form, setForm] = useState({ code: "", name_de: "" });
   const [editId, setEditId] = useState(null);
   const onFormChange = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
   // ====== أنواع الجداول ======
   const [kind, setKind] = useState("allergens"); // "additives" | "lexemes" | "ingredients"
   const KIND_OPTS = [
-    { value: "allergens", label: "الحساسيّات" },
-    { value: "additives", label: "الإضافات (E)" },
-    { value: "lexemes", label: "المعجم النصّي" },
-    { value: "ingredients", label: "المكوّنات" },
+    { value: "allergens", label: "الحساسيّات (Allergens)" },
+    { value: "additives", label: "الإضافات (E-Numbers)" },
+    { value: "lexemes", label: "المعجم النصّي (Lexemes)" },
+    { value: "ingredients", label: "المكوّنات (Ingredients)" },
   ];
 
   const isAllergen = kind === "allergens";
@@ -57,7 +57,7 @@ export default function AdminAllergensPage() {
   // ====== خرائط CSV ======
   const CSV = {
     lexemes: { export: "/lexemes/export/", import: "/lexemes/import/" },
-    ingredients: { export: "/ingredients/export/", import: "/ingredients/bulk-upload/" }, // NEW
+    ingredients: { export: "/ingredients/export/", import: "/ingredients/bulk-upload/" },
   };
 
   // مُساعد مسار نهائي للأنواع التي تدعم CRUD القديم (allergens/additives)
@@ -72,10 +72,6 @@ export default function AdminAllergensPage() {
         "-code": "-number",
         name_de: "label_de",
         "-name_de": "-label_de",
-        name_en: "label_en",
-        "-name_en": "-label_en",
-        name_ar: "label_ar",
-        "-name_ar": "-label_ar",
       };
       return m[o] || o;
     },
@@ -270,15 +266,21 @@ export default function AdminAllergensPage() {
     }
   };
 
-  // ====== CRUD (لـ allergens/additives كما هو) ======
+  // ====== CRUD (لـ allergens/additives) ======
   const buildPayload = (data, isAllergenLocal) => {
-    if (isAllergenLocal) return data;
+    if (isAllergenLocal) {
+      // German-only UI, but backend might expect other fields. Send empty strings if needed or just omit.
+      return {
+        code: data.code,
+        label_de: data.name_de,
+        // We don't touch EN/AR here, backend should handle partial updates or defaults
+      };
+    }
     // للإضافات يتوقع number/label_*
     return {
       number: data.code,
       label_de: data.name_de || "",
-      label_en: data.name_en || "",
-      label_ar: data.name_ar || "",
+      // label_en/ar omitted from UI
     };
   };
 
@@ -294,7 +296,7 @@ export default function AdminAllergensPage() {
         headers: { "Content-Type": "application/json" },
       });
 
-      setForm({ code: "", name_de: "", name_en: "", name_ar: "" });
+      setForm({ code: "", name_de: "" });
       await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل الإضافة");
@@ -308,8 +310,6 @@ export default function AdminAllergensPage() {
     setForm({
       code: x.code ?? x.number ?? "",
       name_de: x.name_de ?? x.label_de ?? "",
-      name_en: x.name_en ?? x.label_en ?? "",
-      name_ar: x.name_ar ?? x.label_ar ?? "",
     });
   };
 
@@ -320,7 +320,7 @@ export default function AdminAllergensPage() {
       setBusy(true);
       await api.put(ep(`${editId}/`), buildPayload(form, isAllergen));
       setEditId(null);
-      setForm({ code: "", name_de: "", name_en: "", name_ar: "" });
+      setForm({ code: "", name_de: "" });
       await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل التعديل");
@@ -331,7 +331,7 @@ export default function AdminAllergensPage() {
 
   const cancelEdit = () => {
     setEditId(null);
-    setForm({ code: "", name_de: "", name_en: "", name_ar: "" });
+    setForm({ code: "", name_de: "" });
   };
 
   const delItem = async (id) => {
@@ -355,8 +355,6 @@ export default function AdminAllergensPage() {
         <tr>
           <th>الكود</th>
           <th>الاسم (DE)</th>
-          <th>الاسم (EN)</th>
-          <th>الاسم (AR)</th>
           <th>إجراءات</th>
         </tr>
       );
@@ -364,9 +362,7 @@ export default function AdminAllergensPage() {
       return (
         <tr>
           <th>الكود</th>
-          <th>الاسم (EN)</th>
           <th>الاسم (DE)</th>
-          <th>الاسم (AR)</th>
           <th>إجراءات</th>
         </tr>
       );
@@ -407,12 +403,6 @@ export default function AdminAllergensPage() {
               <td>
                 <input className="in" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
               </td>
-              <td>
-                <input className="in" value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} />
-              </td>
-              <td>
-                <input className="in" value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} />
-              </td>
               <td className="row-actions">
                 <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>
                   حفظ
@@ -426,8 +416,6 @@ export default function AdminAllergensPage() {
             <>
               <td><span className="mono tag">{it.code}</span></td>
               <td>{it.name_de}</td>
-              <td>{it.name_en}</td>
-              <td>{it.name_ar}</td>
               <td className="row-actions">
                 <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>
                   تعديل
@@ -445,8 +433,6 @@ export default function AdminAllergensPage() {
     if (isAdditive) {
       const displayCode = it.code || it.number;
       const de = it.name_de ?? it.label_de;
-      const en = it.name_en ?? it.label_en;
-      const ar = it.name_ar ?? it.label_ar;
       return (
         <tr key={it.id || it.number}>
           {editId === it.id ? (
@@ -455,13 +441,7 @@ export default function AdminAllergensPage() {
                 <input className="in" value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
               </td>
               <td>
-                <input className="in" value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} />
-              </td>
-              <td>
                 <input className="in" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
-              </td>
-              <td>
-                <input className="in" value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} />
               </td>
               <td className="row-actions">
                 <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>
@@ -474,10 +454,8 @@ export default function AdminAllergensPage() {
             </>
           ) : (
             <>
-              <td><span className="mono tag">E{String(displayCode).replace(/^E/i,"")}</span></td>
-              <td>{en}</td>
+              <td><span className="mono tag">E{String(displayCode).replace(/^E/i, "")}</span></td>
               <td>{de}</td>
-              <td>{ar}</td>
               <td className="row-actions">
                 <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>
                   تعديل
@@ -521,17 +499,6 @@ export default function AdminAllergensPage() {
     return null;
   }
 
-  // عناوين الأعمدة القديمة (مرجعية لعناصر الإدخال السريع)
-  const cols = useMemo(
-    () => [
-      { key: "code", label: "الكود" },
-      { key: "name_en", label: "الاسم (EN)" },
-      { key: "name_de", label: "(DE) الاسم" },
-      { key: "name_ar", label: "(AR) الاسم" },
-    ],
-    []
-  );
-
   return (
     <div className="wrap" dir="rtl">
       {/* ====== Styles ====== */}
@@ -572,7 +539,7 @@ export default function AdminAllergensPage() {
         .ok{ background:rgba(22,163,74,.1); border:1px solid rgba(22,163,74,.25); color:#d2f2dc;}
         .err{ background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25); color:#ffd5d5;}
 
-        .grid-quick{ display:grid; grid-template-columns:120px 1fr 1fr 1fr auto; gap:8px; margin:10px 0 12px; }
+        .grid-quick{ display:grid; grid-template-columns:120px 1fr auto; gap:8px; margin:10px 0 12px; }
         @media (max-width: 800px){ .grid-quick{ grid-template-columns:1fr 1fr; } .grid-quick button{ grid-column:1 / -1; } }
 
         .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; }
@@ -692,7 +659,7 @@ export default function AdminAllergensPage() {
               <input
                 className="search"
                 type="text"
-                placeholder="ابحث بالكود أو الاسم..."
+                placeholder="ابحث بالكود أو الاسم (DE)..."
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && loadItems()}
@@ -703,10 +670,6 @@ export default function AdminAllergensPage() {
                 <option value="-code">ترتيب: الكود ↓</option>
                 <option value="name_de">الاسم DE ↑</option>
                 <option value="-name_de">الاسم DE ↓</option>
-                <option value="name_en">الاسم EN ↑</option>
-                <option value="-name_en">الاسم EN ↓</option>
-                <option value="name_ar">الاسم AR ↑</option>
-                <option value="-name_ar">الاسم AR ↓</option>
               </select>
               <button className="btn" type="button" onClick={loadItems} disabled={busy}>
                 بحث
@@ -725,8 +688,6 @@ export default function AdminAllergensPage() {
             <div className="grid-quick">
               <input className="in" placeholder="الكود *" value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
               <input className="in" placeholder="الاسم (DE)" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
-              <input className="in" placeholder="الاسم (EN)" value={form.name_en} onChange={(e) => onFormChange("name_en", e.target.value)} />
-              <input className="in" placeholder="الاسم (AR)" value={form.name_ar} onChange={(e) => onFormChange("name_ar", e.target.value)} />
               <button className="btn btn-primary" type="button" onClick={createItem} disabled={busy}>
                 إضافة
               </button>
@@ -745,7 +706,7 @@ export default function AdminAllergensPage() {
                 {items.map((x) => renderRow(x))}
                 {!items.length && (
                   <tr>
-                    <td colSpan={isAllergen || isAdditive ? 5 : isLexeme ? 8 : 4} style={{ textAlign: "center", padding: 20 }}>
+                    <td colSpan={isAllergen || isAdditive ? 3 : isLexeme ? 8 : 4} style={{ textAlign: "center", padding: 20 }}>
                       لا توجد بيانات
                     </td>
                   </tr>

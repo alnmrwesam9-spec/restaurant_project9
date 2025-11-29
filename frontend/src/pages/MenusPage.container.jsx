@@ -755,12 +755,26 @@ function MenusPage({ token }) {
   };
 
   const buildGenerateBody = (dry) => {
+    let ids = parseDishIds(genDishIdsText);
+
+    // If no IDs provided, default to ALL dishes in the menu
+    if (!ids || ids.length === 0) {
+      ids = [];
+      Object.values(dishesBySection).forEach(list => {
+        if (Array.isArray(list)) {
+          list.forEach(d => {
+            if (d && d.id) ids.push(d.id);
+          });
+        }
+      });
+    }
+
     const base = {
       force_regenerate: !!genForce,
       use_llm: !!genUseLLM,
-      dish_ids: parseDishIds(genDishIdsText),
+      dish_ids: ids,
     };
-    if (!base.dish_ids) delete base.dish_ids;
+    if (!base.dish_ids || base.dish_ids.length === 0) delete base.dish_ids;
     return base;
   };
 

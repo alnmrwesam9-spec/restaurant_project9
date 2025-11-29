@@ -428,7 +428,12 @@ def generate_for_dishes(
             })
             continue
 
-        base_text = " ".join(filter(None, [dish.name or "", dish.description or ""]))
+        # Include section name as a signal
+        section_name = ""
+        if dish.section and dish.section.name:
+            section_name = dish.section.name
+
+        base_text = " ".join(filter(None, [section_name, dish.name or "", dish.description or ""]))
         text_norm = normalize_text(base_text)
 
         letters_ing, numbers_ing, prov_ing = _collect_from_ingredients(dish)
