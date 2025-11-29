@@ -465,6 +465,22 @@ export default function PublicMenuPage() {
 
               {parsedTheme.show_sections && (
                 <Box data-tour="public-sections" sx={{ display: 'flex', gap: 1, overflowX: 'auto', whiteSpace: 'nowrap', pb: 0.5, mx: -0.5, px: 0.5, '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {/* All tab */}
+                  <Chip
+                    label={isRTL ? 'الكل' : 'alle'}
+                    onClick={() => setActiveSectionId(null)}
+                    sx={{
+                      cursor: 'pointer',
+                      bgcolor: activeSectionId === null ? 'var(--c-icon)' : 'rgba(0,0,0,0.04)',
+                      color: activeSectionId === null ? '#000' : 'var(--c-text)',
+                      fontWeight: activeSectionId === null ? 800 : 600,
+                      borderRadius: 999,
+                      px: 1.5,
+                      height: 32,
+                      transition: 'all 0.2s ease',
+                      '&:hover': { bgcolor: activeSectionId === null ? 'var(--c-icon)' : 'rgba(0,0,0,0.08)' },
+                    }}
+                  />
                   {sectionOptions.map((opt) => {
                     const active = activeSectionId === opt.id;
                     return (
