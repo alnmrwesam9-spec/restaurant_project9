@@ -402,13 +402,13 @@ function MenusPage({ token }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMenuId, aggMenuData]);
 
-  const handleToggleFavorite = async (dish, e) => {
+  const handleToggleFavorite = async (dish, sectionId, e) => {
     e?.stopPropagation();
     if (!dish?.id) return;
 
     // Optimistic update
     const newFav = !dish.is_favorite;
-    const secId = dish.section;
+    const secId = sectionId || dish.section;
 
     // Update local state
     setDishesBySection(prev => {

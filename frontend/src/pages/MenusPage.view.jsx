@@ -667,7 +667,7 @@ function MenusPageView() {
 
                                     {/* Favorite Toggle (Admin) */}
                                     <IconButton
-                                      onClick={(e) => handleToggleFavorite(dish, e)}
+                                      onClick={(e) => handleToggleFavorite(dish, section.id, e)}
                                       size="small"
                                       sx={{
                                         position: 'absolute',
@@ -793,7 +793,7 @@ function MenusPageView() {
 
                                     {/* Favorite Toggle (Admin) */}
                                     <IconButton
-                                      onClick={(e) => handleToggleFavorite(dish, e)}
+                                      onClick={(e) => handleToggleFavorite(dish, section.id, e)}
                                       size="small"
                                       sx={{
                                         position: 'absolute',
