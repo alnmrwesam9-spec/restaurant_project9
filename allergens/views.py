@@ -15,14 +15,13 @@ import csv
 import io
 import re
 
-from core.models import Allergen, AdditiveLegend, Ingredient
+from core.models import Allergen, Ingredient
 from core.utils.auth import is_admin
 
 # وحّد الاستيراد من نفس التطبيق (allergens.serializers)
 from .serializers import (
     AllergenCodeSerializer,
     AdminAllergenSerializer,      # German-only for admin/dish workflows
-    AdditiveCodeSerializer,         # بديل AdditiveLegendSerializer
     IngredientLiteSerializer,
     KeywordLexemeSerializer,
 )
@@ -116,23 +115,51 @@ class AllergenCodesView(APIView):
         # الفلاتر المساندة (German-only)
         code = request.query_params.get("code") or request.query_params.get("letter")
         de = request.query_params.get("de") or request.query_params.get("name_de")
+        kind = request.query_params.get("kind")
 
         if code:
             qs = qs.filter(code__iexact=str(code).strip())
         if de:
             qs = qs.filter(label_de__icontains=de)
+        if kind:
+            qs = qs.filter(kind=kind.upper())
 
         # ترتيب آمن (German-only)
-        ordering = (request.query_params.get("ordering") or "code").strip()
-        allowed = {"code", "name_de", "-code", "-name_de"}
-        if ordering not in allowed:
-            ordering = "code"
-        # Map name_de to label_de for ORM
-        if ordering == "name_de":
-            ordering = "label_de"
-        elif ordering == "-name_de":
-            ordering = "-label_de"
-        qs = qs.order_by(ordering, "id")
+        ordering = (request.query_params.get("ordering") or "kind,code").strip()
+        
+        # Handle comma-separated ordering fields
+        if "," in ordering:
+            # Split and validate each field
+            order_fields = [f.strip() for f in ordering.split(",")]
+            allowed = {"code", "name_de", "-code", "-name_de", "kind", "-kind", "label_de", "-label_de"}
+            validated_fields = []
+            for field in order_fields:
+                # Map name_de to label_de for ORM
+                if field == "name_de":
+                    validated_fields.append("label_de")
+                elif field == "-name_de":
+                    validated_fields.append("-label_de")
+                elif field in allowed:
+                    validated_fields.append(field)
+            
+            if validated_fields:
+                qs = qs.order_by(*validated_fields, "id")
+            else:
+                qs = qs.order_by("kind", "code", "id")
+        else:
+            # Single field ordering
+            allowed = {"code", "name_de", "-code", "-name_de", "kind", "-kind"}
+            if ordering not in allowed:
+                ordering = "code"
+            # Map name_de to label_de for ORM
+            if "name_de" in ordering:
+                ordering = ordering.replace("name_de", "label_de")
+            
+            # Ensure we always sort by kind then code if not specified differently
+            if ordering == "code":
+                qs = qs.order_by("kind", "code", "id")
+            else:
+                qs = qs.order_by(ordering, "id")
 
         # تقسيم صفحات بسيط
         try:
@@ -156,7 +183,7 @@ class AllergenCodesView(APIView):
     # -------- POST (Upsert by code) --------
     def post(self, request):
         """
-        يقبل JSON بمفاتيح German-only: code, de|name_de
+        يقبل JSON بمفاتيح German-only: code, de|name_de, kind
         - لو الكود موجود → تحديث.
         - لو غير موجود → إنشاء.
         - Admin-only writes for global allergen catalog.
@@ -172,14 +199,19 @@ class AllergenCodesView(APIView):
                 {"detail": "Field 'code' is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        code = str(raw_code).strip().upper()  # A..Z
+        code = str(raw_code).strip().upper()  # A..Z or 1..999
 
         # German-only: de / name_de
         de = data.get("de") or data.get("name_de") or data.get("DE") or ""
         de = str(de).strip()
+        
+        kind = data.get("kind") or "ALLERGEN"
+        if kind not in ["ALLERGEN", "ADDITIVE"]:
+            kind = "ALLERGEN"
 
         defaults = {
             "label_de": de,
+            "kind": kind,
             # Don't touch EN/AR fields (they may exist but aren't used in German workflow)
         }
 
@@ -190,6 +222,7 @@ class AllergenCodesView(APIView):
                 "id": obj.id,
                 "code": obj.code,
                 "name_de": obj.label_de,
+                "kind": obj.kind,
             },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
@@ -455,337 +488,7 @@ class AllergenGenerateView(APIView):
         )
 
 
-# ==========================================
-# AdditiveLegend (إضافات/مواد E-numbered)
-# - دمج الخاص مع العام: الخاص يغلب العام
-# ==========================================
-def _current_owner(request):
-    """
-    يحدد المالك الحالي:
-    - إذا ?global=1 => قاموس عام (owner=None)
-    - غير ذلك       => المستخدم الحالي (AUTH_USER)
-    """
-    return (
-        None
-        if str(request.query_params.get("global", "")).lower() in {"1", "true", "yes"}
-        else request.user
-    )
 
-
-class AdditiveCodesView(APIView):
-    """
-    GET: قائمة مدمجة (الخاص يغلب العام) مع ترتيب/فلترة بسيطة + تقسيم صفحات.
-    POST: إضافة/تعديل عنصر واحد (owner + number).
-    """
-    permission_classes = [IsAuthenticated]
-
-    def _merged_queryset(self, user, params):
-        owner = user
-        owner_numbers = AdditiveLegend.objects.filter(owner=owner).values("number")
-        qs = AdditiveLegend.objects.filter(
-            Q(owner=owner)
-            | (Q(owner__isnull=True) & ~Q(number__in=Subquery(owner_numbers)))
-        )
-
-        # فلاتر
-        if params.get("number"):
-            try:
-                qs = qs.filter(number=int(params["number"]))
-            except Exception:
-                qs = qs.none()
-        if params.get("de"):
-            qs = qs.filter(label_de__icontains=params["de"])
-        if params.get("en"):
-            qs = qs.filter(label_en__icontains=params["en"])
-        if params.get("ar"):
-            qs = qs.filter(label_ar__icontains=params["ar"])
-
-        # ترتيب آمن
-        ordering = (params.get("ordering") or "number").strip()
-        allowed = {"number", "label_de", "label_en", "label_ar"}
-        if ordering.lstrip("-") not in allowed:
-            ordering = "number"
-
-        return qs.order_by(ordering, "id")
-
-    def get(self, request):
-        qs = self._merged_queryset(request.user, request.query_params)
-
-        # Pagination
-        try:
-            page = int(request.query_params.get("page", "1"))
-            page_size = int(request.query_params.get("page_size", "50"))
-        except ValueError:
-            page, page_size = 1, 50
-
-        start = (page - 1) * page_size
-        end = start + page_size
-        total = qs.count()
-        results = AdditiveCodeSerializer(qs[start:end], many=True).data
-
-        return Response(
-            {
-                "count": total,
-                "next": None if end >= total else f"?page={page+1}&page_size={page_size}",
-                "previous": None if page == 1 else f"?page={page-1}&page_size={page_size}",
-                "results": results,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    def post(self, request):
-        """
-        يقبل JSON بأي من هذه المفاتيح:
-        - number أو code (مثال: code='E100' أو number=100)
-        - en/label_en/name_en
-        - de/label_de/name_de
-        - ar/label_ar/name_ar
-        مع ?global=1 للكتابة في القاموس العام، أو body.owner لتحديد مالك آخر (أدمن فقط).
-        """
-        # ✅ خطوة 3 — صلاحيات كتابة بحسب الـ owner المستهدف
-        global_flag = str(request.query_params.get("global", "")).lower()
-        if global_flag in {"1", "true", "yes"}:
-            owner_id = None
-        else:
-            owner_id = request.data.get("owner") or getattr(request.user, "id", None)
-            if owner_id in ("null", "None", ""):
-                owner_id = None
-            elif owner_id is not None:
-                try:
-                    owner_id = int(owner_id)
-                except Exception:
-                    raise PermissionDenied("Invalid owner value.")
-        _ensure_owner_write_permission(request, owner_id)
-
-        data = request.data
-
-        # number من number أو code (يدعم "E100")
-        raw_number = data.get("number") or data.get("code") or data.get("Code")
-        if raw_number is None:
-            return Response(
-                {"detail": "Field 'number' or 'code' is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            number = int(str(raw_number).lstrip("eE"))
-        except Exception:
-            return Response({"detail": "Invalid number/code."}, status=status.HTTP_400_BAD_REQUEST)
-
-        def pick(*keys):
-            for k in keys:
-                if data.get(k) is not None:
-                    return str(data.get(k)).strip()
-            return ""
-
-        defaults = {
-            "label_en": pick("en", "label_en", "name_en", "EN", "En"),
-            "label_de": pick("de", "label_de", "name_de", "DE", "De"),
-            "label_ar": pick("ar", "label_ar", "name_ar", "AR", "Ar"),
-        }
-
-        obj, created = AdditiveLegend.objects.update_or_create(
-            owner_id=owner_id, number=number, defaults=defaults
-        )
-        return Response(
-            {
-                "created": bool(created),
-                "number": obj.number,
-                "en": obj.label_en,
-                "de": obj.label_de,
-                "ar": obj.label_ar,
-            },
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
-        )
-
-
-class AdditiveBulkUploadView(APIView):
-    """
-    رفع CSV للإضافات (E-Numbers) مع قبول صيغ عناوين متعددة.
-    يسمح للمالك برفع ملفه الخاص (?owner=ID) أو للعام (?owner=null). الأدمن فقط لغير نفسه/للعام.
-    """
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request, *args, **kwargs):
-        # ✅ خطوة 3 — تحديد المالك الهدف والتحقق
-        owner_q = request.query_params.get("owner")  # قد يمرّر رقم أو 'null'/None/""
-        if owner_q in (None, "", "null", "None"):
-            owner_id = None
-        else:
-            try:
-                owner_id = int(owner_q)
-            except Exception:
-                raise PermissionDenied("Invalid owner value.")
-        # إن لم يُرسل owner في الـ query نعتبره المستخدم الحالي
-        if owner_q is None:
-            owner_id = None if is_admin(request.user) else getattr(request.user, "id", None)
-
-        _ensure_owner_write_permission(request, owner_id)
-
-        f = request.FILES.get("file")
-        if not f:
-            return Response(
-                {"detail": "CSV file is required (field 'file')."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            data = f.read().decode("utf-8-sig")
-        except Exception:
-            return Response(
-                {"detail": "Unable to read CSV as UTF-8."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        reader = csv.DictReader(io.StringIO(data))
-        headers = {h.strip(): h for h in (reader.fieldnames or [])}
-        lower = {h.lower(): h for h in headers}
-
-        def h(*cands):
-            for c in cands:
-                if c in headers:
-                    return headers[c]
-                if c.lower() in lower:
-                    return lower[c.lower()]
-            return None
-
-        col_number = h("number", "code", "Code")
-        col_en = h("en", "label_en", "name_en", "EN", "En")
-        col_de = h("de", "label_de", "name_de", "DE", "De")
-        col_ar = h("ar", "label_ar", "name_ar", "AR", "Ar")
-
-        required = [col_number, col_en, col_de, col_ar]
-        if any(c is None for c in required):
-            return Response(
-                {
-                    "detail": "Missing columns. Accepts: number|code, en|label_en|name_en, de|label_de|name_de, ar|label_ar|name_ar"
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        created = updated = skipped = 0
-        for row in reader:
-            raw_num = (row.get(col_number) or "").strip()
-            if not raw_num:
-                skipped += 1
-                continue
-            try:
-                number = int(raw_num.lstrip("eE"))
-            except Exception:
-                skipped += 1
-                continue
-
-            defaults = {
-                "label_en": (row.get(col_en) or "").strip(),
-                "label_de": (row.get(col_de) or "").strip(),
-                "label_ar": (row.get(col_ar) or "").strip(),
-            }
-
-            _, was_created = AdditiveLegend.objects.update_or_create(
-                owner_id=owner_id, number=number, defaults=defaults
-            )
-            if was_created:
-                created += 1
-            else:
-                updated += 1
-
-        return Response(
-            {"created": created, "updated": updated, "skipped": skipped},
-            status=status.HTTP_200_OK,
-        )
-
-
-class AdditiveExportCSV(APIView):
-    """
-    تصدير CSV موحّد (الخاص + العامة غير المغطاة) مع البث لتقليل الذاكرة.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
-        owner = request.user
-        owner_numbers = AdditiveLegend.objects.filter(owner=owner).values("number")
-        qs = AdditiveLegend.objects.filter(
-            Q(owner=owner) | (Q(owner__isnull=True) & ~Q(number__in=Subquery(owner_numbers)))
-        ).order_by("number", "id")
-
-        def stream():
-            out = io.StringIO()
-            writer = csv.writer(out)
-            writer.writerow(["number", "en", "de", "ar"])
-            yield out.getvalue()
-            out.seek(0)
-            out.truncate(0)
-            for x in qs.iterator(chunk_size=500):
-                writer.writerow([x.number, x.label_en or "", x.label_de or "", x.label_ar or ""])
-                yield out.getvalue()
-                out.seek(0)
-                out.truncate(0)
-
-        resp = StreamingHttpResponse(stream(), content_type="text/csv; charset=utf-8")
-        resp["Content-Disposition"] = 'attachment; filename="additives_merged.csv"'
-        return resp
-
-
-class AdditiveCodeDetailView(APIView):
-    """
-    عرض/تحديث/حذف عنصر واحد من الإضافات.
-    - يسمح بالوصول لعنصر خاص بالمستخدم أو عنصر عام.
-    - حذف عنصر عام يتطلّب is_admin.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def _get_object(self, pk, user):
-        return AdditiveLegend.objects.filter(
-            Q(pk=pk) & (Q(owner=user) | Q(owner__isnull=True))
-        ).first()
-
-    def get(self, request, pk):
-        obj = self._get_object(pk, request.user)
-        if not obj:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(AdditiveCodeSerializer(obj).data, status=status.HTTP_200_OK)
-
-    def put(self, request, pk):
-        obj = self._get_object(pk, request.user)
-        if not obj:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # ✅ لا نسمح بالكتابة على العام أو نيابةً عن مالك آخر للمستخدم العادي
-        _ensure_owner_write_permission(
-            request, getattr(obj, "owner_id", None)
-        )
-        # إن طُلب تغيير المالك
-        new_owner = request.data.get("owner", getattr(obj, "owner_id", None))
-        if new_owner in ("null", "None", ""):
-            new_owner = None
-        elif new_owner is not None:
-            try:
-                new_owner = int(new_owner)
-            except Exception:
-                raise PermissionDenied("Invalid owner value.")
-        _ensure_owner_write_permission(request, new_owner)
-
-        data = request.data
-        obj.label_en = (data.get("en") or data.get("label_en") or obj.label_en) or ""
-        obj.label_de = (data.get("de") or data.get("label_de") or obj.label_de) or ""
-        obj.label_ar = (data.get("ar") or data.get("label_ar") or obj.label_ar) or ""
-        # لا نسمح بتغيير number هنا
-        obj.owner_id = new_owner
-        obj.save()
-        return Response(AdditiveCodeSerializer(obj).data, status=status.HTTP_200_OK)
-
-    def patch(self, request, pk):
-        return self.put(request, pk)
-
-    def delete(self, request, pk):
-        obj = self._get_object(pk, request.user)
-        if not obj:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        if obj.owner is None and not is_admin(request.user):  # ← توحيد المعيار
-            return Response(
-                {"detail": "Only admins can delete global entries."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

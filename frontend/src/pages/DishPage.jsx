@@ -314,11 +314,12 @@ const DishPage = () => {
   ]);
   const [originalPriceIds, setOriginalPriceIds] = useState(new Set());
 
-  // Fetch allergen catalog (German-only)
+  // Fetch unified allergen catalog (Allergens + Additives)
   useEffect(() => {
     const fetchAllergenCatalog = async () => {
       try {
-        const res = await axios.get('/allergens/codes/?ordering=code');
+        // Fetch all, ordered by kind then code
+        const res = await axios.get('/allergens/codes/?ordering=kind,code&page_size=1000');
         setAllergenCatalog(res.data.results || res.data || []);
       } catch (err) {
         console.error('Failed to fetch allergen catalog', err);
@@ -605,27 +606,29 @@ const DishPage = () => {
                 fullWidth
               />
 
-              {/* German-only allergen multi-select */}
+              {/* Unified Allergen/Additive Autocomplete */}
               <Autocomplete
                 multiple
                 size="small"
                 options={allergenCatalog}
+                groupBy={(option) => option.kind === 'ADDITIVE' ? 'Zusatzstoffe (E-Nummern)' : 'Allergene (A-N)'}
                 getOptionLabel={(option) => `${option.code} – ${option.name_de}`}
                 value={selectedAllergens}
                 onChange={(event, newValue) => setSelectedAllergens(newValue)}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Allergene (manuelle Auswahl)"
-                    placeholder="Wählen Sie Allergencodes..."
+                    label="Allergene & Zusatzstoffe"
+                    placeholder="Suchen..."
                   />
                 )}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
                     <Chip
-                      label={`${option.code} – ${option.name_de}`}
+                      label={`${option.code}`}
                       {...getTagProps({ index })}
                       size="small"
+                      color={option.kind === 'ALLERGEN' ? 'primary' : 'default'}
                     />
                   ))
                 }

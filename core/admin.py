@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from .models import (
     User, Menu, Section, Dish,
     DishPrice, Profile,
-    Allergen, Ingredient, AdditiveLegend,
+    Allergen, Ingredient,
     MenuDisplaySettings,
 )
 
@@ -181,7 +181,7 @@ class ProfileAdmin(admin.ModelAdmin):
     ordering = ("id",)
 
 
-# ===================== Allergen / Ingredient / AdditiveLegend =====================
+# ===================== Allergen / Ingredient =====================
 
 def _codes_str(qs):
     """Helper: 'A,B,C' من كائنات الحساسية."""
@@ -208,15 +208,6 @@ class IngredientAdmin(admin.ModelAdmin):
     @admin.display(description=_("Allergen codes"))
     def allergen_codes_list(self, obj: Ingredient) -> str:
         return _codes_str(obj.allergens.all())
-
-
-@admin.register(AdditiveLegend)
-class AdditiveLegendAdmin(admin.ModelAdmin):
-    list_display = ("id", "owner", "number", "label_de", "label_en", "label_ar")
-    search_fields = ("number", "label_de", "label_en", "label_ar", "owner__username")
-    list_filter = ("owner",)
-    list_select_related = ("owner",)
-    ordering = ("number", "id")
 
 
 @admin.register(MenuDisplaySettings)

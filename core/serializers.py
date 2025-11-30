@@ -17,7 +17,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import (
     Menu, Section, Dish, MenuDisplaySettings, DishPrice,
-    Profile, Allergen, Ingredient, AdditiveLegend,
+    Profile, Allergen, Ingredient,
     IngredientSuggestion, DishAllergen,   # ⬅️ سجل التتبّع
 )
 # قاموس القواعد (ملف مستقل)
@@ -418,10 +418,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         return ingredient
 
 
-class AdditiveLegendSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AdditiveLegend
-        fields = ["id", "number", "label_de", "label_en", "label_ar"]
+
 
 
 # ===================== قاموس القواعد (KeywordLexeme / NegationCue) =====================

@@ -33,60 +33,31 @@ class User(AbstractUser):
 # ===========================
 class Allergen(models.Model):
     """
-    لائحة الحساسيّات القياسية (A..R). أمثلة:
-    A=Gluten, C=Eggs, G=Milk, ...
+    لائحة الحساسيّات القياسية (A..R) والإضافات (E-Nummern).
     """
-    code = models.CharField(max_length=2, unique=True)  # مثل "A"
+    class Kind(models.TextChoices):
+        ALLERGEN = "ALLERGEN", "Allergen"   # A–N
+        ADDITIVE = "ADDITIVE", "Additive"   # E-Nummern / Zusatzstoffe
+
+    code = models.CharField(max_length=8, unique=True)  # مثل "A" أو "1", "12"
     label_de = models.CharField(max_length=120)
     label_en = models.CharField(max_length=120, blank=True, default='')
     label_ar = models.CharField(max_length=120, blank=True, default='')
-
-    class Meta:
-        ordering = ["code"]
-
-    def __str__(self):
-        return f"{self.code} - {self.label_de}"
-
-
-class AdditiveLegend(models.Model):
-    """
-    معجم المضافات (E-numbers) مع دعم قاموس عام (owner=NULL) وقواميس خاصة بالملاك.
-    """
-    number = models.PositiveIntegerField(db_index=True)   # E-number بدون حرف "E"
-    label_en = models.CharField(max_length=255, blank=True, default="")
-    label_de = models.CharField(max_length=255, blank=True, default="")
-    label_ar = models.CharField(max_length=255, blank=True, default="")
-
-    # ✅ موحّد مع باقي الموديلات مثل Ingredient
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True, blank=True,
-        on_delete=models.CASCADE,
-        related_name="additive_legends",
+    
+    kind = models.CharField(
+        max_length=10,
+        choices=Kind.choices,
+        default=Kind.ALLERGEN,
     )
 
     class Meta:
-        constraints = [
-            # يمنع تكرار نفس الرقم ضمن نفس المالك (يعمل مع NOT NULL)
-            models.UniqueConstraint(
-                fields=["owner", "number"],
-                name="uniq_owner_number",
-            ),
-            # يمنع وجود أكثر من صف عام (owner IS NULL) لنفس الرقم
-            models.UniqueConstraint(
-                fields=["number"],
-                condition=Q(owner__isnull=True),
-                name="uniq_global_number_when_owner_null",
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["owner", "number"]),
-            models.Index(fields=["number"]),
-        ]
+        ordering = ["kind", "code"]
 
     def __str__(self):
-        scope = "global" if self.owner_id is None else f"owner={self.owner_id}"
-        return f"E{self.number} ({scope})"
+        return f"{self.code} - {self.label_de} ({self.kind})"
+
+
+
 
 
 class Ingredient(models.Model):
@@ -103,7 +74,6 @@ class Ingredient(models.Model):
     )
     name = models.CharField(max_length=120)
     allergens = models.ManyToManyField(Allergen, blank=True, related_name="ingredients")
-    additives = models.JSONField(default=list, blank=True)   # [1,2,3]
     synonyms = models.JSONField(default=list, blank=True)    # ["Weizenmehl", "Pasta"]
 
     class Meta:

@@ -8,10 +8,6 @@ from .views import (
     AllergenBulkUpload, AllergenExportCSV,
     AllergenGenerateView,  # German-only rule-based generation
 
-    # --- Additives (يدوي) ---
-    AdditiveCodesView, AdditiveCodeDetailView,
-    AdditiveBulkUploadView, AdditiveExportCSV,
-
     # --- Ingredients + Lexemes ---
     IngredientViewSet,
     KeywordLexemeViewSet,            # ← تأكد أن الاسم يطابق الموجود في views.py
@@ -24,12 +20,6 @@ router.register(r"ingredients", IngredientViewSet, basename="ingredients")
 router.register(r"lexemes", KeywordLexemeViewSet, basename="lexemes")  # ← لو غيّرت الاسم إلى LexemeViewSet عدّل هنا
 
 urlpatterns = [
-    # --- Additives (يدوي) ---
-    path("additives/codes/", AdditiveCodesView.as_view(), name="additives-codes"),                     # GET + POST
-    path("additives/codes/<int:pk>/", AdditiveCodeDetailView.as_view(), name="additives-code-detail"), # GET + PUT + DELETE
-    path("additives/bulk-upload/", AdditiveBulkUploadView.as_view(), name="additives-bulk"),           # POST (multipart)
-    path("additives/export/", AdditiveExportCSV.as_view(), name="additives-export"),                   # GET (CSV)
-
     # --- Allergens (يدوي) ---
     path("allergens/codes/", AllergenCodesView.as_view(), name="allergens-codes"),                     # GET + POST
     path("allergens/codes/<int:pk>/", AllergenCodeDetailView.as_view(), name="allergens-detail"),      # GET + PUT + DELETE
@@ -47,9 +37,6 @@ urlpatterns = [
     path("allergens/codes/bulk-upload/", AllergenBulkUpload.as_view(), name="allergens-bulk-compat"),
     path("allergens/codes/export/",      AllergenExportCSV.as_view(),  name="allergens-export-compat"),
 
-# --- Additives aliases for backward-compat ---
-    path("additives/codes/bulk-upload/", AdditiveBulkUploadView.as_view(), name="additives-bulk-compat"),
-    path("additives/codes/export/",      AdditiveExportCSV.as_view(),      name="additives-export-compat"),
 # --- Ingredients aliases for backward-compat ---
     path("ingredients/bulk-upload/", IngredientBulkUploadCSV.as_view(), name="ingredients-bulk"),
     path("ingredients/export/",      IngredientExportCSV.as_view(),      name="ingredients-export"),
