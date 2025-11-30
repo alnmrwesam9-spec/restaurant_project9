@@ -255,11 +255,16 @@ export default function AdminAllergensPage() {
     }
     if (currentKind === "lexemes") {
       const codes = data.allergens ? data.allergens.split(",").map(c => c.trim()).filter(Boolean) : [];
+      // Handle ingredient: send null if empty or just a dash
+      const ingredientValue = data.ingredient && data.ingredient.trim() && data.ingredient.trim() !== '-'
+        ? data.ingredient.trim()
+        : null;
+
       return {
         term: data.term,
         lang: "de",
         allergens: codes,
-        ingredient: data.ingredient || null,
+        ingredient: ingredientValue,
         is_active: true,
       };
     }

@@ -990,6 +990,32 @@ class IngredientViewSet(ModelViewSet):
 
         return qs.order_by("name", "id")
 
+    def create(self, request, *args, **kwargs):
+        # DEBUG: Log incoming data
+        print("=" * 80)
+        print("IngredientViewSet.create() - DEBUG")
+        print("REQUEST DATA:", request.data)
+        print("=" * 80)
+        
+        data = request.data.copy()
+        # Set owner - admin can specify, non-admin gets their own ID
+        if not is_admin(request.user):
+            data["owner"] = request.user.id
+        elif "owner" not in data or data.get("owner") in (None, "", "null"):
+            # Admin without explicit owner - use their ID or allow None for global
+            data["owner"] = request.user.id
+        
+        ser = self.get_serializer(data=data)
+        if not ser.is_valid():
+            # DEBUG: Log validation errors
+            print("SERIALIZER ERRORS:", ser.errors)
+            print("=" * 80)
+        ser.is_valid(raise_exception=True)
+        obj = ser.save()
+        out = self.get_serializer(obj).data
+        return Response(out, status=status.HTTP_201_CREATED)
+
+
 
 # --- NEW: Ingredients CSV (Export) --------------------
 class IngredientExportCSV(APIView):
@@ -1196,6 +1222,12 @@ class KeywordLexemeViewSet(ModelViewSet):
 
     # Ensure admin can create global lexemes by default; non-admins are scoped to self
     def create(self, request, *args, **kwargs):
+        # DEBUG: Log incoming data
+        print("=" * 80)
+        print("KeywordLexemeViewSet.create() - DEBUG")
+        print("REQUEST DATA:", request.data)
+        print("=" * 80)
+        
         data = request.data.copy()
         if is_admin(request.user):
             ov = data.get("owner")
@@ -1207,8 +1239,11 @@ class KeywordLexemeViewSet(ModelViewSet):
             data["owner"] = getattr(request.user, "id", None)
 
         ser = self.get_serializer(data=data)
+        if not ser.is_valid():
+            # DEBUG: Log validation errors
+            print("SERIALIZER ERRORS:", ser.errors)
+            print("=" * 80)
         ser.is_valid(raise_exception=True)
         obj = ser.save()
         out = self.get_serializer(obj).data
         return Response(out, status=status.HTTP_201_CREATED)
-        return qs.order_by(*safe)
