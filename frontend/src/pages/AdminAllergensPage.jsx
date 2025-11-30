@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+﻿import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/axios";
 
@@ -18,22 +18,20 @@ export default function AdminAllergensPage() {
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [file, setFile] = useState(null);
-
-  // ✅ خيار الرفع إلى القاموس العام (للإضافات فقط)
   const [uploadToGlobal, setUploadToGlobal] = useState(false);
 
-  // بحث وترتيب
+  // Search and ordering
   const [q, setQ] = useState("");
   const debouncedQ = useDebouncedValue(q, 450);
   const [ordering, setOrdering] = useState("code");
 
-  // نموذج (German only)
-  const [form, setForm] = useState({ code: "", name_de: "" });
+  // Form state - unified for all types
+  const [form, setForm] = useState({ code: "", name_de: "", term: "", allergens: "", ingredient: "" });
   const [editId, setEditId] = useState(null);
   const onFormChange = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
-  // ====== أنواع الجداول ======
-  const [kind, setKind] = useState("allergens"); // "additives" | "lexemes" | "ingredients"
+  // Table type selector
+  const [kind, setKind] = useState("allergens");
   const KIND_OPTS = [
     { value: "allergens", label: "الحساسيّات (Allergens)" },
     { value: "additives", label: "الإضافات (E-Numbers)" },
@@ -46,7 +44,10 @@ export default function AdminAllergensPage() {
   const isLexeme = kind === "lexemes";
   const isIngredient = kind === "ingredients";
 
-  // ====== خرائط نقاط النهاية (لقراءة/CRUD الأساسية) ======
+  // Advanced settings toggle for Lexemes
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // API endpoints
   const API = {
     allergens: "/allergens/codes/",
     additives: "/additives/codes/",
@@ -54,25 +55,17 @@ export default function AdminAllergensPage() {
     ingredients: "/ingredients/",
   };
 
-  // ====== خرائط CSV ======
   const CSV = {
     lexemes: { export: "/lexemes/export/", import: "/lexemes/import/" },
     ingredients: { export: "/ingredients/export/", import: "/ingredients/bulk-upload/" },
   };
 
-  // مُساعد مسار نهائي للأنواع التي تدعم CRUD القديم (allergens/additives)
-  const ep = useCallback((suffix = "") => `${API[kind]}${suffix}`, [API, kind]);
+  const ep = useCallback((suffix = "") => `${API[kind]}${suffix}`, [kind]);
 
-  // خريطة ترتيب عند الإضافات
   const mapOrdering = useCallback(
     (o) => {
       if (!isAdditive) return o;
-      const m = {
-        code: "number",
-        "-code": "-number",
-        name_de: "label_de",
-        "-name_de": "-label_de",
-      };
+      const m = { code: "number", "-code": "-number", name_de: "label_de", "-name_de": "-label_de" };
       return m[o] || o;
     },
     [isAdditive]
@@ -80,7 +73,7 @@ export default function AdminAllergensPage() {
 
   const hasAuth = !!api.defaults.headers?.common?.Authorization;
 
-  // ربط المسار بالنوع
+  // Route-based kind switching
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
@@ -93,18 +86,18 @@ export default function AdminAllergensPage() {
 
   const switchKind = (k) => {
     setKind(k);
-    const to = `/admin/${k}`;
-    navigate(to, { replace: true });
+    navigate(`/admin/${k}`, { replace: true });
+    setQ("");
+    setForm({ code: "", name_de: "", term: "", allergens: "", ingredient: "" });
+    setEditId(null);
   };
 
-  // لتجنّب حالة "الطلب القديم يكتب فوق الجديد"
   const reqIdRef = useRef(0);
 
-  // ====== الجلب الديناميكي ======
+  // Load items
   async function loadItems() {
     setError("");
     setOkMsg("");
-
     if (!hasAuth) {
       setError("الرجاء تسجيل الدخول كمشرف أولًا.");
       return;
@@ -113,12 +106,9 @@ export default function AdminAllergensPage() {
     try {
       setBusy(true);
       const mappedOrdering = isAdditive ? mapOrdering(ordering) : ordering;
-      const url = `${API[kind]}?q=${encodeURIComponent(debouncedQ || "")}&ordering=${encodeURIComponent(
-        mappedOrdering || ""
-      )}`;
+      const url = `${API[kind]}?q=${encodeURIComponent(debouncedQ || "")}&ordering=${encodeURIComponent(mappedOrdering || "")}`;
       const { data } = await api.get(url);
       if (myReqId !== reqIdRef.current) return;
-
       const arr = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : data?.results || [];
       setItems(arr);
     } catch (e) {
@@ -128,17 +118,16 @@ export default function AdminAllergensPage() {
       if (myReqId === reqIdRef.current) setBusy(false);
     }
   }
+
   useEffect(() => {
     loadItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, debouncedQ, ordering]);
 
-  // ====== CSV للـ Lexemes ======
+  // CSV handlers
   function onLexemesExport() {
     setError("");
     setOkMsg("");
-    api
-      .get(CSV.lexemes.export, { responseType: "blob" })
+    api.get(CSV.lexemes.export, { responseType: "blob" })
       .then((res) => {
         const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
         const url = window.URL.createObjectURL(blob);
@@ -169,12 +158,10 @@ export default function AdminAllergensPage() {
     }
   }
 
-  // ====== CSV للمكوّنات (جديد) ======
   function onIngredientsExport() {
     setError("");
     setOkMsg("");
-    api
-      .get(CSV.ingredients.export, { responseType: "blob" })
+    api.get(CSV.ingredients.export, { responseType: "blob" })
       .then((res) => {
         const blob = new Blob([res.data], { type: "text/csv;charset=utf-8" });
         const url = window.URL.createObjectURL(blob);
@@ -205,11 +192,9 @@ export default function AdminAllergensPage() {
     }
   }
 
-  // ====== تصدير/رفع CSV للحساسيّات والإضافات (كما هو) ======
   const exportCSV = async () => {
     setError("");
     setOkMsg("");
-
     if (!hasAuth) {
       setError("الرجاء تسجيل الدخول كمشرف.");
       return;
@@ -235,7 +220,6 @@ export default function AdminAllergensPage() {
     e.preventDefault();
     setError("");
     setOkMsg("");
-
     if (!hasAuth) {
       setError("الرجاء تسجيل الدخول كمشرف.");
       return;
@@ -248,16 +232,11 @@ export default function AdminAllergensPage() {
       setBusy(true);
       const fd = new FormData();
       fd.append("file", file);
-
-      // ✅ ?global=1 فقط للإضافات
       const qs = !isAllergen && uploadToGlobal ? "?global=1" : "";
       const url = isAllergen ? "/allergens/bulk-upload/" : "/additives/bulk-upload/";
-      const { data } = await api.post(url + qs, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
+      const { data } = await api.post(url + qs, fd, { headers: { "Content-Type": "multipart/form-data" } });
       setOkMsg(`تم: أُضيف ${data.created || 0} وتحدّث ${data.updated || 0} وتخطّى ${data.skipped || 0}.`);
-      setFile(null); // تنظيف
+      setFile(null);
       await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل الرفع");
@@ -266,37 +245,45 @@ export default function AdminAllergensPage() {
     }
   };
 
-  // ====== CRUD (لـ allergens/additives) ======
-  const buildPayload = (data, isAllergenLocal) => {
-    if (isAllergenLocal) {
-      // German-only UI, but backend might expect other fields. Send empty strings if needed or just omit.
+  // Build payload for different types
+  const buildPayload = (data, currentKind) => {
+    if (currentKind === "allergens") {
+      return { code: data.code, label_de: data.name_de };
+    }
+    if (currentKind === "additives") {
+      return { number: data.code, label_de: data.name_de || "" };
+    }
+    if (currentKind === "lexemes") {
+      const codes = data.allergens ? data.allergens.split(",").map(c => c.trim()).filter(Boolean) : [];
       return {
-        code: data.code,
-        label_de: data.name_de,
-        // We don't touch EN/AR here, backend should handle partial updates or defaults
+        term: data.term,
+        lang: "de",
+        allergens: codes,
+        ingredient: data.ingredient || null,
+        is_active: true,
       };
     }
-    // للإضافات يتوقع number/label_*
-    return {
-      number: data.code,
-      label_de: data.name_de || "",
-      // label_en/ar omitted from UI
-    };
+    if (currentKind === "ingredients") {
+      const codes = data.allergens ? data.allergens.split(",").map(c => c.trim()).filter(Boolean) : [];
+      return { name: data.term, allergens: codes };
+    }
+    return {};
   };
 
   const createItem = async () => {
     setError("");
-    if (!form.code.trim()) {
+    if ((isAllergen || isAdditive) && !form.code.trim()) {
       setError("أدخل الكود");
+      return;
+    }
+    if ((isLexeme || isIngredient) && !form.term.trim()) {
+      setError("أدخل المصطلح/الاسم");
       return;
     }
     try {
       setBusy(true);
-      await api.post(ep(``), buildPayload(form, isAllergen), {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      setForm({ code: "", name_de: "" });
+      await api.post(ep(``), buildPayload(form, kind), { headers: { "Content-Type": "application/json" } });
+      setForm({ code: "", name_de: "", term: "", allergens: "", ingredient: "" });
       await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل الإضافة");
@@ -307,10 +294,27 @@ export default function AdminAllergensPage() {
 
   const startEdit = (x) => {
     setEditId(x.id);
-    setForm({
-      code: x.code ?? x.number ?? "",
-      name_de: x.name_de ?? x.label_de ?? "",
-    });
+    if (isAllergen) {
+      setForm({ code: x.code, name_de: x.name_de, term: "", allergens: "", ingredient: "" });
+    } else if (isAdditive) {
+      setForm({ code: x.code ?? x.number, name_de: x.name_de ?? x.label_de, term: "", allergens: "", ingredient: "" });
+    } else if (isLexeme) {
+      setForm({
+        code: "",
+        name_de: "",
+        term: x.term,
+        allergens: (x.allergens || []).join(", "),
+        ingredient: x.ingredient || "",
+      });
+    } else if (isIngredient) {
+      setForm({
+        code: "",
+        name_de: "",
+        term: x.name,
+        allergens: (x.allergens || []).join(", "),
+        ingredient: "",
+      });
+    }
   };
 
   const saveEdit = async () => {
@@ -318,9 +322,9 @@ export default function AdminAllergensPage() {
     setError("");
     try {
       setBusy(true);
-      await api.put(ep(`${editId}/`), buildPayload(form, isAllergen));
+      await api.put(ep(`${editId}/`), buildPayload(form, kind));
       setEditId(null);
-      setForm({ code: "", name_de: "" });
+      setForm({ code: "", name_de: "", term: "", allergens: "", ingredient: "" });
       await loadItems();
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "فشل التعديل");
@@ -331,11 +335,11 @@ export default function AdminAllergensPage() {
 
   const cancelEdit = () => {
     setEditId(null);
-    setForm({ code: "", name_de: "" });
+    setForm({ code: "", name_de: "", term: "", allergens: "", ingredient: "" });
   };
 
   const delItem = async (id) => {
-    if (!window.confirm("حذف هذا الكود؟")) return;
+    if (!window.confirm("حذف هذا العنصر؟")) return;
     try {
       setBusy(true);
       setError("");
@@ -348,7 +352,7 @@ export default function AdminAllergensPage() {
     }
   };
 
-  // ====== جداول العرض ======
+  // Render table headers
   function renderHeader() {
     if (isAllergen)
       return (
@@ -369,28 +373,34 @@ export default function AdminAllergensPage() {
     if (isLexeme)
       return (
         <tr>
-          <th>lang</th>
-          <th>term</th>
-          <th>is_regex</th>
-          <th>allergens_ids</th>
-          <th>ingredient_id</th>
-          <th>active</th>
-          <th>priority</th>
-          <th>weight</th>
+          <th>المصطلح (Term)</th>
+          <th>الحساسيات (Codes)</th>
+          <th>المكون (Ingredient)</th>
+          {showAdvanced && (
+            <>
+              <th>Regex?</th>
+              <th>Active?</th>
+              <th>Priority</th>
+              <th>Weight</th>
+            </>
+          )}
+          <th>إجراءات</th>
         </tr>
       );
     if (isIngredient)
       return (
         <tr>
-          <th>name</th>
-          <th>allergens_ids</th>
-          <th>additives</th>
-          <th>synonyms</th>
+          <th>الاسم (Name)</th>
+          <th>الحساسيات (Codes)</th>
+          <th>الإضافات (Additives)</th>
+          <th>المرادفات (Synonyms)</th>
+          <th>إجراءات</th>
         </tr>
       );
     return null;
   }
 
+  // Render table rows
   function renderRow(it) {
     if (isAllergen) {
       return (
@@ -404,12 +414,8 @@ export default function AdminAllergensPage() {
                 <input className="in" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
               </td>
               <td className="row-actions">
-                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>
-                  حفظ
-                </button>
-                <button className="btn" onClick={cancelEdit} disabled={busy}>
-                  إلغاء
-                </button>
+                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>حفظ</button>
+                <button className="btn" onClick={cancelEdit} disabled={busy}>إلغاء</button>
               </td>
             </>
           ) : (
@@ -417,12 +423,8 @@ export default function AdminAllergensPage() {
               <td><span className="mono tag">{it.code}</span></td>
               <td>{it.name_de}</td>
               <td className="row-actions">
-                <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>
-                  تعديل
-                </button>
-                <button className="btn btn-danger" onClick={() => delItem(it.id)} disabled={busy}>
-                  حذف
-                </button>
+                <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>تعديل</button>
+                <button className="btn btn-danger" onClick={() => delItem(it.id)} disabled={busy}>حذف</button>
               </td>
             </>
           )}
@@ -444,12 +446,8 @@ export default function AdminAllergensPage() {
                 <input className="in" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
               </td>
               <td className="row-actions">
-                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>
-                  حفظ
-                </button>
-                <button className="btn" onClick={cancelEdit} disabled={busy}>
-                  إلغاء
-                </button>
+                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>حفظ</button>
+                <button className="btn" onClick={cancelEdit} disabled={busy}>إلغاء</button>
               </td>
             </>
           ) : (
@@ -457,12 +455,8 @@ export default function AdminAllergensPage() {
               <td><span className="mono tag">E{String(displayCode).replace(/^E/i, "")}</span></td>
               <td>{de}</td>
               <td className="row-actions">
-                <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>
-                  تعديل
-                </button>
-                <button className="btn btn-danger" onClick={() => delItem(it.id)} disabled={busy}>
-                  حذف
-                </button>
+                <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>تعديل</button>
+                <button className="btn btn-danger" onClick={() => delItem(it.id)} disabled={busy}>حذف</button>
               </td>
             </>
           )}
@@ -473,14 +467,36 @@ export default function AdminAllergensPage() {
     if (isLexeme) {
       return (
         <tr key={it.id}>
-          <td><span className="pill">{it.lang}</span></td>
-          <td className="mono">{it.term}</td>
-          <td>{it.is_regex ? "✓" : ""}</td>
-          <td className="mono">{(it.allergens || []).join(",")}</td>
-          <td className="mono">{it.ingredient || it.ingredient_id || ""}</td>
-          <td>{it.is_active ? "✓" : ""}</td>
-          <td className="mono">{it.priority ?? 0}</td>
-          <td className="mono">{it.weight ?? 0}</td>
+          {editId === it.id ? (
+            <>
+              <td><input className="in" value={form.term} onChange={(e) => onFormChange("term", e.target.value)} /></td>
+              <td><input className="in" value={form.allergens} onChange={(e) => onFormChange("allergens", e.target.value)} placeholder="A, G" /></td>
+              <td><input className="in" value={form.ingredient} onChange={(e) => onFormChange("ingredient", e.target.value)} placeholder="Ingredient Name" /></td>
+              {showAdvanced && <td colSpan={4}></td>}
+              <td className="row-actions">
+                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>حفظ</button>
+                <button className="btn" onClick={cancelEdit} disabled={busy}>إلغاء</button>
+              </td>
+            </>
+          ) : (
+            <>
+              <td className="mono">{it.term}</td>
+              <td className="mono">{(it.allergens || []).join(", ")}</td>
+              <td className="mono">{it.ingredient || "-"}</td>
+              {showAdvanced && (
+                <>
+                  <td>{it.is_regex ? "✓" : ""}</td>
+                  <td>{it.is_active ? "✓" : ""}</td>
+                  <td className="mono">{it.priority ?? 0}</td>
+                  <td className="mono">{it.weight ?? 0}</td>
+                </>
+              )}
+              <td className="row-actions">
+                <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>تعديل</button>
+                <button className="btn btn-danger" onClick={() => delItem(it.id)} disabled={busy}>حذف</button>
+              </td>
+            </>
+          )}
         </tr>
       );
     }
@@ -488,10 +504,28 @@ export default function AdminAllergensPage() {
     if (isIngredient) {
       return (
         <tr key={it.id}>
-          <td>{it.name}</td>
-          <td className="mono">{(it.allergens || []).join(",")}</td>
-          <td className="mono">{Array.isArray(it.additives) ? it.additives.join(",") : it.additives || ""}</td>
-          <td className="mono">{typeof it.synonyms === "string" ? it.synonyms : JSON.stringify(it.synonyms || [])}</td>
+          {editId === it.id ? (
+            <>
+              <td><input className="in" value={form.term} onChange={(e) => onFormChange("term", e.target.value)} /></td>
+              <td><input className="in" value={form.allergens} onChange={(e) => onFormChange("allergens", e.target.value)} placeholder="A, G" /></td>
+              <td colSpan={2}></td>
+              <td className="row-actions">
+                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>حفظ</button>
+                <button className="btn" onClick={cancelEdit} disabled={busy}>إلغاء</button>
+              </td>
+            </>
+          ) : (
+            <>
+              <td>{it.name}</td>
+              <td className="mono">{(it.allergens || []).join(", ")}</td>
+              <td className="mono">{Array.isArray(it.additives) ? it.additives.join(",") : it.additives || ""}</td>
+              <td className="mono">{typeof it.synonyms === "string" ? it.synonyms : JSON.stringify(it.synonyms || [])}</td>
+              <td className="row-actions">
+                <button className="btn btn-ghost" onClick={() => startEdit(it)} disabled={busy}>تعديل</button>
+                <button className="btn btn-danger" onClick={() => delItem(it.id)} disabled={busy}>حذف</button>
+              </td>
+            </>
+          )}
         </tr>
       );
     }
@@ -501,83 +535,57 @@ export default function AdminAllergensPage() {
 
   return (
     <div className="wrap" dir="rtl">
-      {/* ====== Styles ====== */}
       <style>{`
         :root{
           --bg:#0b0f14; --card:#10161c; --card2:#0e141a; --muted:#9bb0c0; --text:#e9f1f7;
           --pri:#3b82f6; --pri-2:#2563eb; --ok:#16a34a; --err:#ef4444; --warn:#f59e0b; --line:#1f2a34;
           --chip:#132130; --chip-b:#26435b;
         }
-        .wrap{padding:20px; color:var(--text); background:var(--bg); min-height:100%; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, "Noto Kufi Arabic", Arial;}
+        .wrap{padding:20px; color:var(--text); background:var(--bg); min-height:100vh; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, "Noto Kufi Arabic", Arial;}
         .container{max-width:1200px; margin-inline:auto;}
-
-        .toolbar{
-          position:sticky; top:0; z-index:5;
-          background:linear-gradient(180deg, rgba(11,15,20,0.95), rgba(11,15,20,0.85) 60%, rgba(11,15,20,0));
-          backdrop-filter: blur(6px);
-          padding-bottom:8px; margin-bottom:12px; border-bottom:1px solid var(--line);
-        }
-        .bar{
-          display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:10px;
-        }
-        .heading{
-          display:flex; gap:10px; align-items:center; margin:0; font-weight:700;
-        }
-
-        select.sel, input.in, .search{ background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px 10px; outline:none; }
-        select.sel:focus, input.in:focus{ border-color:var(--pri); box-shadow:0 0 0 3px rgba(59,130,246,0.2); }
-
-        .btn{ background:var(--card2); color:var(--text); border:1px solid var(--line); padding:8px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
-        .btn:hover{ transform:translateY(-1px); border-color:#2a3a48; }
-        .btn:disabled{ opacity:.6; cursor:not-allowed; }
-        .btn-primary{ background:linear-gradient(180deg, var(--pri), var(--pri-2)); border:0; }
-        .btn-ghost{ background:transparent; border-color:transparent; }
-        .btn-danger{ border-color:rgba(239,68,68,.35); color:#ffd5d5; background:rgba(239,68,68,.08); }
-        .btn-danger:hover{ background:rgba(239,68,68,.14); }
-
-        .note{ border-radius:12px; padding:12px 14px; }
-        .ok{ background:rgba(22,163,74,.1); border:1px solid rgba(22,163,74,.25); color:#d2f2dc;}
-        .err{ background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25); color:#ffd5d5;}
-
-        .grid-quick{ display:grid; grid-template-columns:120px 1fr auto; gap:8px; margin:10px 0 12px; }
-        @media (max-width: 800px){ .grid-quick{ grid-template-columns:1fr 1fr; } .grid-quick button{ grid-column:1 / -1; } }
-
-        .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; }
-        .card.pad{ padding:12px; }
-
-        table.table{ width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
-        .table thead th{ position:sticky; top:54px; background:linear-gradient(180deg, #0f1620, #0d141b); color:#cfe3f3; text-align:start; font-weight:700; padding:10px; border-bottom:1px solid var(--line); }
-        .table tbody td{ padding:10px; border-bottom:1px solid var(--line); vertical-align:middle; }
-        .table tbody tr:hover{ background:rgba(59,130,246,.06); }
-        .table tbody tr:last-child td{ border-bottom:0; }
-
-        .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace; }
-        .tag{ display:inline-block; padding:4px 8px; border-radius:999px; background:var(--chip); border:1px solid var(--chip-b); }
-        .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#ffe6b3; font-size:.92em; }
-
-        .row-actions{ display:flex; gap:8px; align-items:center; }
-        .spacer{ flex:1; }
-
-        .search-wrap{ display:flex; gap:8px; align-items:center; min-width:260px; flex:1; }
-        .search{ flex:1; }
-        .order{ min-width:170px; }
-
-        .subtools{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-
-        .skeleton{ height:42px; border-radius:10px; background:linear-gradient(90deg, #0f1620, #0e141b, #0f1620); background-size:200% 100%; animation:shimmer 1.2s infinite; border:1px solid var(--line); }
-        @keyframes shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .toolbar{position:sticky; top:0; z-index:5; background:linear-gradient(180deg, rgba(11,15,20,0.95), rgba(11,15,20,0.85) 60%, rgba(11,15,20,0)); backdrop-filter: blur(6px); padding-bottom:8px; margin-bottom:12px; border-bottom:1px solid var(--line);}
+        .bar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:10px;}
+        .heading{display:flex; gap:10px; align-items:center; margin:0; font-weight:700;}
+        select.sel, input.in, .search{background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:8px 10px; outline:none;}
+        select.sel:focus, input.in:focus{border-color:var(--pri); box-shadow:0 0 0 3px rgba(59,130,246,0.2);}
+        .btn{background:var(--card2); color:var(--text); border:1px solid var(--line); padding:8px 12px; border-radius:10px; cursor:pointer; transition:.15s;}
+        .btn:hover{transform:translateY(-1px); border-color:#2a3a48;}
+        .btn:disabled{opacity:.6; cursor:not-allowed;}
+        .btn-primary{background:linear-gradient(180deg, var(--pri), var(--pri-2)); border:0;}
+        .btn-ghost{background:transparent; border-color:transparent;}
+        .btn-danger{border-color:rgba(239,68,68,.35); color:#ffd5d5; background:rgba(239,68,68,.08);}
+        .btn-danger:hover{background:rgba(239,68,68,.14);}
+        .note{border-radius:12px; padding:12px 14px;}
+        .ok{background:rgba(22,163,74,.1); border:1px solid rgba(22,163,74,.25); color:#d2f2dc;}
+        .err{background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25); color:#ffd5d5;}
+        .grid-quick{display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; margin:10px 0 12px;}
+        @media (max-width: 800px){.grid-quick{grid-template-columns:1fr 1fr;} .grid-quick button{grid-column:1 / -1;}}
+        .card{background:var(--card); border:1px solid var(--line); border-radius:14px;}
+        .card.pad{padding:12px;}
+        table.table{width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--line); border-radius:14px; overflow:hidden;}
+        .table thead th{position:sticky; top:54px; background:linear-gradient(180deg, #0f1620, #0d141b); color:#cfe3f3; text-align:start; font-weight:700; padding:10px; border-bottom:1px solid var(--line);}
+        .table tbody td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+        .table tbody tr:hover{background:rgba(59,130,246,.06);}
+        .table tbody tr:last-child td{border-bottom:0;}
+        .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;}
+        .tag{display:inline-block; padding:4px 8px; border-radius:999px; background:var(--chip); border:1px solid var(--chip-b);}
+        .pill{display:inline-block; padding:2px 8px; border-radius:999px; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#ffe6b3; font-size:.92em;}
+        .row-actions{display:flex; gap:8px; align-items:center;}
+        .spacer{flex:1;}
+        .search-wrap{display:flex; gap:8px; align-items:center; min-width:260px; flex:1;}
+        .search{flex:1;}
+        .order{min-width:170px;}
+        .subtools{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+        .skeleton{height:42px; border-radius:10px; background:linear-gradient(90deg, #0f1620, #0e141b, #0f1620); background-size:200% 100%; animation:shimmer 1.2s infinite; border:1px solid var(--line);}
+        @keyframes shimmer{0%{background-position:200% 0} 100%{background-position:-200% 0}}
       `}</style>
 
       <div className="container">
-
-        {/* ===== Toolbar ===== */}
         <div className="toolbar card">
           <div className="bar">
             <select className="sel" value={kind} onChange={(e) => switchKind(e.target.value)} aria-label="تبديل النوع">
               {KIND_OPTS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
 
@@ -587,115 +595,86 @@ export default function AdminAllergensPage() {
 
             <div className="spacer" />
 
-            {/* أدوات CSV للحساسيّات/الإضافات */}
             {(isAllergen || isAdditive) && (
               <form onSubmit={upload} className="subtools" aria-label="أدوات CSV">
-                <input
-                  className="in"
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  value={file ? undefined : ""}
-                />
-                <button className="btn btn-primary" type="submit" disabled={busy} title="رفع CSV">
-                  رفع CSV
-                </button>
-                <button className="btn" type="button" onClick={exportCSV} disabled={busy} title="تنزيل CSV">
-                  تنزيل CSV
-                </button>
-
-                {/* ✅ يظهر فقط للإضافات */}
+                <input className="in" type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} value={file ? undefined : ""} />
+                <button className="btn btn-primary" type="submit" disabled={busy} title="رفع CSV">رفع CSV</button>
+                <button className="btn" type="button" onClick={exportCSV} disabled={busy} title="تنزيل CSV">تنزيل CSV</button>
                 {isAdditive && (
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      type="checkbox"
-                      checked={uploadToGlobal}
-                      onChange={(e) => setUploadToGlobal(e.target.checked)}
-                    />{" "}
+                    <input type="checkbox" checked={uploadToGlobal} onChange={(e) => setUploadToGlobal(e.target.checked)} />{" "}
                     رفع إلى القاموس العام
                   </label>
                 )}
               </form>
             )}
 
-            {/* أدوات CSV للـ Lexemes */}
             {isLexeme && (
               <div className="subtools">
-                <button className="btn" onClick={onLexemesExport} disabled={busy}>
-                  CSV (تصدير)
-                </button>
+                <button className="btn" onClick={onLexemesExport} disabled={busy}>CSV (تصدير)</button>
                 <label className="btn" style={{ cursor: "pointer" }} title="رفع CSV">
                   رفع CSV
-                  <input
-                    type="file"
-                    accept=".csv"
-                    hidden
-                    onChange={(e) => e.target.files?.[0] && onLexemesImport(e.target.files[0])}
-                  />
+                  <input type="file" accept=".csv" hidden onChange={(e) => e.target.files?.[0] && onLexemesImport(e.target.files[0])} />
+                </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginInlineStart: 10 }}>
+                  <input type="checkbox" checked={showAdvanced} onChange={(e) => setShowAdvanced(e.target.checked)} />
+                  خيارات متقدمة
                 </label>
               </div>
             )}
 
-            {/* أدوات CSV للمكوّنات */}
             {isIngredient && (
               <div className="subtools">
-                <button className="btn" onClick={onIngredientsExport} disabled={busy}>
-                  CSV (تصدير)
-                </button>
+                <button className="btn" onClick={onIngredientsExport} disabled={busy}>CSV (تصدير)</button>
                 <label className="btn" style={{ cursor: "pointer" }} title="رفع CSV">
                   رفع CSV
-                  <input
-                    type="file"
-                    accept=".csv"
-                    hidden
-                    onChange={(e) => e.target.files?.[0] && onIngredientsImport(e.target.files[0])}
-                  />
+                  <input type="file" accept=".csv" hidden onChange={(e) => e.target.files?.[0] && onIngredientsImport(e.target.files[0])} />
                 </label>
               </div>
             )}
 
-            {/* بحث + ترتيب */}
             <div className="search-wrap">
-              <input
-                className="search"
-                type="text"
-                placeholder="ابحث بالكود أو الاسم (DE)..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && loadItems()}
-                aria-label="حقل البحث"
-              />
+              <input className="search" type="text" placeholder="ابحث بالكود أو الاسم (DE)..." value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && loadItems()} aria-label="حقل البحث" />
               <select className="sel order" value={ordering} onChange={(e) => setOrdering(e.target.value)}>
                 <option value="code">ترتيب: الكود ↑</option>
                 <option value="-code">ترتيب: الكود ↓</option>
                 <option value="name_de">الاسم DE ↑</option>
                 <option value="-name_de">الاسم DE ↓</option>
               </select>
-              <button className="btn" type="button" onClick={loadItems} disabled={busy}>
-                بحث
-              </button>
+              <button className="btn" type="button" onClick={loadItems} disabled={busy}>بحث</button>
             </div>
           </div>
         </div>
 
-        {/* رسائل الحالة */}
         {error && <div className="note err card pad" role="alert">{error}</div>}
         {okMsg && <div className="note ok card pad" role="status">{okMsg}</div>}
 
-        {/* سطر إدخال سريع — للحساسيّات/الإضافات */}
-        {(isAllergen || isAdditive) && (
-          <div className="card pad">
-            <div className="grid-quick">
-              <input className="in" placeholder="الكود *" value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
-              <input className="in" placeholder="الاسم (DE)" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
-              <button className="btn btn-primary" type="button" onClick={createItem} disabled={busy}>
-                إضافة
-              </button>
-            </div>
+        <div className="card pad">
+          <div className="grid-quick" style={{ gridTemplateColumns: (isLexeme || isIngredient) ? "1fr 1fr 1fr auto" : "120px 1fr auto" }}>
+            {(isAllergen || isAdditive) && (
+              <>
+                <input className="in" placeholder="الكود *" value={form.code} onChange={(e) => onFormChange("code", e.target.value)} />
+                <input className="in" placeholder="الاسم (DE)" value={form.name_de} onChange={(e) => onFormChange("name_de", e.target.value)} />
+              </>
+            )}
+            {isLexeme && (
+              <>
+                <input className="in" placeholder="المصطلح (Term) *" value={form.term} onChange={(e) => onFormChange("term", e.target.value)} />
+                <input className="in" placeholder="الحساسيات (A, G)" value={form.allergens} onChange={(e) => onFormChange("allergens", e.target.value)} />
+                <input className="in" placeholder="المكون (Ingredient)" value={form.ingredient} onChange={(e) => onFormChange("ingredient", e.target.value)} />
+              </>
+            )}
+            {isIngredient && (
+              <>
+                <input className="in" placeholder="الاسم (Name) *" value={form.term} onChange={(e) => onFormChange("term", e.target.value)} />
+                <input className="in" placeholder="الحساسيات (A, G)" value={form.allergens} onChange={(e) => onFormChange("allergens", e.target.value)} />
+                <div></div>
+              </>
+            )}
+            <button className="btn btn-primary" type="button" onClick={createItem} disabled={busy}>إضافة</button>
           </div>
-        )}
+        </div>
 
-        {/* جدول/تحميل */}
         {busy ? (
           <div className="skeleton" aria-busy="true" aria-label="جارٍ التحميل"></div>
         ) : (
@@ -706,7 +685,7 @@ export default function AdminAllergensPage() {
                 {items.map((x) => renderRow(x))}
                 {!items.length && (
                   <tr>
-                    <td colSpan={isAllergen || isAdditive ? 3 : isLexeme ? 8 : 4} style={{ textAlign: "center", padding: 20 }}>
+                    <td colSpan={isAllergen || isAdditive ? 3 : isLexeme ? (showAdvanced ? 8 : 4) : 5} style={{ textAlign: "center", padding: 20 }}>
                       لا توجد بيانات
                     </td>
                   </tr>

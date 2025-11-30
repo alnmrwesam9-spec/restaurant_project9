@@ -130,11 +130,21 @@ class AdditiveCodeSerializer(serializers.ModelSerializer):
 # KeywordLexeme (قاموس نصّي)
 # =========================
 class KeywordLexemeSerializer(serializers.ModelSerializer):
-    allergens = serializers.PrimaryKeyRelatedField(
-        queryset=Allergen.objects.all(), many=True, required=False
+    # Use allergen codes (e.g. "A", "G") instead of IDs
+    allergens = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Allergen.objects.all(),
+        many=True,
+        required=False
     )
-    ingredient = serializers.PrimaryKeyRelatedField(
-        queryset=Ingredient.objects.all(), allow_null=True, required=False
+    # Use ingredient name instead of ID
+    # NOTE: This assumes ingredient names are unique in the queryset.
+    # If multiple ingredients have the same name (different owners), this might raise an error.
+    ingredient = serializers.SlugRelatedField(
+        slug_field="name",
+        queryset=Ingredient.objects.all(),
+        allow_null=True,
+        required=False
     )
 
     class Meta:
@@ -150,8 +160,12 @@ class KeywordLexemeSerializer(serializers.ModelSerializer):
 
 # ===== Ingredient (نسخة خفيفة) =====
 class IngredientLiteSerializer(serializers.ModelSerializer):
-    allergens = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Allergen.objects.all(), required=False
+    # Use allergen codes (e.g. "A", "G") instead of IDs
+    allergens = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Allergen.objects.all(),
+        many=True,
+        required=False
     )
 
     class Meta:
