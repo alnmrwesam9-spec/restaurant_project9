@@ -1012,6 +1012,11 @@ class IngredientViewSet(ModelViewSet):
             print("=" * 80)
         ser.is_valid(raise_exception=True)
         obj = ser.save()
+        
+        # DEBUG: Log created object
+        print(f"✅ CREATED Ingredient ID={obj.id}, name={obj.name}, owner_id={obj.owner_id}")
+        print("=" * 80)
+        
         out = self.get_serializer(obj).data
         return Response(out, status=status.HTTP_201_CREATED)
 
@@ -1245,5 +1250,10 @@ class KeywordLexemeViewSet(ModelViewSet):
             print("=" * 80)
         ser.is_valid(raise_exception=True)
         obj = ser.save()
+        
+        # DEBUG: Log created object
+        print(f"✅ CREATED Lexeme ID={obj.id}, term={obj.term}, owner_id={obj.owner_id}")
+        print("=" * 80)
+        
         out = self.get_serializer(obj).data
         return Response(out, status=status.HTTP_201_CREATED)
