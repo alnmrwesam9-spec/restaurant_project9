@@ -149,8 +149,26 @@ class Dish(models.Model):
     price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
 
     image = models.ImageField(upload_to='dishes/', blank=True, null=True)
+
+    # ✅ NEW: Unified allergen/additive codes (Single Source of Truth)
+    codes = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Unified allergen & additive codes (e.g., 'A,G,200,300')"
+    )
+    codes_source = models.CharField(
+        max_length=20,
+        choices=[('manual', 'Manual'), ('generated', 'Generated')],
+        default='generated',
+        help_text="Indicates whether codes were manually set or auto-generated"
+    )
+
+    # ❌ DEPRECATED: Legacy fields (kept for backwards compatibility)
     allergy_info = models.CharField(
-        max_length=255, blank=True, null=True, verbose_name="عناصر الحساسية (قديم)"
+        max_length=255, blank=True, null=True,
+        editable=False,
+        verbose_name="عناصر الحساسية (قديم - DEPRECATED)"
     )
 
     # --- جديد: ربط المكوّنات والأكواد الآلية/اليدوية ---
@@ -160,20 +178,28 @@ class Dish(models.Model):
 
     generated_codes = models.CharField(
         max_length=255, blank=True, default='',
-        help_text="الكود المتولّد آليًا بصيغة (A,C,G,1,3)."
+        editable=False,
+        help_text="DEPRECATED: Use 'codes' instead"
     )
     has_manual_codes = models.BooleanField(
-        default=False, help_text="إذا true يتم تجاهل generated_codes."
+        default=False,
+        editable=False,
+        help_text="DEPRECATED: Use 'codes_source' instead"
     )
     manual_codes = models.CharField(
         max_length=255, blank=True, null=True,
-        help_text="قيمة يدوّنية للكود بصيغة (A,C,G,1,3)."
+        editable=False,
+        help_text="DEPRECATED: Use 'codes' instead"
     )
     extra_allergens = models.JSONField(
-        default=list, blank=True, help_text="حروف إضافية على مستوى الطبق مثل ['A','G']"
+        default=list, blank=True,
+        editable=False,
+        help_text="DEPRECATED: Merge into 'codes' instead"
     )
     extra_additives = models.JSONField(
-        default=list, blank=True, help_text="أرقام إضافية على مستوى الطبق مثل [1,3]"
+        default=list, blank=True,
+        editable=False,
+        help_text="DEPRECATED: Merge into 'codes' instead"
     )
     codes_updated_at = models.DateTimeField(null=True, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
@@ -211,17 +237,25 @@ class Dish(models.Model):
     @property
     def display_codes(self) -> str:
         """
-        الكود الذي سيظهر في الواجهة:
-        1) إذا has_manual_codes=True استخدم manual_codes
-        2) وإلا إن وُجدت سجلات DishAllergen نقرأها
-        3) وإلا fallback إلى generated_codes
+        ✅ Simplified: Returns the unified codes field.
+        Backwards compatibility: Falls back to legacy fields if codes is empty.
         """
-        if self.has_manual_codes:
-            return (self.manual_codes or "").strip()
+        # Priority 1: New unified codes field
+        if self.codes:
+            return self.codes.strip()
+        
+        # Priority 2: Backwards compat - read from DishAllergen rows
         codes_from_rows = self._codes_from_allergen_rows()
         if codes_from_rows:
             return codes_from_rows
-        return (self.generated_codes or "").strip()
+        
+        # Priority 3: Legacy fallback (for old data not yet migrated)
+        if self.has_manual_codes and self.manual_codes:
+            return self.manual_codes.strip()
+        if self.generated_codes:
+            return self.generated_codes.strip()
+        
+        return ""
 
     def mark_codes_updated(self):
         self.codes_updated_at = timezone.now()

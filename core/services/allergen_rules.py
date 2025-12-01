@@ -413,10 +413,12 @@ def generate_for_dishes(
     for dish in dishes:
         processed += 1
 
-        has_manual_flag = bool(getattr(dish, "has_manual_codes", False))
-        current_value = (getattr(dish, "generated_codes", "") or "").strip()
-
-        if has_manual_flag and not force:
+        # ✅ NEW: Check codes_source instead of has_manual_codes
+        codes_source = getattr(dish, "codes_source", "generated")
+        current_value = (getattr(dish, "codes", "") or "").strip()
+        
+        # Skip manual dishes unless force=True
+        if codes_source == "manual" and not force:
             skipped += 1
             items.append({
                 "dish_id": dish.id,
@@ -448,7 +450,7 @@ def generate_for_dishes(
         # ---------- DRY RUN ----------
         if dry_run:
             action = "no_change" if new_value == current_value else "would_change"
-            if force and has_manual_flag:
+            if force and codes_source == "manual":
                 action = "would_override_manual"
             item = {
                 "dish_id": dish.id,
@@ -482,14 +484,12 @@ def generate_for_dishes(
 
         # ---------- WRITE MODE ----------
         updated_fields = []
-        if force and has_manual_flag:
-            dish.has_manual_codes = False
-            dish.manual_codes = None
-            updated_fields += ["has_manual_codes", "manual_codes"]
-
+        
+        # ✅ NEW: Write to unified codes field
         if new_value != current_value:
-            dish.generated_codes = new_value
-            updated_fields.append("generated_codes")
+            dish.codes = new_value
+            dish.codes_source = "generated"  # Mark as auto-generated
+            updated_fields += ["codes", "codes_source"]
             changed += 1
 
         if hasattr(dish, "codes_updated_at"):

@@ -302,9 +302,12 @@ const DishPage = () => {
     name: '',
     description: '',
     image: null,
+    image: null,
+    // ✅ NEW: Unified codes field
+    codes: '',
+    codes_source: 'generated',
+    // Legacy fields (kept for safety but unused)
     allergy_info: '',
-    has_manual_codes: false,
-    manual_codes: '',
   });
 
   const previewUrl = useFilePreview(newDish.image);
@@ -411,9 +414,15 @@ const DishPage = () => {
     formData.append('name', newDish.name);
     formData.append('description', newDish.description);
     formData.append('section', sectionId);
-    // Keep allergy_info for backward compatibility but don't rely on it
-    const manual = (newDish.manual_codes || '').trim();
-    formData.append('allergy_info', manual);
+    formData.append('section', sectionId);
+
+    // ✅ NEW: Calculate codes from selected allergens and send as single source of truth
+    const codes = selectedAllergens.map(a => a.code).join(',');
+    formData.append('codes', codes);
+    formData.append('codes_source', 'manual'); // Always manual when edited via UI
+
+    // Legacy support (optional)
+    formData.append('allergy_info', codes);
     if (newDish.image) formData.append('image', newDish.image);
 
     const pricesClean = formPrices
@@ -450,7 +459,10 @@ const DishPage = () => {
         await Promise.all(toDelete.map((id) => axios.delete(`/v2/dishes/${dishId}/prices/${id}/`)));
       }
 
-      setNewDish({ name: '', description: '', image: null, allergy_info: '', has_manual_codes: false, manual_codes: '' });
+
+
+      // Reset form
+      setNewDish({ name: '', description: '', image: null, codes: '', codes_source: 'generated', allergy_info: '' });
       setSelectedAllergens([]);
       setFormPrices([{ id: undefined, label: '', price: '', is_default: true, sort_order: 0 }]);
       setOriginalPriceIds(new Set());
@@ -467,17 +479,18 @@ const DishPage = () => {
       name: dish.name || '',
       description: dish.description || '',
       image: null,
+      image: null,
+      codes: dish.codes || '',
+      codes_source: dish.codes_source || 'generated',
       allergy_info: dish.allergy_info || '',
-      has_manual_codes: !!dish.has_manual_codes,
-      manual_codes: (dish.manual_codes || dish.display_codes || dish.allergy_info || ''),
     });
 
-    // Load manual allergens from allergen_rows
-    if (dish.allergen_rows && Array.isArray(dish.allergen_rows)) {
-      const manualRows = dish.allergen_rows.filter(row => row.source === 'manual');
-      const manualAllergenIds = new Set(manualRows.map(row => row.allergen?.id || row.allergen).filter(Boolean));
-      const selectedFromCatalog = allergenCatalog.filter(a => manualAllergenIds.has(a.id));
-      setSelectedAllergens(selectedFromCatalog);
+    // ✅ NEW: Load selected allergens from 'codes' string (Single Source of Truth)
+    const codesString = dish.codes || dish.display_codes || '';
+    if (codesString && allergenCatalog.length > 0) {
+      const codesList = codesString.split(',').map(c => c.trim().toUpperCase());
+      const selected = allergenCatalog.filter(a => codesList.includes(a.code));
+      setSelectedAllergens(selected);
     } else {
       setSelectedAllergens([]);
     }

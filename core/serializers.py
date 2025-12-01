@@ -517,6 +517,15 @@ class DishSerializer(serializers.ModelSerializer):
         many=True, queryset=Ingredient.objects.all(), required=False
     )
 
+    # ✅ NEW: Unified codes fields (writable)
+    codes = serializers.CharField(required=False, allow_blank=True)
+    codes_source = serializers.ChoiceField(
+        choices=[('manual', 'Manual'), ('generated', 'Generated')],
+        required=False,
+        default='generated'
+    )
+    
+    # ❌ DEPRECATED: Legacy fields (kept for backwards compat)
     generated_codes = serializers.CharField(required=False, allow_blank=True)
     has_manual_codes = serializers.BooleanField(required=False)
     manual_codes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -526,6 +535,8 @@ class DishSerializer(serializers.ModelSerializer):
     extra_additives = serializers.ListField(
         child=serializers.IntegerField(), required=False
     )
+    
+    # Read-only display
     display_codes = serializers.CharField(read_only=True)
 
     # ✅ الشرح الألماني للأكواد المعروضة
@@ -540,10 +551,11 @@ class DishSerializer(serializers.ModelSerializer):
             "id", "name", "description",
             "price", "prices",
             "image", "image_url",
-            # الحقول القديمة:
-            "allergy_info", "section",
-            # النظام الجديد:
+            # النظام الجديد الموحّد:
+            "codes", "codes_source",
             "ingredients",
+            # الحقول القديمة (DEPRECATED):
+            "allergy_info", "section",
             "generated_codes", "has_manual_codes", "manual_codes",
             "extra_allergens", "extra_additives",
             "display_codes",

@@ -832,16 +832,16 @@ function MenusPage({ token }) {
       const llm = res?.data?.llm || null;
 
       setGenRules(rules);
-      const shaped = shapePreviewFromRules(rules, true);
+      const shaped = shapePreviewFromRules(rules, false); // Backend runs with dry_run=False
       setGenPreview(shaped.rows);
       setGenCounts({
         processed: shaped.counters?.count ?? 0,
         skipped: (rules?.items || []).filter((it) => it.skipped).length,
-        changed: shaped.rows.filter((r) => r.action === 'would_change' || r.action === 'would_override_manual').length,
+        changed: shaped.rows.filter((r) => r.action === 'changed').length,
         missingAfterRules: shaped.missingCount,
       });
       setGenLLM(llm || null);
-      setGenDryRun(true);
+      setGenDryRun(false); // Backend actually wrote the codes
     } catch (e) {
       console.error(e);
       const serverMsg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.failed_preview_allergens');
