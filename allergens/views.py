@@ -2,7 +2,7 @@
 # allergens/views.py
 # ==========================================
 from django.http import HttpResponse, StreamingHttpResponse
-from django.db.models import Q, Subquery
+from django.db.models import Q, Subquery, ProtectedError
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -277,7 +277,18 @@ class AllergenCodeDetailView(APIView):
         obj = self._get_obj(pk)
         if not obj:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        obj.delete()
+        try:
+            obj.delete()
+        except ProtectedError as e:
+            # e.args[1] contains the set of related objects that caused the error
+            # We can format a nice message
+            return Response(
+                {
+                    "detail": "Cannot delete this allergen because it is currently assigned to dishes or ingredients.",
+                    "error_code": "PROTECTED_ERROR"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

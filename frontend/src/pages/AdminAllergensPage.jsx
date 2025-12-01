@@ -236,7 +236,7 @@ export default function AdminAllergensPage() {
       setOkMsg("تم الحذف بنجاح");
       loadItems();
     } catch (e) {
-      setError("فشل الحذف");
+      setError(e?.response?.data?.detail || "فشل الحذف");
     } finally {
       setLoading(false);
     }
