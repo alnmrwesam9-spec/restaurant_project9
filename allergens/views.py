@@ -601,8 +601,11 @@ class KeywordLexemeImportCSV(APIView):
         if not f:
             return Response({"detail": "CSV مفقود"}, status=400)
 
-        data = io.TextIOWrapper(f.file, encoding="utf-8", errors="ignore")
-        r = csv.DictReader(data)
+        try:
+            data = io.TextIOWrapper(f.file, encoding="utf-8-sig", errors="ignore")
+            r = csv.DictReader(data)
+        except Exception as e:
+            return Response({"detail": f"Failed to read CSV: {str(e)}"}, status=400)
 
         upserted, errors = 0, 0
 
@@ -630,54 +633,89 @@ class KeywordLexemeImportCSV(APIView):
                 except Exception:
                     weight = 0
 
-                # ingredient_id (اختياري)
-                raw_ing = (row.get("ingredient_id") or "").strip()
-                ingredient_id = int(raw_ing) if raw_ing.isdigit() else None
+                # ✅ NEW: Parse allergens as codes (e.g., "A,G,300")
+                # Supports columns: allergens, allergen_codes, codes
+                allergens_raw = (
+                    row.get("allergens") or 
+                    row.get("allergen_codes") or 
+                    row.get("codes") or 
+                    row.get("allergens_ids") or  # Backwards compat
+                    ""
+                ).strip()
+                
+                allergen_codes = []
+                if allergens_raw:
+                    # Split on comma or space, clean, uppercase
+                    allergen_codes = [
+                        c.strip().upper() 
+                        for c in re.split(r"[,\s]+", allergens_raw) 
+                        if c.strip()
+                    ]
 
-                # --- حساسيّات: إمّا IDs أو أكواد حرفية ---
-                # 1) IDs بصيغة "1,5,9"
-                ids_from_csv = [int(x) for x in (row.get("allergens_ids") or "").split(",") if x.strip().isdigit()]
+                # ✅ NEW: Parse ingredient as name (e.g., "Weizenmehl")
+                # Supports columns: ingredient, ingredient_name
+                ingredient_name = (
+                    row.get("ingredient") or 
+                    row.get("ingredient_name") or 
+                    ""
+                ).strip()
 
-                # 2) Codes بصيغة "A,G,J" أو "a g j"
-                codes_raw = (row.get("allergen_codes") or row.get("codes") or "").strip()
-                code_tokens = [c.strip().upper() for c in re.split(r"[,\s]+", codes_raw) if c.strip()]
-                ids_from_codes = []
-                if code_tokens:
-                    ids_from_codes = list(
-                        Allergen.objects.filter(code__in=code_tokens).values_list("id", flat=True)
-                    )
+                # Prepare data for serializer
+                lexeme_data = {
+                    "owner": owner_id,
+                    "lang": lang,
+                    "term": term,
+                    "is_regex": is_regex,
+                    "is_active": is_active,
+                    "priority": priority,
+                    "weight": weight,
+                }
 
-                # المجموع النهائي (لو وُجد الاثنان يتم دمجهما)
-                final_allergen_ids = sorted(set(ids_from_csv) | set(ids_from_codes))
+                # Add allergens if present (as codes for SlugRelatedField)
+                if allergen_codes:
+                    lexeme_data["allergens"] = allergen_codes
 
-                # upsert بمفتاح (owner, lang, normalized_term)
-                lx, _ = KeywordLexeme.objects.update_or_create(
+                # Add ingredient if present (as name for SlugRelatedField)
+                if ingredient_name:
+                    lexeme_data["ingredient"] = ingredient_name
+
+                # Use serializer for validation and creation
+                # First, check if lexeme exists
+                lx = KeywordLexeme.objects.filter(
                     owner_id=owner_id,
                     lang=lang,
-                    normalized_term=_norm(term),
-                    defaults={
-                        "term": term,
-                        "is_regex": is_regex,
-                        "ingredient_id": ingredient_id,
-                        "is_active": is_active,
-                        "priority": priority,
-                        "weight": weight,
-                    },
-                )
+                    normalized_term=_norm(term)
+                ).first()
 
-                # ربط الحساسيّات
-                if final_allergen_ids:
-                    lx.allergens.set(final_allergen_ids)
+                if lx:
+                    # Update existing
+                    serializer = KeywordLexemeSerializer(lx, data=lexeme_data, partial=False)
                 else:
-                    lx.allergens.clear()
+                    # Create new
+                    serializer = KeywordLexemeSerializer(data=lexeme_data)
 
-                upserted += 1
+                if serializer.is_valid():
+                    serializer.save()
+                    upserted += 1
+                else:
+                    # Log validation errors for debugging
+                    print(f"⚠️ Lexeme validation failed for term '{term}': {serializer.errors}")
+                    errors += 1
 
-            except Exception:
+            except Exception as e:
+                print(f"❌ Error processing lexeme row '{term}': {e}")
                 errors += 1
                 continue
 
-        return Response({"ok": True, "count": upserted, "errors": errors}, status=200)
+        return Response(
+            {
+                "ok": True, 
+                "count": upserted, 
+                "errors": errors,
+                "detail": f"Imported {upserted} lexemes, {errors} errors."
+            }, 
+            status=200
+        )
 
 
 # ==========================================
@@ -812,72 +850,94 @@ class IngredientBulkUploadCSV(APIView):
                 raise PermissionDenied("Invalid owner value.")
         _ensure_owner_write_permission(request, owner_id)
 
-        data = io.TextIOWrapper(f.file, encoding="utf-8-sig", errors="ignore")
-        r = csv.DictReader(data)
+        try:
+            data = io.TextIOWrapper(f.file, encoding="utf-8-sig", errors="ignore")
+            r = csv.DictReader(data)
+        except Exception as e:
+            return Response({"detail": f"Failed to read CSV: {str(e)}"}, status=400)
 
         created = updated = skipped = errors = 0
-
-        def _split_nums(s):
-            if not s:
-                return []
-            return [int(x) for x in re.findall(r"\d+", str(s))]
+        
+        # Helper to clean and split strings
+        def _clean_split(s):
+            if not s: return []
+            return [x.strip() for x in re.split(r"[,\s]+", str(s)) if x.strip()]
 
         for row in r:
             try:
+                # 1. Name (Required)
                 name = (row.get("name") or "").strip()
                 if not name:
                     skipped += 1
                     continue
 
-                # حساسيّات عبر الأكواد أو الـ IDs
+                # 2. Parse Allergens (Codes A-N)
+                # Supports "allergen_codes" or "codes"
                 codes_raw = (row.get("allergen_codes") or row.get("codes") or "").strip()
-                code_tokens = [c.strip().upper() for c in re.split(r"[,\s]+", codes_raw) if c.strip()]
-                ids_from_codes = list(
-                    Allergen.objects.filter(code__in=code_tokens).values_list("id", flat=True)
-                ) if code_tokens else []
-
-                ids_raw = (row.get("allergens_ids") or "").strip()
-                ids_from_csv = [int(x) for x in ids_raw.split(",") if x.strip().isdigit()]
-
-                allergen_ids = sorted(set(ids_from_codes) | set(ids_from_csv))
-
-                # إضافات (أرقام)
-                additives = ",".join(str(n) for n in _split_nums(row.get("additives")))
-
-                # مرادفات (نص كما هو)
-                synonyms = (row.get("synonyms") or "").strip()
-
-                # upsert بمفتاح (owner, name) — نحاول case-insensitive
-                ing = Ingredient.objects.filter(owner_id=owner_id, name__iexact=name).first()
-                if ing:
-                    changed = False
-                    if getattr(ing, "additives", "") != additives:
-                        ing.additives = additives
-                        changed = True
-                    if getattr(ing, "synonyms", "") != synonyms:
-                        ing.synonyms = synonyms
-                        changed = True
-                    if changed:
-                        ing.save()
-                    updated += 1
-                else:
-                    ing = Ingredient.objects.create(
-                        owner_id=owner_id, name=name, additives=additives, synonyms=synonyms
+                code_tokens = _clean_split(codes_raw)
+                
+                # 3. Parse Additives (Numeric codes)
+                # Supports "additives" column
+                adds_raw = (row.get("additives") or "").strip()
+                add_tokens = _clean_split(adds_raw)
+                
+                # Combine all codes to lookup
+                all_codes = set(code.upper() for code in code_tokens + add_tokens)
+                
+                # Lookup Allergen IDs
+                # We match against 'code' field in Allergen model
+                allergen_ids = []
+                if all_codes:
+                    allergen_ids = list(
+                        Allergen.objects.filter(code__in=all_codes).values_list("id", flat=True)
                     )
-                    created += 1
 
-                # ربط الحساسيّات
+                # 4. Synonyms
+                syns_raw = (row.get("synonyms") or "").strip()
+                # If it looks like a list "a, b", split it. Otherwise keep as string or single item list.
+                # The model expects a JSON list.
+                if "," in syns_raw:
+                    synonyms = [s.strip() for s in syns_raw.split(",") if s.strip()]
+                else:
+                    synonyms = [syns_raw] if syns_raw else []
+
+                # 5. Upsert Ingredient
+                ing, was_created = Ingredient.objects.update_or_create(
+                    owner_id=owner_id,
+                    name__iexact=name,
+                    defaults={
+                        "name": name, # Update name case if needed
+                        "synonyms": synonyms
+                    }
+                )
+
+                # 6. Set Allergens (M2M)
                 if allergen_ids:
                     ing.allergens.set(allergen_ids)
                 else:
+                    # If no allergens provided in CSV, should we clear them? 
+                    # Usually yes for a full sync, or maybe keep existing?
+                    # Let's assume CSV is the source of truth for this row.
                     ing.allergens.clear()
 
-            except Exception:
+                if was_created:
+                    created += 1
+                else:
+                    updated += 1
+
+            except Exception as e:
+                print(f"Error processing row {name}: {e}")
                 errors += 1
                 continue
 
         return Response(
-            {"created": created, "updated": updated, "skipped": skipped, "errors": errors},
+            {
+                "created": created,
+                "updated": updated,
+                "skipped": skipped,
+                "errors": errors,
+                "detail": f"Processed: {created} created, {updated} updated."
+            },
             status=200,
         )
 

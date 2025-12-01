@@ -39,6 +39,7 @@ urlpatterns = [
 
 # --- Ingredients aliases for backward-compat ---
     path("ingredients/bulk-upload/", IngredientBulkUploadCSV.as_view(), name="ingredients-bulk"),
+    path("ingredients/import/",      IngredientBulkUploadCSV.as_view(), name="ingredients-import"),  # Added to match frontend
     path("ingredients/export/",      IngredientExportCSV.as_view(),      name="ingredients-export"),
 
     # --- Router (ingredients + lexemes) ---
