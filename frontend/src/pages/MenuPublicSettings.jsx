@@ -211,6 +211,9 @@ export default function MenuPublicSettings() {
     phone: '',
     whatsapp: '',
     address: '',
+    social_tiktok: '',
+    social_instagram: '',
+    social_facebook: '',
     hours: '',
     logo: null,
     logo_url: '',
@@ -245,6 +248,9 @@ export default function MenuPublicSettings() {
       phone: d.phone || '',
       whatsapp: d.whatsapp || '',
       address: d.address || '',
+      social_tiktok: d.social_tiktok || '',
+      social_instagram: d.social_instagram || '',
+      social_facebook: d.social_facebook || '',
       hours: d.hours || '',
       logo: null,
       logo_url: d.logo || '',
@@ -334,6 +340,9 @@ export default function MenuPublicSettings() {
         fd.append('whatsapp', form.whatsapp.trim());
       }
       fd.append('address', form.address);
+      fd.append('social_tiktok', form.social_tiktok || '');
+      fd.append('social_instagram', form.social_instagram || '');
+      fd.append('social_facebook', form.social_facebook || '');
       // Compact hours if too large for backend CharField(255)
       const compactHours = (() => {
         const val = form.hours || '';
@@ -780,6 +789,42 @@ export default function MenuPublicSettings() {
                 size={isSmDown ? 'small' : 'medium'}
                 sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
               />
+
+              {/* Social Media Links */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 800 }}>
+                  {tOr('social_media_links', 'روابط التواصل الاجتماعي')}
+                </Typography>
+                <Stack spacing={2}>
+                  <TextField
+                    label={tOr('tiktok_link', 'TikTok Link')}
+                    placeholder="https://www.tiktok.com/@restaurant"
+                    value={form.social_tiktok}
+                    onChange={(e) => update('social_tiktok', e.target.value)}
+                    fullWidth
+                    size={isSmDown ? 'small' : 'medium'}
+                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                  />
+                  <TextField
+                    label={tOr('instagram_link', 'Instagram Link')}
+                    placeholder="https://www.instagram.com/restaurant"
+                    value={form.social_instagram}
+                    onChange={(e) => update('social_instagram', e.target.value)}
+                    fullWidth
+                    size={isSmDown ? 'small' : 'medium'}
+                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                  />
+                  <TextField
+                    label={tOr('facebook_link', 'Facebook Link')}
+                    placeholder="https://www.facebook.com/restaurant"
+                    value={form.social_facebook}
+                    onChange={(e) => update('social_facebook', e.target.value)}
+                    fullWidth
+                    size={isSmDown ? 'small' : 'medium'}
+                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                  />
+                </Stack>
+              </Box>
 
               {/* Theme mode */}
               <Box data-tour="theme-mode">

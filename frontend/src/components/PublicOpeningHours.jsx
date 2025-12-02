@@ -7,7 +7,7 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 
-const DAY_KEYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const parseCompact = (str) => {
   try {
@@ -19,15 +19,15 @@ const parseCompact = (str) => {
       const code = m[1].toLowerCase();
       let idx = null;
       if (code.startsWith('d')) idx = parseInt(m[2], 10);
-      else { const map = { mo:0, tu:1, we:2, th:3, fr:4, sa:5, su:6 }; idx = map[code]; }
+      else { const map = { mo: 0, tu: 1, we: 2, th: 3, fr: 4, sa: 5, su: 6 }; idx = map[code]; }
       const key = DAY_KEYS[idx];
       const enabled = m[3] === '1';
       const times = (m[4] || '').split(',').map(s => s.trim()).filter(Boolean);
-      const slots = times.map(t => { const [a,b] = t.split('-'); return { from: a, to: b }; });
+      const slots = times.map(t => { const [a, b] = t.split('-'); return { from: a, to: b }; });
       days[key] = { enabled, slots };
     }
     if (Object.keys(days).length) return days;
-  } catch {}
+  } catch { }
   return null;
 };
 
@@ -35,39 +35,39 @@ const parseHours = (value) => {
   try {
     const obj = JSON.parse(value);
     if (obj && typeof obj === 'object') return obj.days || obj;
-  } catch {}
+  } catch { }
   const compact = parseCompact(value);
   if (compact) return compact;
   return null; // not JSON / no compact
 };
 
 const dayLabel = (index, language) => {
-  const base = new Date(Date.UTC(2021,0,4+index));
+  const base = new Date(Date.UTC(2021, 0, 4 + index));
   const lang = (language || 'de').startsWith('ar') ? 'ar' : (language || 'de');
   return base.toLocaleDateString(lang, { weekday: 'long' });
 };
 
 const toMinutes = (hhmm) => {
   if (!hhmm) return null;
-  const [h,m] = String(hhmm).split(':').map((n)=>parseInt(n,10));
+  const [h, m] = String(hhmm).split(':').map((n) => parseInt(n, 10));
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  return h*60 + m;
+  return h * 60 + m;
 };
 
 function isOpenNow(daysMap) {
   if (!daysMap) return false;
   const now = new Date();
   const w = now.getDay(); // 0=Sun
-  const index = (w+6)%7; // 0=Mon
+  const index = (w + 6) % 7; // 0=Mon
   const key = DAY_KEYS[index];
   const d = daysMap[key];
   if (!d || !d.enabled) return false;
-  const cur = now.getHours()*60 + now.getMinutes();
+  const cur = now.getHours() * 60 + now.getMinutes();
   for (const s of d.slots || []) {
     const a = toMinutes(s.from); const b = toMinutes(s.to);
-    if (a==null || b==null) continue;
-    if (a<=b) { if (cur>=a && cur<=b) return true; }
-    else { if (cur>=a || cur<=b) return true; }
+    if (a == null || b == null) continue;
+    if (a <= b) { if (cur >= a && cur <= b) return true; }
+    else { if (cur >= a || cur <= b) return true; }
   }
   return false;
 }
@@ -100,7 +100,7 @@ function computeNextTransition(daysMap) {
     if (!day || !day.enabled) continue;
     for (const s of day.slots || []) {
       const a = toMinutes(s.from); const b = toMinutes(s.to);
-      if (a==null || b==null) continue;
+      if (a == null || b == null) continue;
       const startHM = parseHM(s.from); const endHM = parseHM(s.to);
       const start = buildAbs(now, d, startHM);
       let end = buildAbs(now, d, endHM);
@@ -131,7 +131,17 @@ function formatTime(d, language) {
   return d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: is12h });
 }
 
-export default function PublicOpeningHours({ hours, address, phone, whatsapp, language = 'de' }) {
+import FacebookIcon from '@mui/icons-material/Facebook';
+import InstagramIcon from '@mui/icons-material/Instagram';
+
+// Custom TikTok Icon since it's not in MUI and react-icons might not be installed
+const TikTokIcon = (props) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" {...props}>
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+  </svg>
+);
+
+export default function PublicOpeningHours({ hours, address, phone, whatsapp, social_tiktok, social_instagram, social_facebook, language = 'de' }) {
   const langKey = (language || 'de').startsWith('ar') ? 'ar' : ((language || 'de').startsWith('de') ? 'de' : 'en');
   const TXT = {
     en: { opening: 'Opening Hours', open: 'Open now', closed: 'Closed', closesAt: 'closes at', opensAt: 'opens at' },
@@ -147,11 +157,11 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, la
       const k = 'public.openingHours.expanded';
       const saved = localStorage.getItem(k);
       if (saved != null) setExpanded(saved === '1');
-    } catch {}
+    } catch { }
   }, []);
   const toggleExpanded = () => {
     setExpanded((e) => {
-      const v = !e; try { localStorage.setItem('public.openingHours.expanded', v ? '1' : '0'); } catch {}
+      const v = !e; try { localStorage.setItem('public.openingHours.expanded', v ? '1' : '0'); } catch { }
       return v;
     });
   };
@@ -161,18 +171,18 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, la
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
         <Stack spacing={1} sx={{ minWidth: { md: 260 } }}>
           <Stack direction="row" spacing={1} alignItems="center">
-            <ScheduleIcon fontSize="small"/>
+            <ScheduleIcon fontSize="small" />
             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{TXT.opening}</Typography>
             <Chip
               size="small"
               icon={open ? <CheckCircleRoundedIcon sx={{ color: '#fff !important' }} /> : <CancelRoundedIcon sx={{ color: '#fff !important' }} />}
               label={open ? `${TXT.open}${status.closesAt ? ` • ${TXT.closesAt} ${formatTime(status.closesAt, language)}` : ''}`
-                           : `${TXT.closed}${status.nextOpenAt ? ` • ${TXT.opensAt} ${formatTime(status.nextOpenAt, language)}` : ''}`}
+                : `${TXT.closed}${status.nextOpenAt ? ` • ${TXT.opensAt} ${formatTime(status.nextOpenAt, language)}` : ''}`}
               sx={{ ml: 1, borderRadius: 999, bgcolor: open ? '#16a34a' : '#ef4444', color: '#fff', height: 24, '& .MuiChip-label': { px: 1 } }}
             />
             <Box sx={{ flex: 1 }} />
             <Typography onClick={toggleExpanded} variant="caption" sx={{ cursor: 'pointer', userSelect: 'none', color: '#64748b' }}>
-              {expanded ? (langKey==='ar' ? 'إخفاء' : (langKey==='de' ? 'Weniger' : 'Less')) : (langKey==='ar' ? 'عرض المزيد' : (langKey==='de' ? 'Mehr anzeigen' : 'Show more'))}
+              {expanded ? (langKey === 'ar' ? 'إخفاء' : (langKey === 'de' ? 'Weniger' : 'Less')) : (langKey === 'ar' ? 'عرض المزيد' : (langKey === 'de' ? 'Mehr anzeigen' : 'Show more'))}
             </Typography>
             <IconButton size="small" onClick={toggleExpanded} aria-label={expanded ? 'Collapse' : 'Expand'}>
               <span style={{ display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>▾</span>
@@ -196,7 +206,7 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, la
                     <Stack key={k} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5, opacity: !d || !d.enabled ? 0.65 : 1 }}>
                       <Typography sx={{ width: 140, minWidth: 140, fontWeight: isToday ? 800 : 600 }}>{label}</Typography>
                       <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        {(!d || !d.enabled || !(d.slots||[]).length) ? (
+                        {(!d || !d.enabled || !(d.slots || []).length) ? (
                           <Chip size="small" label={TXT.closed} sx={{ borderRadius: 999, bgcolor: '#fee2e2', color: '#b91c1c', height: 22 }} />
                         ) : (
                           (d.slots || []).map((s, idx) => (
@@ -231,10 +241,55 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, la
             <Stack direction="row" spacing={1} alignItems="center">
               <WhatsAppIcon fontSize="small" />
               <Typography variant="body2">
-                <a href={`https://wa.me/${String(whatsapp).replace(/\D+/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{whatsapp}</a>
+                <a href={`https://wa.me/${String(whatsapp).replace(/\D+/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{whatsapp}</a>
               </Typography>
             </Stack>
           ) : null}
+
+          {/* Social Media Links */}
+          {(social_tiktok || social_instagram || social_facebook) && (
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ pt: 0.5 }}>
+              {social_instagram && (
+                <IconButton
+                  component="a"
+                  href={social_instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="small"
+                  sx={{ color: '#E1306C', bgcolor: '#fdf2f8', '&:hover': { bgcolor: '#fce7f3' } }}
+                  title="Instagram"
+                >
+                  <InstagramIcon fontSize="small" />
+                </IconButton>
+              )}
+              {social_facebook && (
+                <IconButton
+                  component="a"
+                  href={social_facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="small"
+                  sx={{ color: '#1877F2', bgcolor: '#eff6ff', '&:hover': { bgcolor: '#dbeafe' } }}
+                  title="Facebook"
+                >
+                  <FacebookIcon fontSize="small" />
+                </IconButton>
+              )}
+              {social_tiktok && (
+                <IconButton
+                  component="a"
+                  href={social_tiktok}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="small"
+                  sx={{ color: '#000000', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb' } }}
+                  title="TikTok"
+                >
+                  <TikTokIcon />
+                </IconButton>
+              )}
+            </Stack>
+          )}
         </Stack>
       </Stack>
     </Paper>

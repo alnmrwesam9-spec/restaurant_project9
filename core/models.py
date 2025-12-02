@@ -359,6 +359,10 @@ class MenuDisplaySettings(models.Model):
     hero_crop = models.CharField(max_length=16, blank=True, default='center')
     theme = models.TextField(blank=True, default='default')
     show_images = models.BooleanField(default=True)
+    # Social media links
+    social_tiktok = models.CharField(max_length=255, blank=True, default='', help_text='TikTok profile URL')
+    social_instagram = models.CharField(max_length=255, blank=True, default='', help_text='Instagram profile URL')
+    social_facebook = models.CharField(max_length=255, blank=True, default='', help_text='Facebook profile URL')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

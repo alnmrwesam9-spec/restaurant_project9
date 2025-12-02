@@ -742,7 +742,7 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MenuDisplaySettings
-        fields = ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'logo', 'hero_image', 'hero_crop', 'theme', 'show_images']
+        fields = ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'logo', 'hero_image', 'hero_crop', 'theme', 'show_images', 'social_tiktok', 'social_instagram', 'social_facebook']
 
     # ✅ تنظيف/تحقق الصور (logo, hero_image)
     def validate_logo(self, file):
@@ -807,7 +807,7 @@ class MenuDisplaySettingsSerializer(serializers.ModelSerializer):
             except Exception:
                 pass
         
-        for k in ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'hero_crop', 'theme', 'show_images']:
+        for k in ['display_name', 'phone', 'whatsapp', 'address', 'hours', 'hero_crop', 'theme', 'show_images', 'social_tiktok', 'social_instagram', 'social_facebook']:
             if k in validated_data:
                 setattr(instance, k, validated_data[k])
         if 'logo' in validated_data:
@@ -841,6 +841,7 @@ class PublicDishSerializer(serializers.ModelSerializer):
             "allergen_explanation_de",
             "sort_order",
             "is_favorite",
+            "extras",  # ✅ NEW: Display extras in public menu
         ]
         read_only_fields = ["image", "image_url", "prices", "display_codes", "allergen_explanation_de", "sort_order"]
 

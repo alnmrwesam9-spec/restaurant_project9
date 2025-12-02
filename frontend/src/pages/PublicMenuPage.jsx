@@ -536,6 +536,9 @@ export default function PublicMenuPage() {
             address={ds.address || rp.address}
             phone={ds.phone || rp.phone}
             whatsapp={ds.whatsapp}
+            social_tiktok={ds.social_tiktok}
+            social_instagram={ds.social_instagram}
+            social_facebook={ds.social_facebook}
             language={i18n.language}
           />
         </Box>
@@ -786,6 +789,98 @@ export default function PublicMenuPage() {
               );
             })()}
 
+            {/* ✅ NEW: Optional Extras Display (Collapsible) */}
+            {(() => {
+              const dishExtras = selectedDish?.extras || [];
+              if (!Array.isArray(dishExtras) || dishExtras.length === 0) return null;
+
+              return (
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Box
+                    onClick={(e) => {
+                      const parent = e.currentTarget.parentElement;
+                      const content = parent.querySelector('.extras-content');
+                      const icon = parent.querySelector('.extras-icon');
+                      if (content && icon) {
+                        const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                        content.style.maxHeight = isOpen ? '0px' : `${content.scrollHeight}px`;
+                        icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                      }
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      py: 1,
+                      px: 1.5,
+                      borderRadius: 1.5,
+                      bgcolor: '#f8fafc',
+                      border: '1px solid #e5e7eb',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#f1f5f9',
+                        borderColor: '#cbd5e1'
+                      }
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        color: '#64748b',
+                        fontWeight: 600,
+                        fontSize: `calc(0.8rem * ${parsedTheme.scale || 1})`
+                      }}
+                    >
+                      Optionale Extras ({dishExtras.length})
+                    </Typography>
+
+                    <Box
+                      className="extras-icon"
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'transform 0.3s ease',
+                        color: '#94a3b8'
+                      }}
+                    >
+                      ▼
+                    </Box>
+                  </Box>
+
+                  <Box
+                    className="extras-content"
+                    sx={{
+                      maxHeight: 0,
+                      overflow: 'hidden',
+                      transition: 'max-height 0.3s ease',
+                      pt: 0
+                    }}
+                  >
+                    <Stack spacing={0.5} sx={{ pt: 1.5, px: 1.5 }}>
+                      {dishExtras.map((extra, idx) => (
+                        <Typography
+                          key={idx}
+                          variant="caption"
+                          sx={{
+                            color: '#475569',
+                            display: 'block',
+                            fontSize: `calc(0.85rem * ${parsedTheme.scale || 1})`,
+                            lineHeight: 1.5
+                          }}
+                        >
+                          – {extra.name} (+{formatPriceEUR(extra.price, i18n.language === 'ar' ? 'de-DE' : i18n.language)})
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Box>
+                </Box>
+              );
+            })()}
+
             {/* ⚠️ لا نعرض أي عبارات شرح للحساسية داخل الحوار (رموز فقط) */}
 
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
@@ -811,14 +906,15 @@ export default function PublicMenuPage() {
             </Box>
           </Box>
 
+
           {/* زر الإغلاق: يمين و zIndex أعلى من الرموز */}
           <IconButton
             onClick={() => setSelectedDish(null)}
             sx={{
               position: 'absolute',
               top: 8,
-              right: 8,             // ✅ يمين
-              zIndex: 6,            // ✅ فوق الرموز
+              right: 8,
+              zIndex: 6,
               bgcolor: 'rgba(255,255,255,0.92)',
               border: '1px solid rgba(0,0,0,0.06)'
             }}
@@ -826,7 +922,9 @@ export default function PublicMenuPage() {
             <CloseIcon />
           </IconButton>
         </Dialog>
-      )}
+      )
+      }
+
 
       <style>{`
         @media print {
@@ -836,7 +934,7 @@ export default function PublicMenuPage() {
           img, .MuiCard-root { break-inside: avoid; page-break-inside: avoid; }
         }
       `}</style>
-    </Box>
+    </Box >
   );
 }
 
