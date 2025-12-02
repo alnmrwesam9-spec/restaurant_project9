@@ -438,6 +438,8 @@ class AllergenGenerateView(APIView):
         use_llm = bool(data.get("use_llm", False))
         force_regenerate = bool(data.get("force_regenerate", False))
 
+        dry_run = bool(data.get("dry_run", True))
+
         if not isinstance(dish_ids, list) or not dish_ids:
             return Response(
                 {"detail": "dish_ids must be a non-empty array"},
@@ -477,7 +479,7 @@ class AllergenGenerateView(APIView):
             owner_id=owner_id,
             lang="de",  # German-only workflow
             force=force_regenerate,
-            dry_run=False,  # Actually modify the dishes
+            dry_run=dry_run,  # Use the flag from request
             include_details=True,  # Include provenance
             extra_owner_ids=[user.id] if user.id != owner_id else None,
         )

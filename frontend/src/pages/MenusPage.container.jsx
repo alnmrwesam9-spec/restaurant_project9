@@ -773,6 +773,7 @@ function MenusPage({ token }) {
       force_regenerate: !!genForce,
       use_llm: !!genUseLLM,
       dish_ids: ids,
+      dry_run: !!dry, // ✅ Send explicit dry_run flag
     };
     if (!base.dish_ids || base.dish_ids.length === 0) delete base.dish_ids;
     return base;
@@ -832,16 +833,16 @@ function MenusPage({ token }) {
       const llm = res?.data?.llm || null;
 
       setGenRules(rules);
-      const shaped = shapePreviewFromRules(rules, false); // Backend runs with dry_run=False
+      const shaped = shapePreviewFromRules(rules, true); // ✅ Preview mode
       setGenPreview(shaped.rows);
       setGenCounts({
         processed: shaped.counters?.count ?? 0,
         skipped: (rules?.items || []).filter((it) => it.skipped).length,
-        changed: shaped.rows.filter((r) => r.action === 'changed').length,
+        changed: shaped.rows.filter((r) => r.action === 'would_change' || r.action === 'would_override_manual').length,
         missingAfterRules: shaped.missingCount,
       });
       setGenLLM(llm || null);
-      setGenDryRun(false); // Backend actually wrote the codes
+      setGenDryRun(true); // ✅ Preview mode
     } catch (e) {
       console.error(e);
       const serverMsg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.failed_preview_allergens');
