@@ -131,6 +131,12 @@ class Section(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sections'
     )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Optional public subtitle/description shown under the section name."
+    )
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:

@@ -15,12 +15,18 @@ import {
   CircularProgress,
   IconButton,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import FastfoodIcon from '@mui/icons-material/Fastfood';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useTranslation } from 'react-i18next';
 
 // @dnd-kit imports
@@ -42,7 +48,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 // Sortable Section Component
-function SortableSection({ section, t, isRTL }) {
+function SortableSection({ section, t, isRTL, onEdit }) {
   const {
     attributes,
     listeners,
@@ -94,15 +100,31 @@ function SortableSection({ section, t, isRTL }) {
         </Box>
 
         <FastfoodIcon sx={{ color: 'primary.main' }} />
-        <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-          {section.name}
-        </Typography>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {section.name}
+          </Typography>
+          {section.description && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {section.description}
+            </Typography>
+          )}
+        </Box>
 
         <Divider
           flexItem
           orientation="vertical"
           sx={{ mx: 1, display: { xs: 'none', sm: 'block' } }}
         />
+
+        <IconButton
+          size="small"
+          onClick={() => onEdit(section)}
+          sx={{ color: 'primary.main' }}
+          title={t('edit') || 'Edit'}
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
 
         <Button
           variant="outlined"
@@ -129,6 +151,17 @@ const SectionPage = () => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Edit dialog state
+  const [editDialog, setEditDialog] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Delete confirmation dialog
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -172,6 +205,60 @@ const SectionPage = () => {
     }
   };
 
+  const handleEdit = (section) => {
+    setEditingSection(section);
+    setEditName(section.name || '');
+    setEditDescription(section.description || '');
+    setEditDialog(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) {
+      setError(t('section_name_required') || 'اسم القسم مطلوب.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await axios.patch(`/sections/${editingSection.id}/`, {
+        name: editName.trim(),
+        description: editDescription.trim(),
+      });
+      setEditDialog(false);
+      setEditingSection(null);
+      await fetchSections();
+      setError('');
+    } catch (err) {
+      console.error('Update section error:', err.response?.data || err.message);
+      setError(t('update_section_failed') || 'فشل تحديث القسم.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!editingSection) return;
+
+    setDeleting(true);
+    try {
+      await axios.delete(`/sections/${editingSection.id}/`);
+      setDeleteDialog(false);
+      setEditDialog(false);
+      setEditingSection(null);
+      await fetchSections();
+      setError('');
+    } catch (err) {
+      console.error('Delete section error:', err.response?.data || err.message);
+      setError(t('delete_section_failed') || 'فشل حذف القسم.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleDragEnd = async (event) => {
     const { active, over } = event;
 
@@ -190,7 +277,6 @@ const SectionPage = () => {
 
     // Save to backend
     try {
-      // Option 1: Send new order as array of IDs
       const order = newSections.map((s) => s.id);
       await axios.post('/sections/reorder/', { menu: menuId, order });
     } catch (err) {
@@ -321,12 +407,98 @@ const SectionPage = () => {
                   section={section}
                   t={t}
                   isRTL={isRTL}
+                  onEdit={handleEdit}
                 />
               ))}
             </Stack>
           </SortableContext>
         </DndContext>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={editDialog}
+        onClose={() => !saving && setEditDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {t('edit_section') || 'تعديل القسم'}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label={t('section_name') || 'اسم القسم'}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              required
+            />
+            <TextField
+              fullWidth
+              label={t('section_description') || 'وصف القسم'}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              multiline
+              rows={2}
+              placeholder={t('section_description_placeholder') || 'وصف اختياري يظهر تحت اسم القسم'}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          <Button
+            onClick={handleDeleteClick}
+            color="error"
+            startIcon={<DeleteIcon />}
+            disabled={saving || deleting}
+          >
+            {t('delete') || 'حذف'}
+          </Button>
+          <Box>
+            <Button onClick={() => setEditDialog(false)} disabled={saving}>
+              {t('cancel') || 'إلغاء'}
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              variant="contained"
+              disabled={saving}
+              sx={{ ml: 1 }}
+            >
+              {saving ? (t('saving') || 'جاري الحفظ...') : (t('save') || 'حفظ')}
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialog}
+        onClose={() => !deleting && setDeleteDialog(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {t('confirm_delete') || 'تأكيد الحذف'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            {t('delete_section_confirm') || 'هل أنت متأكد من حذف هذا القسم؟ لن يتم حذف الأطباق لكن لن يظهر هذا القسم في المنيو.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteDialog(false)} disabled={deleting}>
+            {t('cancel') || 'إلغاء'}
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleting}
+          >
+            {deleting ? (t('deleting') || 'جاري الحذف...') : (t('delete') || 'حذف')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

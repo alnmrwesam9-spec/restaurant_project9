@@ -581,7 +581,12 @@ export default function PublicMenuPage() {
             const dishes = section.dishes || [];
             return (
               <Box key={secId} ref={(el) => (sectionRefs.current[secId] = el)} sx={{ mb: 4 }}>
-                <Typography variant="h6" sx={{ fontWeight: 900, mb: 1.5 }}>{section.name}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 900, mb: section.description ? 0.5 : 1.5 }}>{section.name}</Typography>
+                {section.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontStyle: 'italic' }}>
+                    {section.description}
+                  </Typography>
+                )}
 
                 {!isMdUp ? (
                   <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 1, mx: -1, px: 1, scrollSnapType: 'x mandatory', '&::-webkit-scrollbar': { display: 'none' } }}>

@@ -87,6 +87,7 @@ urlpatterns = [
     re_path(r"^menus/(?P<pk>\d+)/unpublish/?$", views.MenuUnpublishView.as_view(), name="menu_unpublish"),
 
     re_path(r"^sections/?$",              views.SectionListCreateView.as_view(), name="section_list_create"),
+    re_path(r"^sections/(?P<pk>\d+)/?$",   views.SectionDetailView.as_view(),     name="section_detail"),
     re_path(r"^sections/reorder/?$",       views.section_reorder, name="section_reorder"),
 
     re_path(r"^dishes/?$",                views.DishListCreateView.as_view(),    name="dish_list_create"),

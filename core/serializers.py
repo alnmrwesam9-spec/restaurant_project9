@@ -679,7 +679,7 @@ class SectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ['id', 'name', 'menu', 'dishes', 'sort_order']
+        fields = ['id', 'name', 'description', 'menu', 'dishes', 'sort_order']
 
     # -------------------- تقييد المالك --------------------
     def validate(self, attrs):

@@ -858,6 +858,39 @@ class SectionListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
+class SectionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = SectionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Section.objects.all() if is_admin(user) else Section.objects.filter(menu__user=user)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Support PUT/PATCH with ownership check when changing menu.
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        # If menu is being changed, verify ownership
+        if "menu" in request.data and request.data.get("menu") is not None:
+            menu_id = request.data.get("menu")
+            try:
+                new_menu = Menu.objects.only("user_id").get(pk=menu_id)
+            except Menu.DoesNotExist:
+                raise ValidationError({"menu": "Invalid menu id."})
+
+            if not (is_admin(request.user) or new_menu.user_id == request.user.id):
+                raise PermissionDenied("You cannot move this section to another user's menu.")
+
+        return super().update(request, partial=partial, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def section_reorder(request):
