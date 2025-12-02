@@ -842,7 +842,7 @@ class PublicSectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ['id', 'name', 'dishes', 'sort_order']
+        fields = ['id', 'name', 'description', 'dishes', 'sort_order']
 
 
 class PublicMenuSerializer(serializers.ModelSerializer):

@@ -581,12 +581,77 @@ export default function PublicMenuPage() {
             const dishes = section.dishes || [];
             return (
               <Box key={secId} ref={(el) => (sectionRefs.current[secId] = el)} sx={{ mb: 4 }}>
-                <Typography variant="h6" sx={{ fontWeight: 900, mb: section.description ? 0.5 : 1.5 }}>{section.name}</Typography>
-                {section.description && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontStyle: 'italic' }}>
-                    {section.description}
-                  </Typography>
-                )}
+                {/* Section Header with enhanced design */}
+                <Box sx={{
+                  mb: 2,
+                  pb: 1.5,
+                  borderBottom: '2px solid',
+                  borderImage: 'linear-gradient(90deg, var(--c-icon, #ff8a50) 0%, transparent 100%) 1',
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: section.description ? 1 : 0 }}>
+                    {/* Section Icon */}
+                    <Box sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 2,
+                      bgcolor: 'var(--c-icon, #ff8a50)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.25rem',
+                      boxShadow: '0 4px 12px rgba(255, 138, 80, 0.25)',
+                    }}>
+                      🍽️
+                    </Box>
+
+                    {/* Section Name */}
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 900,
+                        background: 'linear-gradient(135deg, var(--c-text, #0f172a) 0%, #475569 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        fontSize: `calc(1.5rem * ${parsedTheme.scale || 1})`,
+                      }}
+                    >
+                      {section.name}
+                    </Typography>
+                  </Box>
+
+                  {/* Section Description */}
+                  {section.description && (
+                    <Box sx={{
+                      mt: 1,
+                      pl: 7, // Align with section name (icon width + gap)
+                      position: 'relative',
+                    }}>
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          color: '#64748b',
+                          lineHeight: 1.6,
+                          fontSize: `calc(0.95rem * ${parsedTheme.scale || 1})`,
+                          fontStyle: 'italic',
+                          position: 'relative',
+                          '&::before': {
+                            content: '"\u201C"',
+                            position: 'absolute',
+                            left: -20,
+                            top: -4,
+                            fontSize: '1.5rem',
+                            color: 'var(--c-icon, #ff8a50)',
+                            opacity: 0.3,
+                            fontFamily: 'Georgia, serif',
+                          }
+                        }}
+                      >
+                        {section.description}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
 
                 {!isMdUp ? (
                   <Box sx={{ display: 'flex', gap: 1.25, overflowX: 'auto', pb: 1, mx: -1, px: 1, scrollSnapType: 'x mandatory', '&::-webkit-scrollbar': { display: 'none' } }}>
