@@ -694,6 +694,13 @@ export default function PublicMenuPage() {
               )}
             </Box>
 
+            {/* Description - الوصف */}
+            {(selectedDish.description || selectedDish.description_de || selectedDish.description_en || selectedDish.description_ar) && (
+              <Typography variant="body1" sx={{ mt: 1, mb: 2, color: '#334155', lineHeight: 1.6, fontSize: `calc(0.95rem * ${parsedTheme.scale || 1})` }}>
+                {selectedDish.description || selectedDish.description_de || selectedDish.description_en || selectedDish.description_ar}
+              </Typography>
+            )}
+
             {/* German-only allergen display */}
             {(() => {
               const raw = (selectedDish?.display_codes || '').toString().trim();
