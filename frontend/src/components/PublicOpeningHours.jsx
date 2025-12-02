@@ -9,6 +9,15 @@ import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 
 const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+const normalizeUrl = (url) => {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+};
+
 const parseCompact = (str) => {
   try {
     const days = {};
@@ -226,21 +235,21 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, so
 
         <Stack spacing={1} sx={{ flex: 1 }}>
           {address ? (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <LocationOnIcon fontSize="small" />
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{address}</Typography>
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <LocationOnIcon fontSize="small" sx={{ flexShrink: 0, mt: 0.5, color: '#64748b' }} />
+              <Typography variant="body2" sx={{ flex: 1, whiteSpace: 'pre-line', wordBreak: 'break-word', lineHeight: 1.6 }}>{address}</Typography>
             </Stack>
           ) : null}
           {phone ? (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <CallIcon fontSize="small" />
-              <Typography variant="body2">{phone}</Typography>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <CallIcon fontSize="small" sx={{ flexShrink: 0, color: '#64748b' }} />
+              <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all' }}>{phone}</Typography>
             </Stack>
           ) : null}
           {whatsapp ? (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <WhatsAppIcon fontSize="small" />
-              <Typography variant="body2">
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <WhatsAppIcon fontSize="small" sx={{ flexShrink: 0, color: '#64748b' }} />
+              <Typography variant="body2" sx={{ flex: 1 }}>
                 <a href={`https://wa.me/${String(whatsapp).replace(/\D+/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{whatsapp}</a>
               </Typography>
             </Stack>
@@ -248,11 +257,22 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, so
 
           {/* Social Media Links */}
           {(social_tiktok || social_instagram || social_facebook) && (
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ pt: 0.5 }}>
+            <Stack
+              direction="row"
+              spacing={2}
+              alignItems="center"
+              justifyContent={{ xs: 'center', md: 'flex-start' }}
+              sx={{
+                pt: { xs: 2.5, md: 1 },
+                mt: { xs: 1, md: 0 },
+                width: '100%',
+                borderTop: { xs: '1px solid #f1f5f9', md: 'none' }
+              }}
+            >
               {social_instagram && (
                 <IconButton
                   component="a"
-                  href={social_instagram}
+                  href={normalizeUrl(social_instagram)}
                   target="_blank"
                   rel="noopener noreferrer"
                   size="small"
@@ -265,7 +285,7 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, so
               {social_facebook && (
                 <IconButton
                   component="a"
-                  href={social_facebook}
+                  href={normalizeUrl(social_facebook)}
                   target="_blank"
                   rel="noopener noreferrer"
                   size="small"
@@ -278,7 +298,7 @@ export default function PublicOpeningHours({ hours, address, phone, whatsapp, so
               {social_tiktok && (
                 <IconButton
                   component="a"
-                  href={social_tiktok}
+                  href={normalizeUrl(social_tiktok)}
                   target="_blank"
                   rel="noopener noreferrer"
                   size="small"
