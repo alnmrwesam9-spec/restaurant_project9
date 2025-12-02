@@ -38,6 +38,7 @@ from .models import (
     DishPrice,
     Profile,
     DishAllergen,
+    ExtraGroup, Extra,    # ✅ NEW: Extras
 )
 
 from core.models import Allergen, Ingredient
@@ -54,6 +55,7 @@ from .serializers import (
     ProfileSerializer,
     DishAllergenSerializer,
     KeywordLexemeSerializer,   # بديل LexemeSerializer
+    ExtraGroupSerializer,      # ✅ NEW: Extras
 )
 
 # محرك القواعد
@@ -800,6 +802,28 @@ class MenuListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+# ===================== Extras ViewSet =====================
+class ExtraGroupViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for ExtraGroups (and nested Extras).
+    Only the owner (or admin) can manage their own groups.
+    """
+    serializer_class = ExtraGroupSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if is_admin(user):
+            # Admin sees all? Or filter by user param? 
+            # For simplicity, let admin see all for now.
+            return ExtraGroup.objects.all()
+        return ExtraGroup.objects.filter(owner=user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
 
 
 class MenuPublishView(generics.GenericAPIView):

@@ -213,6 +213,14 @@ class Dish(models.Model):
     # Favorite flag for recommended dishes section
     is_favorite = models.BooleanField(default=False, help_text="Mark as favorite/recommended dish")
 
+    
+    # ✅ NEW: Manual Extras (stored directly on dish)
+    extras = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of manual extras: [{name: str, price: decimal, sort_order: int}]"
+    )
+
     class Meta:
         ordering = ['sort_order', 'id']
         indexes = [
@@ -596,3 +604,68 @@ def delete_avatar_on_delete(sender, instance, **kwargs):
                     os.remove(instance.avatar.path)
             except Exception:
                 pass
+
+
+# ===========================
+# نظام الإضافات (Extras)
+# ===========================
+class ExtraGroup(models.Model):
+    """
+    مجموعة إضافات (مثل: Sauces, Pizza Extras).
+    """
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='extra_groups'
+    )
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Extra(models.Model):
+    """
+    إضافة فردية داخل مجموعة (مثل: Ketchup, Extra Cheese).
+    """
+    group = models.ForeignKey(ExtraGroup, on_delete=models.CASCADE, related_name='extras')
+    name_de = models.CharField(max_length=100)
+    name_en = models.CharField(max_length=100, blank=True, default='')
+    name_ar = models.CharField(max_length=100, blank=True, default='')
+    price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
+    
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f"{self.name_de} ({self.price})"
+
+
+class DishExtraGroup(models.Model):
+    """
+    جدول الربط بين الطبق ومجموعة الإضافات (Many-to-Many).
+    يسمح بتحديد ترتيب ظهور المجموعات لكل طبق.
+    """
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE)
+    extra_group = models.ForeignKey(ExtraGroup, on_delete=models.CASCADE)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+        unique_together = ('dish', 'extra_group')
+
+    def __str__(self):
+        return f"{self.dish.name} -> {self.extra_group.name}"
+

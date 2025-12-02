@@ -44,6 +44,20 @@ dishallergen_detail = views.DishAllergenViewSet.as_view({
 })
 dishallergen_bulk_confirm = views.DishAllergenViewSet.as_view({"post": "bulk_confirm"})
 dishallergen_add_codes    = views.DishAllergenViewSet.as_view({"post": "add_codes"})
+dishallergen_bulk_confirm = views.DishAllergenViewSet.as_view({"post": "bulk_confirm"})
+dishallergen_add_codes    = views.DishAllergenViewSet.as_view({"post": "add_codes"})
+
+# ✅ NEW: Extras
+extragroup_list = views.ExtraGroupViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+extragroup_detail = views.ExtraGroupViewSet.as_view({
+    "get": "retrieve",
+    "put": "update",
+    "patch": "partial_update",
+    "delete": "destroy",
+})
 
 urlpatterns = [
 
@@ -137,6 +151,12 @@ urlpatterns = [
     re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/(?P<pk>\d+)/?$",    dishallergen_detail, name="v2_dishallergen_detail"),
     re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/bulk_confirm/?$",   dishallergen_bulk_confirm, name="v2_dishallergen_bulk_confirm"),
     re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/add_codes/?$",      dishallergen_add_codes,    name="v2_dishallergen_add_codes"),
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/bulk_confirm/?$",   dishallergen_bulk_confirm, name="v2_dishallergen_bulk_confirm"),
+    re_path(r"^v2/dishes/(?P<dish_pk>\d+)/allergens/add_codes/?$",      dishallergen_add_codes,    name="v2_dishallergen_add_codes"),
+
+    # ✅ NEW: Extras endpoints
+    re_path(r"^extra-groups/?$", extragroup_list, name="extragroup_list"),
+    re_path(r"^extra-groups/(?P<pk>\d+)/?$", extragroup_detail, name="extragroup_detail"),
 ]
 
 

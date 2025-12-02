@@ -19,6 +19,7 @@ from .models import (
     Menu, Section, Dish, MenuDisplaySettings, DishPrice,
     Profile, Allergen, Ingredient,
     IngredientSuggestion, DishAllergen,   # ⬅️ سجل التتبّع
+    ExtraGroup, Extra, DishExtraGroup,    # ✅ NEW: Extras
 )
 # قاموس القواعد (ملف مستقل)
 from .dictionary_models import KeywordLexeme, NegationCue
@@ -418,9 +419,6 @@ class IngredientSerializer(serializers.ModelSerializer):
         return ingredient
 
 
-
-
-
 # ===================== قاموس القواعد (KeywordLexeme / NegationCue) =====================
 class KeywordLexemeSerializer(serializers.ModelSerializer):
     """
@@ -503,6 +501,21 @@ class DishPriceSerializer(serializers.ModelSerializer):
         fields = ["id", "label", "price", "is_default", "sort_order"]
 
 
+# ===================== Extras Serializers =====================
+class ExtraSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Extra
+        fields = ['id', 'name_de', 'name_en', 'name_ar', 'price', 'is_active', 'sort_order']
+
+
+class ExtraGroupSerializer(serializers.ModelSerializer):
+    extras = ExtraSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = ExtraGroup
+        fields = ['id', 'name', 'description', 'is_active', 'extras']
+
+
 class DishSerializer(serializers.ModelSerializer):
     """
     CRUD للطبق (داخلي للمالك/الأدمن).
@@ -525,6 +538,15 @@ class DishSerializer(serializers.ModelSerializer):
         default='generated'
     )
     
+    
+    
+    # ✅ NEW: Manual Extras
+    extras = serializers.JSONField(
+        required=False,
+        default=list,
+        help_text="List of manual extras: [{name: str, price: decimal}]"
+    )
+
     # ❌ DEPRECATED: Legacy fields (kept for backwards compat)
     generated_codes = serializers.CharField(required=False, allow_blank=True)
     has_manual_codes = serializers.BooleanField(required=False)
@@ -554,6 +576,7 @@ class DishSerializer(serializers.ModelSerializer):
             # النظام الجديد الموحّد:
             "codes", "codes_source",
             "ingredients",
+            "extras",  # ✅ NEW
             # الحقول القديمة (DEPRECATED):
             "allergy_info", "section",
             "generated_codes", "has_manual_codes", "manual_codes",

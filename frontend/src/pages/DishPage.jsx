@@ -21,6 +21,7 @@ import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useTranslation } from 'react-i18next';
@@ -316,6 +317,9 @@ const DishPage = () => {
   ]);
   const [originalPriceIds, setOriginalPriceIds] = useState(new Set());
 
+  // ✅ NEW: Manual Extras State
+  const [formExtras, setFormExtras] = useState([]);
+
   // Fetch unified allergen catalog (Allergens + Additives)
   useEffect(() => {
     const fetchAllergenCatalog = async () => {
@@ -329,6 +333,8 @@ const DishPage = () => {
     };
     fetchAllergenCatalog();
   }, []);
+
+
 
   useEffect(() => { fetchDishes(); /* eslint-disable-next-line */ }, []);
 
@@ -434,6 +440,18 @@ const DishPage = () => {
     formData.append('allergy_info', codes);
     if (newDish.image) formData.append('image', newDish.image);
 
+    // ✅ NEW: Manual Extras
+    const extrasClean = formExtras
+      .map((e, i) => ({ ...e, sort_order: i, price: normalizeNumber(e.price) }))
+      .filter((e) => e.name && e.price !== '');
+
+    // Send extras as JSON array (Django will parse it)
+    if (extrasClean.length > 0) {
+      formData.append('extras', JSON.stringify(extrasClean));
+    } else {
+      formData.append('extras', JSON.stringify([]));
+    }
+
     const pricesClean = formPrices
       .map((p, i) => ({ ...p, sort_order: i, price: normalizeNumber(p.price) }))
       .filter((p) => p.price !== '');
@@ -473,6 +491,7 @@ const DishPage = () => {
       // Reset form
       setNewDish({ name: '', description: '', image: null, codes: '', codes_source: 'generated', allergy_info: '' });
       setSelectedAllergens([]);
+      setFormExtras([]); // ✅ Reset extras
       setFormPrices([{ id: undefined, label: '', price: '', is_default: true, sort_order: 0 }]);
       setOriginalPriceIds(new Set());
       setEditingDishId(null);
@@ -504,6 +523,13 @@ const DishPage = () => {
       setSelectedAllergens(selected);
     } else {
       setSelectedAllergens([]);
+    }
+
+    // ✅ NEW: Load extras
+    if (dish.extras && Array.isArray(dish.extras)) {
+      setFormExtras(dish.extras.map(e => ({ ...e })));
+    } else {
+      setFormExtras([]);
     }
 
     const rows = (dish.prices || []).slice().sort(bySort);
@@ -786,6 +812,64 @@ const DishPage = () => {
                   </Box>
                 </Stack>
               </Box>
+
+              {/* ====== NEW: Manual Extras Section ====== */}
+              <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {t('extras') || 'إضافات اختيارية'}
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<AddRoundedIcon />}
+                    onClick={() => setFormExtras([...formExtras, { name: '', price: '' }])}
+                  >
+                    {t('add_extra') || 'إضافة'}
+                  </Button>
+                </Box>
+
+                {formExtras.length > 0 && (
+                  <Stack spacing={1}>
+                    {formExtras.map((extra, idx) => (
+                      <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small"
+                          label={t('extra_name') || 'اسم الإضافة'}
+                          value={extra.name || ''}
+                          onChange={(e) => {
+                            const updated = [...formExtras];
+                            updated[idx].name = e.target.value;
+                            setFormExtras(updated);
+                          }}
+                          sx={{ flex: 1 }}
+                        />
+                        <TextField
+                          size="small"
+                          label={t('price') || 'السعر'}
+                          value={extra.price || ''}
+                          onChange={(e) => {
+                            const updated = [...formExtras];
+                            updated[idx].price = e.target.value;
+                            setFormExtras(updated);
+                          }}
+                          sx={{ width: 120 }}
+                          InputProps={{
+                            endAdornment: <Typography variant="caption">€</Typography>,
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setFormExtras(formExtras.filter((_, i) => i !== idx))}
+                        >
+                          <CloseRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+
 
               <Button
                 fullWidth
