@@ -302,7 +302,6 @@ const DishPage = () => {
     name: '',
     description: '',
     image: null,
-    image: null,
     // ✅ NEW: Unified codes field
     codes: '',
     codes_source: 'generated',
@@ -419,7 +418,17 @@ const DishPage = () => {
     // ✅ NEW: Calculate codes from selected allergens and send as single source of truth
     const codes = selectedAllergens.map(a => a.code).join(',');
     formData.append('codes', codes);
-    formData.append('codes_source', 'manual'); // Always manual when edited via UI
+
+    // ✅ Smart codes_source logic: Only set to 'manual' if allergens actually changed
+    const currentCodes = selectedAllergens.map(a => a.code).sort().join(',');
+    const originalCodes = (newDish.codes || '').replace(/[()]/g, '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean).sort().join(',');
+
+    if (currentCodes !== originalCodes) {
+      formData.append('codes_source', 'manual');
+    } else {
+      // Preserve existing source if no changes to allergens
+      formData.append('codes_source', newDish.codes_source || 'generated');
+    }
 
     // Legacy support (optional)
     formData.append('allergy_info', codes);
@@ -479,16 +488,18 @@ const DishPage = () => {
       name: dish.name || '',
       description: dish.description || '',
       image: null,
-      image: null,
       codes: dish.codes || '',
       codes_source: dish.codes_source || 'generated',
       allergy_info: dish.allergy_info || '',
     });
 
     // ✅ NEW: Load selected allergens from 'codes' string (Single Source of Truth)
-    const codesString = dish.codes || dish.display_codes || '';
+    let codesString = dish.codes || dish.display_codes || '';
+    // Remove parentheses if present: "(A,G,200)" -> "A,G,200"
+    codesString = codesString.replace(/[()]/g, '').trim();
+
     if (codesString && allergenCatalog.length > 0) {
-      const codesList = codesString.split(',').map(c => c.trim().toUpperCase());
+      const codesList = codesString.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
       const selected = allergenCatalog.filter(a => codesList.includes(a.code));
       setSelectedAllergens(selected);
     } else {
