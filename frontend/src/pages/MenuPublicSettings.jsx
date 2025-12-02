@@ -6,7 +6,7 @@ import {
   Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel,
   MenuItem, Paper, Select, Slider, Snackbar, Stack, TextField,
   ToggleButton, ToggleButtonGroup, Tooltip, Typography, Checkbox,
-  Accordion, AccordionSummary, AccordionDetails
+  Accordion, AccordionSummary, AccordionDetails, Collapse, IconButton
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { alpha, useTheme } from '@mui/material/styles';
@@ -205,6 +205,10 @@ export default function MenuPublicSettings() {
   const [profileSlug, setProfileSlug] = useState('');
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const qrRef = useRef(null);
+
+  // UX State for collapsible sections
+  const [isHoursOpen, setIsHoursOpen] = useState(false);
+  const [isSocialOpen, setIsSocialOpen] = useState(false);
 
   const [form, setForm] = useState({
     display_name: '',
@@ -739,6 +743,7 @@ export default function MenuPublicSettings() {
             </Typography>
 
             <Stack spacing={{ xs: 1.5, sm: 2 }}>
+              {/* 1. Restaurant Name */}
               <TextField
                 label={tOr('display_name', 'اسم المطعم')}
                 value={form.display_name}
@@ -747,6 +752,8 @@ export default function MenuPublicSettings() {
                 size={isSmDown ? 'small' : 'medium'}
                 sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
               />
+
+              {/* 2. Phone + WhatsApp */}
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
                   label={tOr('phone', 'الهاتف')}
@@ -757,14 +764,6 @@ export default function MenuPublicSettings() {
                   sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                 />
                 <TextField
-                  label={tOr('hours', 'ساعات العمل')}
-                  value={form.hours}
-                  onChange={(e) => update('hours', e.target.value)}
-                  fullWidth
-                  size={isSmDown ? 'small' : 'medium'}
-                  sx={{ display: 'none', '& .MuiInputBase-root': { borderRadius: 2 } }}
-                />
-                <TextField
                   label={tOr('whatsapp', 'WhatsApp')}
                   value={form.whatsapp}
                   onChange={(e) => update('whatsapp', e.target.value)}
@@ -773,12 +772,8 @@ export default function MenuPublicSettings() {
                   sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                 />
               </Stack>
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 0.75, fontWeight: 800 }}>{tOr('opening_hours', 'Opening Hours')}</Typography>
-                <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-                  <OpeningHoursEditor title={tOr('opening_hours', 'Opening Hours')} value={form.hours} onChange={(v) => update('hours', v)} language={(i18n && i18n.language) || 'de'} />
-                </Paper>
-              </Box>
+
+              {/* 3. Address */}
               <TextField
                 label={tOr('address', 'العنوان')}
                 value={form.address}
@@ -790,41 +785,93 @@ export default function MenuPublicSettings() {
                 sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
               />
 
-              {/* Social Media Links */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 800 }}>
-                  {tOr('social_media_links', 'روابط التواصل الاجتماعي')}
-                </Typography>
-                <Stack spacing={2}>
-                  <TextField
-                    label={tOr('tiktok_link', 'TikTok Link')}
-                    placeholder="https://www.tiktok.com/@restaurant"
-                    value={form.social_tiktok}
-                    onChange={(e) => update('social_tiktok', e.target.value)}
-                    fullWidth
-                    size={isSmDown ? 'small' : 'medium'}
-                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
-                  />
-                  <TextField
-                    label={tOr('instagram_link', 'Instagram Link')}
-                    placeholder="https://www.instagram.com/restaurant"
-                    value={form.social_instagram}
-                    onChange={(e) => update('social_instagram', e.target.value)}
-                    fullWidth
-                    size={isSmDown ? 'small' : 'medium'}
-                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
-                  />
-                  <TextField
-                    label={tOr('facebook_link', 'Facebook Link')}
-                    placeholder="https://www.facebook.com/restaurant"
-                    value={form.social_facebook}
-                    onChange={(e) => update('social_facebook', e.target.value)}
-                    fullWidth
-                    size={isSmDown ? 'small' : 'medium'}
-                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
-                  />
-                </Stack>
+              {/* 4. Opening Hours (Collapsible) */}
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+                <Box
+                  onClick={() => setIsHoursOpen(!isHoursOpen)}
+                  sx={{
+                    p: 1.5,
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    userSelect: 'none'
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {tOr('opening_hours', 'Opening Hours')}
+                  </Typography>
+                  <IconButton size="small" sx={{ transform: isHoursOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                    <ExpandMoreIcon />
+                  </IconButton>
+                </Box>
+                <Collapse in={isHoursOpen}>
+                  <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <OpeningHoursEditor
+                      title={tOr('opening_hours', 'Opening Hours')}
+                      value={form.hours}
+                      onChange={(v) => update('hours', v)}
+                      language={(i18n && i18n.language) || 'de'}
+                    />
+                  </Box>
+                </Collapse>
               </Box>
+
+              {/* 5. Social Media Links (Collapsible) */}
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+                <Box
+                  onClick={() => setIsSocialOpen(!isSocialOpen)}
+                  sx={{
+                    p: 1.5,
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    userSelect: 'none'
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {tOr('social_media_links', 'روابط التواصل الاجتماعي')}
+                  </Typography>
+                  <IconButton size="small" sx={{ transform: isSocialOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                    <ExpandMoreIcon />
+                  </IconButton>
+                </Box>
+                <Collapse in={isSocialOpen}>
+                  <Stack spacing={2} sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <TextField
+                      label={tOr('tiktok_link', 'TikTok Link')}
+                      placeholder="https://www.tiktok.com/@username"
+                      value={form.social_tiktok}
+                      onChange={(e) => update('social_tiktok', e.target.value)}
+                      fullWidth
+                      size={isSmDown ? 'small' : 'medium'}
+                      sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                    />
+                    <TextField
+                      label={tOr('instagram_link', 'Instagram Link')}
+                      placeholder="https://www.instagram.com/username"
+                      value={form.social_instagram}
+                      onChange={(e) => update('social_instagram', e.target.value)}
+                      fullWidth
+                      size={isSmDown ? 'small' : 'medium'}
+                      sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                    />
+                    <TextField
+                      label={tOr('facebook_link', 'Facebook Link')}
+                      placeholder="https://www.facebook.com/username"
+                      value={form.social_facebook}
+                      onChange={(e) => update('social_facebook', e.target.value)}
+                      fullWidth
+                      size={isSmDown ? 'small' : 'medium'}
+                      sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                    />
+                  </Stack>
+                </Collapse>
+              </Box>
+
 
               {/* Theme mode */}
               <Box data-tour="theme-mode">
@@ -1003,8 +1050,8 @@ export default function MenuPublicSettings() {
               </Box>
             </Stack>
           </Paper>
-        </Box>
-      </Stack>
+        </Box >
+      </Stack >
 
       <Dialog open={confirmUnpublish} onClose={() => setConfirmUnpublish(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ pb: 1 }}>{tOr('confirm_unpublish_title', 'إلغاء النشر؟')}</DialogTitle>
@@ -1016,6 +1063,6 @@ export default function MenuPublicSettings() {
       </Dialog>
 
       <Snackbar open={!!snack} message={snack} autoHideDuration={2400} onClose={() => setSnack('')} />
-    </Container>
+    </Container >
   );
 }
