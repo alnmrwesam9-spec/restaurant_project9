@@ -158,7 +158,7 @@ function PreviewCard({ font, scale, priceColor, priceScale, tOr }) {
       <Box sx={{ width: '100%', height: 120, background: '#e5e7eb', display: { xs: 'none', sm: 'block' } }} />
       <CardContent sx={{ p: 1.5, fontFamily: font || 'inherit' }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography sx={{ fontWeight: 800, fontSize: `calc(1rem * ${scale || 1})` }}>{tOr('sample_dish', 'Sample Dish')}</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: `calc(1rem * ${scale || 1})` }}>{tOr('menu_settings.sample_dish', 'Sample Dish')}</Typography>
           <Chip
             size="small"
             label="€ 4,00"
@@ -173,7 +173,7 @@ function PreviewCard({ font, scale, priceColor, priceScale, tOr }) {
           />
         </Stack>
         <Typography sx={{ color: '#64748b', mt: .5, fontSize: `calc(0.9rem * ${scale || 1})` }}>
-          {tOr('sample_description', 'Short description will be here…')}
+          {tOr('menu_settings.sample_description', 'Short description will be here…')}
         </Typography>
       </CardContent>
     </Card>
@@ -705,10 +705,10 @@ export default function MenuPublicSettings() {
             </Button>
 
             <Typography variant="caption" sx={{ color: alpha('#fff', 0.75), display: 'block', mb: 1 }}>
-              {tOr('hero_image_recommendation', 'الصورة المقترحة 1920×1080 – نسبة 16:9')}
+              {tOr('menu_settings.hero_image_recommendation', 'الصورة المقترحة 1920×1080 – نسبة 16:9')}
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-              <Typography variant="body2" sx={{ color: alpha('#fff', 0.9), alignSelf: 'center' }}>{tOr('crop_position', 'Crop position')}</Typography>
+              <Typography variant="body2" sx={{ color: alpha('#fff', 0.9), alignSelf: 'center' }}>{tOr('menu_settings.crop_position', 'Crop position')}</Typography>
               <ToggleButtonGroup
                 exclusive
                 size={isSmDown ? 'small' : 'medium'}
@@ -716,9 +716,9 @@ export default function MenuPublicSettings() {
                 value={form.hero_crop || 'center'}
                 onChange={(e, v) => { if (v) update('hero_crop', v); }}
               >
-                <ToggleButton value="top">{tOr('crop_top', 'Top')}</ToggleButton>
-                <ToggleButton value="center">{tOr('crop_center', 'Center')}</ToggleButton>
-                <ToggleButton value="bottom">{tOr('crop_bottom', 'Bottom')}</ToggleButton>
+                <ToggleButton value="top">{tOr('menu_settings.position_top', 'Top')}</ToggleButton>
+                <ToggleButton value="center">{tOr('menu_settings.position_center', 'Center')}</ToggleButton>
+                <ToggleButton value="bottom">{tOr('menu_settings.position_bottom', 'Bottom')}</ToggleButton>
               </ToggleButtonGroup>
             </Stack>
 
@@ -801,7 +801,7 @@ export default function MenuPublicSettings() {
                   }}
                 >
                   <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    {tOr('opening_hours', 'Opening Hours')}
+                    {tOr('menu_settings.opening_hours', 'Opening Hours')}
                   </Typography>
                   <IconButton size="small" sx={{ transform: isHoursOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
                     <ExpandMoreIcon />
@@ -810,7 +810,7 @@ export default function MenuPublicSettings() {
                 <Collapse in={isHoursOpen}>
                   <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                     <OpeningHoursEditor
-                      title={tOr('opening_hours', 'Opening Hours')}
+                      title={tOr('menu_settings.opening_hours', 'Opening Hours')}
                       value={form.hours}
                       onChange={(v) => update('hours', v)}
                       language={(i18n && i18n.language) || 'de'}
@@ -834,7 +834,7 @@ export default function MenuPublicSettings() {
                   }}
                 >
                   <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    {tOr('social_media_links', 'روابط التواصل الاجتماعي')}
+                    {tOr('menu_settings.social_media_links', 'روابط التواصل الاجتماعي')}
                   </Typography>
                   <IconButton size="small" sx={{ transform: isSocialOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
                     <ExpandMoreIcon />
@@ -843,7 +843,7 @@ export default function MenuPublicSettings() {
                 <Collapse in={isSocialOpen}>
                   <Stack spacing={2} sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                     <TextField
-                      label={tOr('tiktok_link', 'TikTok Link')}
+                      label={tOr('menu_settings.tiktok_link', 'TikTok Link')}
                       placeholder="https://www.tiktok.com/@username"
                       value={form.social_tiktok}
                       onChange={(e) => update('social_tiktok', e.target.value)}
@@ -852,7 +852,7 @@ export default function MenuPublicSettings() {
                       sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                     />
                     <TextField
-                      label={tOr('instagram_link', 'Instagram Link')}
+                      label={tOr('menu_settings.instagram_link', 'Instagram Link')}
                       placeholder="https://www.instagram.com/username"
                       value={form.social_instagram}
                       onChange={(e) => update('social_instagram', e.target.value)}
@@ -861,7 +861,7 @@ export default function MenuPublicSettings() {
                       sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                     />
                     <TextField
-                      label={tOr('facebook_link', 'Facebook Link')}
+                      label={tOr('menu_settings.facebook_link', 'Facebook Link')}
                       placeholder="https://www.facebook.com/username"
                       value={form.social_facebook}
                       onChange={(e) => update('social_facebook', e.target.value)}
@@ -932,7 +932,7 @@ export default function MenuPublicSettings() {
                   <Divider textAlign="left">{tOr('typography', 'typography')}</Divider>
                   <Stack spacing={2}>
                     <Box data-tour="font-select">
-                      <Typography variant="caption" display="block" mb={0.5}>{tOr('font_family', 'Font Family')}</Typography>
+                      <Typography variant="caption" display="block" mb={0.5}>{tOr('menu_settings.font_family', 'Font Family')}</Typography>
                       <Select
                         fullWidth
                         value={FONT_PRESETS.find(f => f.css === form.font)?.css || ''}
@@ -947,7 +947,7 @@ export default function MenuPublicSettings() {
                     </Box>
 
                     <Box data-tour="font-scale">
-                      <Typography variant="caption" display="block" mb={0.5}>{tOr('font_scale', 'Font Scale')}</Typography>
+                      <Typography variant="caption" display="block" mb={0.5}>{tOr('menu_settings.font_scale', 'Font Scale')}</Typography>
                       <Slider
                         min={0.85}
                         max={1.25}
@@ -961,7 +961,7 @@ export default function MenuPublicSettings() {
 
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                       <Box sx={{ flex: 1 }} data-tour="price-color">
-                        <Typography variant="caption" display="block" mb={0.5}>{tOr('price_color', 'Price Color')}</Typography>
+                        <Typography variant="caption" display="block" mb={0.5}>{tOr('menu_settings.price_color', 'Price Color')}</Typography>
                         <input
                           type="color"
                           value={form.price_color || '#1d4ed8'}
@@ -976,7 +976,7 @@ export default function MenuPublicSettings() {
                         />
                       </Box>
                       <Box sx={{ flex: 2 }} data-tour="price-scale">
-                        <Typography variant="caption" display="block" mb={0.5}>{tOr('price_scale', 'Price Scale')}</Typography>
+                        <Typography variant="caption" display="block" mb={0.5}>{tOr('menu_settings.price_scale', 'Price Scale')}</Typography>
                         <Slider
                           min={0.8}
                           max={1.5}
@@ -992,11 +992,11 @@ export default function MenuPublicSettings() {
                     {/* Gradient Selector */}
                     <Box data-tour="gradient-selector">
                       <Typography variant="caption" display="block" mb={1}>
-                        {tOr('placeholder_gradient', 'Dish Placeholder Gradient')}
+                        {tOr('menu_settings.dish_placeholder_gradient', 'Dish Placeholder Gradient')}
                       </Typography>
                       <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ gap: 1.5 }}>
                         {GRADIENT_PRESETS.map((preset) => (
-                          <Tooltip key={preset.id} title={tOr(`gradient_${preset.id}`, preset.label)} arrow>
+                          <Tooltip key={preset.id} title={tOr(`menu_settings.gradient_${preset.id}`, preset.label)} arrow>
                             <Box
                               onClick={() => update('placeholder_gradient', preset.gradient)}
                               sx={{
@@ -1021,7 +1021,7 @@ export default function MenuPublicSettings() {
                   </Stack>
 
                   <Divider textAlign="left" sx={{ mt: 2 }}>
-                    {tr('visibility', 'العناصر الظاهرة')}
+                    {tOr('menu_settings.visibility', 'العناصر الظاهرة')}
                   </Divider>
                   <Stack direction="row" spacing={2} flexWrap="wrap" data-tour="visibility">
                     {['show_logo', 'show_hero', 'show_search', 'show_sections', 'show_prices', 'show_images'].map((k) => (
