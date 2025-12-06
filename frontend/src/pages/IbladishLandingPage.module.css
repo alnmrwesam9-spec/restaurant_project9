@@ -264,6 +264,89 @@
 }
 
 /* ========================================
+   MARQUEE SECTION (Restored Clean Version)
+   ======================================== */
+
+.marqueeSection {
+    width: 100%;
+    background: #0C1320;
+    margin: 4rem 0;
+    padding: 3rem 0;
+    overflow: hidden;
+    position: relative;
+    display: block;
+}
+
+.marqueeHeader {
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.marqueeContainer {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+    z-index: 1;
+}
+
+.marqueeTrack {
+    display: inline-block;
+    white-space: nowrap;
+    animation: scroll 40s linear infinite;
+    will-change: transform;
+}
+
+.marqueeContainer:hover .marqueeTrack {
+    animation-play-state: paused;
+}
+
+@keyframes scroll {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.marqueeLogo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.3s ease;
+    user-select: none;
+    margin-right: 5rem;
+    vertical-align: middle;
+}
+
+.marqueeLogo:hover {
+    color: #ffffff;
+    transform: scale(1.05);
+}
+
+.marqueeLogoIcon {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* ========================================
    Problem Section (UPDATED: Colored Cards)
    ======================================== */
 
@@ -466,6 +549,133 @@
 .solutionIcon {
     color: var(--primary);
     flex-shrink: 0;
+}
+
+/* ========================================
+   Creative Image Layout (Organic Shapes)
+   ======================================== */
+
+.creativeWrapper {
+    position: relative;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.creativeShape {
+    position: absolute;
+    z-index: 0;
+    opacity: 0.8;
+}
+
+.shapeOrange {
+    width: 300px;
+    height: 300px;
+    top: -20px;
+    right: -20px;
+    background-color: #F06633;
+    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+    opacity: 0.15;
+    animation: floatShape 8s ease-in-out infinite;
+}
+
+.shapeBlue {
+    width: 350px;
+    height: 350px;
+    bottom: -30px;
+    left: -30px;
+    background-color: #D8E8F8;
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    z-index: 0;
+    animation: floatShape 10s ease-in-out infinite reverse;
+}
+
+@keyframes floatShape {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+
+    50% {
+        transform: translate(10px, -10px) rotate(2deg);
+    }
+
+    100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+}
+
+.creativeImageCard {
+    position: relative;
+    z-index: 2;
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    aspect-ratio: 4/3;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.mockBrowserHeader {
+    height: 48px;
+    background: #F9FAFB;
+    border-bottom: 1px solid #E5E7EB;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+}
+
+.mockDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.dotRed {
+    background: #EF4444;
+}
+
+.dotYellow {
+    background: #F59E0B;
+}
+
+.dotGreen {
+    background: #10B981;
+}
+
+.mockContent {
+    flex: 1;
+    background: #ffffff;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.mockSkeletonBlock {
+    border-radius: 8px;
+    background: #F3F4F6;
+    height: 20px;
+    width: 100%;
+}
+
+.mockHero {
+    height: 120px;
+    background: #EEF2FF;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border: 1px dashed #C7D2FE;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6366F1;
+    font-weight: 600;
 }
 
 /* ========================================

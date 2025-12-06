@@ -14,7 +14,8 @@ import {
     CheckCircle,
     MenuBook,
     Speed,
-    Language
+    Language,
+    FormatQuote
 } from '@mui/icons-material'
 
 export default function IbladishLandingPage() {
@@ -69,6 +70,35 @@ export default function IbladishLandingPage() {
                 </div>
             </section>
 
+            {/* NEW: Infinite Marquee Section (3-Layer Structure) */}
+            {/* Marquee Section (Clean/Restored) */}
+            <section className={styles.marqueeSection}>
+                <div className={styles.marqueeHeader}>Vertraut von Gastronomiebetrieben</div>
+                <div className={styles.marqueeContainer}>
+                    <div className={styles.marqueeTrack}>
+                        {/* Set 1 */}
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Restaurant A</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Gastro Pro</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />FoodPoint</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Bistro24</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />ChefTech</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />MenuMasters</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Urban Eats</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Green Bowl</div>
+
+                        {/* Set 2 (Duplicate for Loop) */}
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Restaurant A</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Gastro Pro</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />FoodPoint</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Bistro24</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />ChefTech</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />MenuMasters</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Urban Eats</div>
+                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Green Bowl</div>
+                    </div>
+                </div>
+            </section>
+
             {/* Problem Section */}
             <section className={styles.problemSection}>
                 <div className={styles.container}>
@@ -101,7 +131,7 @@ export default function IbladishLandingPage() {
                 </div>
             </section>
 
-            {/* Solution Section */}
+            {/* Solution Section (Creative Image) */}
             <section className={styles.solutionSection}>
                 <div className={styles.container}>
                     <div className={styles.solutionContent}>
@@ -129,9 +159,23 @@ export default function IbladishLandingPage() {
                                 </li>
                             </ul>
                         </div>
-                        <div className={styles.solutionImage}>
-                            <div className={`${styles.placeholderImage} ${styles.solutionPlaceholder}`}>
-                                <span>Solution Demo (Placeholder)</span>
+                        {/* Creative Image Wrapper */}
+                        <div className={styles.creativeWrapper}>
+                            <div className={`${styles.creativeShape} ${styles.shapeOrange}`} />
+                            <div className={`${styles.creativeShape} ${styles.shapeBlue}`} />
+                            <div className={styles.creativeImageCard}>
+                                <div className={styles.mockBrowserHeader}>
+                                    <div className={`${styles.mockDot} ${styles.dotRed}`} />
+                                    <div className={`${styles.mockDot} ${styles.dotYellow}`} />
+                                    <div className={`${styles.mockDot} ${styles.dotGreen}`} />
+                                </div>
+                                <div className={styles.mockContent}>
+                                    <div className={styles.mockHero}>IBLADISH Dashboard</div>
+                                    <div className={styles.mockSkeletonBlock} style={{ width: '60%' }} />
+                                    <div className={styles.mockSkeletonBlock} style={{ width: '90%' }} />
+                                    <div className={styles.mockSkeletonBlock} style={{ width: '85%' }} />
+                                    <div className={styles.mockSkeletonBlock} style={{ width: '50%', marginTop: 'auto' }} />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -145,7 +189,6 @@ export default function IbladishLandingPage() {
                     <div className={styles.featuresGrid}>
                         <div className={styles.featureCard}>
                             <div className={styles.featureNumberBadge}>Feature 01</div>
-                            {/* Force larger icons via className + explicit size wrapper */}
                             <div className={styles.iconContainer}>
                                 <Hub className={styles.featureIcon} />
                             </div>
@@ -284,19 +327,50 @@ export default function IbladishLandingPage() {
             {/* Social Proof Section */}
             <section className={styles.testimonials}>
                 <div className={styles.container}>
-                    <h2 className={styles.sectionTitle}>Social Proof – Fälle</h2>
+                    <h2 className={styles.sectionTitle}>Was unsere Kunden sagen</h2>
+                    <p className={styles.sectionSubtitle}>Echte Erfolgsgeschichten aus der Praxis.</p>
+
                     <div className={styles.testimonialsGrid}>
                         <div className={styles.testimonialCard}>
-                            <div className={styles.quoteIcon}>"</div>
-                            <p className={styles.testimonialText}>Wir sparen 400€ Druckkosten pro Monat.</p>
+                            <div className={styles.quoteContent}>
+                                <FormatQuote className={styles.quoteIcon} />
+                                <p className={styles.testimonialText}>"Wir sparen 400€ Druckkosten pro Monat."</p>
+                            </div>
+                            <div className={styles.testimonialAuthor}>
+                                <div className={styles.avatar} style={{ backgroundColor: '#FFD166' }}></div>
+                                <div className={styles.authorMeta}>
+                                    <h4>Maria S.</h4>
+                                    <span>Inhaberin, Café Sunshine</span>
+                                </div>
+                            </div>
                         </div>
+
                         <div className={styles.testimonialCard}>
-                            <div className={styles.quoteIcon}>"</div>
-                            <p className={styles.testimonialText}>Endlich ordentliche Allergene.</p>
+                            <div className={styles.quoteContent}>
+                                <FormatQuote className={styles.quoteIcon} />
+                                <p className={styles.testimonialText}>"Endlich ordentliche Allergene."</p>
+                            </div>
+                            <div className={styles.testimonialAuthor}>
+                                <div className={styles.avatar} style={{ backgroundColor: '#06D6A0' }}></div>
+                                <div className={styles.authorMeta}>
+                                    <h4>Thomas Bauer</h4>
+                                    <span>Küchenchef, BurgerFactory</span>
+                                </div>
+                            </div>
                         </div>
+
                         <div className={styles.testimonialCard}>
-                            <div className={styles.quoteIcon}>"</div>
-                            <p className={styles.testimonialText}>Der QR-Code steht auf allen Tischen – läuft perfekt.</p>
+                            <div className={styles.quoteContent}>
+                                <FormatQuote className={styles.quoteIcon} />
+                                <p className={styles.testimonialText}>"Der QR-Code steht auf allen Tischen – läuft perfekt."</p>
+                            </div>
+                            <div className={styles.testimonialAuthor}>
+                                <div className={styles.avatar} style={{ backgroundColor: '#118AB2' }}></div>
+                                <div className={styles.authorMeta}>
+                                    <h4>Ahmed K.</h4>
+                                    <span>Manager, City Bistro</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -304,8 +378,11 @@ export default function IbladishLandingPage() {
 
             {/* Pricing Section */}
             <section className={styles.pricingSection}>
+                <div className={styles.pricingBgShape} />
                 <div className={styles.container}>
-                    <h2 className={styles.sectionTitle}>Preise</h2>
+                    <h2 className={styles.pricingHeading}>Preise</h2>
+                    <p className={styles.pricingSubtitle}>Transparent. Ohne versteckte Gebühren.</p>
+
                     <div className={styles.pricingGrid}>
                         <div className={styles.pricingCard}>
                             <h3 className={styles.pricingTitle}>Free</h3>
@@ -316,6 +393,7 @@ export default function IbladishLandingPage() {
                             <p className={styles.pricingFeatures}>kommt bald</p>
                             <button className={`${styles.btn} ${styles.btnSecondary}`}>Bald verfügbar</button>
                         </div>
+
                         <div className={`${styles.pricingCard} ${styles.pricingFeatured}`}>
                             <div className={styles.featuredBadge}>Empfohlen</div>
                             <h3 className={styles.pricingTitle}>Premium</h3>
