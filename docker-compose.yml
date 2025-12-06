@@ -7,9 +7,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_pass}
     volumes:
-      - restaurant_project_new_pg_data:/var/lib/postgresql/data
+      - ibladish_v3_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 15
@@ -18,16 +18,14 @@ services:
     container_name: backend
     build:
       context: .
-      dockerfile: backend/Dockerfile # داخل مجلد backend
+      dockerfile: backend/Dockerfile
     environment:
-      # قاعدة البيانات
       POSTGRES_DB: ${POSTGRES_DB:-ibla_db}
       POSTGRES_USER: ${POSTGRES_USER:-ibla_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibla_pass}
       POSTGRES_HOST: ibla_db
       POSTGRES_PORT: "5432"
 
-      # Django
       DJANGO_SETTINGS_MODULE: backend.settings.prod
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,ibladish.com,www.ibladish.com}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://ibladish.com,https://www.ibladish.com,http://localhost}
@@ -39,8 +37,8 @@ services:
         condition: service_healthy
 
     volumes:
-      - staticfiles:/app/backend/staticfiles
-      - media:/app/backend/media
+      - ibladish_v3_staticfiles:/app/backend/staticfiles
+      - ibladish_v3_media:/app/backend/media
 
     expose:
       - "8000"
@@ -68,7 +66,7 @@ services:
              npm run build &&
              sleep infinity"
     volumes:
-      - frontend_dist:/app/dist
+      - ibladish_v3_frontend_dist:/app/dist
 
   nginx:
     container_name: nginx
@@ -86,8 +84,9 @@ services:
       - ibladish_v3_media:/app/backend/media:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
 
+# ====== VOLUMES ======
 volumes:
-  restaurant_project_new_pg_data:
+  ibladish_v3_pg_data:
     external: true
 
   ibladish_v3_frontend_dist:
@@ -98,10 +97,3 @@ volumes:
 
   ibladish_v3_media:
     external: true
-
-  # هذه بقيت فقط لأن الخدمات تستخدمها — ويمكن حذفها لاحقًا
-  staticfiles:
-  media:
-  frontend_dist:
-
-
