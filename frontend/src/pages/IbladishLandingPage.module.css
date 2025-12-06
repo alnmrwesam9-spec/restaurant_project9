@@ -797,59 +797,344 @@
 }
 
 /* ========================================
-   Social Proof (Minimal Quotes)
+/* ========================================
+   Social Proof (Horizontal Scrolling - Replit Style)
    ======================================== */
 
 .testimonials {
     padding: var(--space-xl) 0;
     background: var(--white);
+    overflow: hidden;
+}
+
+.testimonials .sectionTitle {
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.testimonials .sectionSubtitle {
+    text-align: center;
+    color: var(--neutral-600);
+    font-size: 1.125rem;
+    margin-bottom: 3rem;
+}
+
+.testimonialsScrollWrapper {
+    /* Full width bleed for scroll */
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2rem;
+    /* Space for scrollbar or shadow */
+    -webkit-overflow-scrolling: touch;
+    /* Hide scrollbar ideally */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+}
+
+.testimonialsScrollWrapper::-webkit-scrollbar {
+    display: none;
+}
+
+.testimonialsGrid {
+    display: flex;
+    /* Horizontal Flex */
+    gap: 1.5rem;
+    padding: 0 var(--space-md);
+    width: max-content;
+    /* Ensure it stretches */
+    margin: 0 auto;
+}
+
+.testimonialCard {
+    width: 360px;
+    /* Fixed width for consistent cards */
+    flex-shrink: 0;
+    background: var(--white);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid var(--neutral-200);
+    text-align: left;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 380px;
+    /* Tall generous cards */
+    transition: all 0.3s ease;
+}
+
+.testimonialCard:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+    border-color: var(--neutral-300);
+}
+
+/* Featured Highlight Card */
+.testimonialFeatured {
+    border: 1px solid #FFD8CC;
+    /* Light Orange Border */
+    background: #FFFBF9;
+    /* Very subtle orange tint */
+}
+
+.cardBadge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #F27141;
+    /* Primary Orange */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cardHeader {
+    margin-bottom: 1.5rem;
+}
+
+.cardLogo {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--neutral-900);
+    letter-spacing: -0.01em;
+}
+
+.testimonialText {
+    font-size: 1.0625rem;
+    /* 17px */
+    line-height: 1.6;
+    color: var(--neutral-900);
+    font-weight: 500;
+    flex-grow: 1;
+}
+
+.testimonialAuthor {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    /* Subtle divider */
+    padding-top: 1.5rem;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--neutral-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: white;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.authorMeta h4 {
+    font-size: 0.9375rem;
+    /* 15px */
+    margin: 0;
+    color: var(--neutral-900);
+    font-weight: 600;
+}
+
+.authorMeta span {
+    font-size: 0.8125rem;
+    /* 13px */
+    color: var(--neutral-600);
+    display: block;
+    margin-top: 2px;
 }
 
 /* ========================================
    Pricing
    ======================================== */
+/* ========================================
+   Pricing (Premium SaaS Modern)
+   ======================================== */
 .pricingSection {
-    padding: var(--space-xl) 0;
+    padding: 140px 0;
+    /* More expressiveness/space */
     background: var(--neutral-50);
+    position: relative;
+    overflow: hidden;
+    /* For optional blur blob */
+}
+
+/* Optional Background Accent */
+.pricingSection::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(242, 113, 65, 0.05) 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+.pricingHeading {
+    font-size: 3.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.pricingSubtitle {
+    text-align: center;
+    color: var(--neutral-600);
+    font-size: 1.25rem;
+    margin-bottom: 5rem;
+    position: relative;
+    z-index: 1;
 }
 
 .pricingGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+    gap: 2.5rem;
     max-width: 900px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
 }
 
+/* Base Pricing Card */
 .pricingCard {
     background: var(--white);
-    padding: 3rem 2rem;
-    border-radius: var(--radius-lg);
+    padding: 3rem 2.5rem;
+    border-radius: 20px;
+    /* Sophisticated roundness */
     border: 1px solid var(--neutral-200);
     text-align: center;
     position: relative;
+    transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+
+    /* Reveal Animation: Fade + Slide Up */
+    opacity: 0;
+    animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Animation Stagger */
+.pricingCard:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.pricingCard:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+@keyframes fadeInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.pricingCard:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-md), 0 0 0 1px var(--neutral-200);
+    /* Subtle Lift */
+}
+
+/* Premium / Featured Card Styling */
 .pricingFeatured {
-    border: 2px solid var(--primary);
-    box-shadow: var(--shadow-lg);
-    transform: scale(1.05);
-    /* Slight pop */
-    z-index: 10;
+    /* "Recommended" Plan Highlight */
+    background: #fffafa;
+    /* Very subtle off-white/warm tint */
+    border: 1px solid rgba(242, 113, 65, 0.3);
+    /* Subtle orange tone */
+    box-shadow: 0 20px 40px -4px rgba(242, 113, 65, 0.15), 0 10px 10px -4px rgba(0, 0, 0, 0.04);
+    z-index: 2;
+    transform: scale(1.02);
+    /* Default scale */
+
+    /* Reveal Animation Override to keep scale */
+    animation: fadeInUpFeatured 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUpFeatured {
+    0% {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1.02);
+    }
+}
+
+.pricingFeatured:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 40px 60px -10px rgba(242, 113, 65, 0.25);
+    border-color: rgba(242, 113, 65, 0.6);
 }
 
 .featuredBadge {
     position: absolute;
-    top: -12px;
+    top: -14px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary), #e05e30);
     color: white;
-    padding: 4px 12px;
+    padding: 6px 16px;
     border-radius: var(--radius-full);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 0 4px 10px rgba(242, 113, 65, 0.3);
+}
+
+.pricingTitle {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--neutral-900);
+}
+
+.pricingPrice {
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+}
+
+.priceAmount {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: var(--neutral-900);
+    letter-spacing: -0.02em;
+}
+
+.pricePeriod {
+    color: var(--neutral-600);
+    font-size: 1.125rem;
+    font-weight: 500;
+}
+
+.pricingFeatures {
+    color: var(--neutral-600);
+    margin-bottom: 2.5rem;
+    font-size: 1rem;
+    min-height: 24px;
 }
 
 /* ========================================

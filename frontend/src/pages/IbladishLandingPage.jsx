@@ -324,51 +324,81 @@ export default function IbladishLandingPage() {
                 </div>
             </section>
 
-            {/* Social Proof Section */}
+            {/* Social Proof (Replit-Style Scroll) */}
             <section className={styles.testimonials}>
                 <div className={styles.container}>
                     <h2 className={styles.sectionTitle}>Was unsere Kunden sagen</h2>
-                    <p className={styles.sectionSubtitle}>Echte Erfolgsgeschichten aus der Praxis.</p>
+                    <p className={styles.sectionSubtitle}>Gastronomen, die IBLADISH lieben</p>
 
-                    <div className={styles.testimonialsGrid}>
-                        <div className={styles.testimonialCard}>
-                            <div className={styles.quoteContent}>
-                                <FormatQuote className={styles.quoteIcon} />
-                                <p className={styles.testimonialText}>"Wir sparen 400€ Druckkosten pro Monat."</p>
-                            </div>
-                            <div className={styles.testimonialAuthor}>
-                                <div className={styles.avatar} style={{ backgroundColor: '#FFD166' }}></div>
-                                <div className={styles.authorMeta}>
-                                    <h4>Maria S.</h4>
-                                    <span>Inhaberin, Café Sunshine</span>
+                    {/* Horizontal Scroll Container */}
+                    <div className={styles.testimonialsScrollWrapper}>
+                        <div className={styles.testimonialsGrid}>
+                            {/* Card 1 */}
+                            <div className={styles.testimonialCard}>
+                                <div className={styles.cardHeader}>
+                                    <div className={styles.cardLogo}>⭐⭐⭐⭐⭐</div>
+                                </div>
+                                <p className={styles.testimonialText}>
+                                    "Wir sparen jeden Tag Zeit. Die Allergene werden automatisch erkannt, das ist für uns die größte Erleichterung."
+                                </p>
+                                <div className={styles.testimonialAuthor}>
+                                    <div className={styles.avatar} style={{ backgroundColor: '#06D6A0' }}>TB</div>
+                                    <div className={styles.authorMeta}>
+                                        <h4>Thomas Bauer</h4>
+                                        <span>Küchenchef, BurgerFactory</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className={styles.testimonialCard}>
-                            <div className={styles.quoteContent}>
-                                <FormatQuote className={styles.quoteIcon} />
-                                <p className={styles.testimonialText}>"Endlich ordentliche Allergene."</p>
-                            </div>
-                            <div className={styles.testimonialAuthor}>
-                                <div className={styles.avatar} style={{ backgroundColor: '#06D6A0' }}></div>
-                                <div className={styles.authorMeta}>
-                                    <h4>Thomas Bauer</h4>
-                                    <span>Küchenchef, BurgerFactory</span>
+                            {/* Card 2 (Featured) */}
+                            <div className={`${styles.testimonialCard} ${styles.testimonialFeatured}`}>
+                                <div className={styles.cardBadge}>Success Story</div>
+                                <div className={styles.cardHeader}>
+                                    <div className={styles.cardLogo}>IBLADISH ➜ +30% Umsatz</div>
+                                </div>
+                                <p className={styles.testimonialText}>
+                                    "Früher haben wir PDFs verschickt. Jetzt scannen die Gäste einfach den Code. Der Durchschnittsbon ist spürbar gestiegen."
+                                </p>
+                                <div className={styles.testimonialAuthor}>
+                                    <div className={styles.avatar} style={{ backgroundColor: '#F27141' }}>AK</div>
+                                    <div className={styles.authorMeta}>
+                                        <h4>Ahmed K.</h4>
+                                        <span>Manager, City Bistro</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className={styles.testimonialCard}>
-                            <div className={styles.quoteContent}>
-                                <FormatQuote className={styles.quoteIcon} />
-                                <p className={styles.testimonialText}>"Der QR-Code steht auf allen Tischen – läuft perfekt."</p>
+                            {/* Card 3 */}
+                            <div className={styles.testimonialCard}>
+                                <div className={styles.cardHeader}>
+                                    <div className={styles.cardLogo}>⭐⭐⭐⭐⭐</div>
+                                </div>
+                                <p className={styles.testimonialText}>
+                                    "Einfach, schnell und sieht super aus. Unsere Gäste fragen oft, welches System wir nutzen. Absolute Empfehlung."
+                                </p>
+                                <div className={styles.testimonialAuthor}>
+                                    <div className={styles.avatar} style={{ backgroundColor: '#118AB2' }}>SL</div>
+                                    <div className={styles.authorMeta}>
+                                        <h4>Sarah Lindner</h4>
+                                        <span>Inhaberin, Café Soul</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className={styles.testimonialAuthor}>
-                                <div className={styles.avatar} style={{ backgroundColor: '#118AB2' }}></div>
-                                <div className={styles.authorMeta}>
-                                    <h4>Ahmed K.</h4>
-                                    <span>Manager, City Bistro</span>
+
+                            {/* Card 4 */}
+                            <div className={styles.testimonialCard}>
+                                <div className={styles.cardHeader}>
+                                    <div className={styles.cardLogo}>⭐⭐⭐⭐⭐</div>
+                                </div>
+                                <p className={styles.testimonialText}>
+                                    "Keine veralteten Preise mehr im Internet. Ein Klick und alles ist aktuell. Google-Integration ist top."
+                                </p>
+                                <div className={styles.testimonialAuthor}>
+                                    <div className={styles.avatar} style={{ backgroundColor: '#FFD166', color: '#333' }}>MW</div>
+                                    <div className={styles.authorMeta}>
+                                        <h4>Markus Weber</h4>
+                                        <span>Betreiber, 'Das Lokal'</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
