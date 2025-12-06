@@ -48,6 +48,7 @@ const MenuPublicSettings = React.lazy(() => import('./pages/MenuPublicSettings')
 const PublicMenuPage = React.lazy(() => import('./pages/PublicMenuPage'))
 const AdminAllergensPage = React.lazy(() => import('./pages/AdminAllergensPage'))
 const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'))
+const IbladishLandingPage = React.lazy(() => import('./pages/IbladishLandingPage'))
 
 /* ------------------------- JWT utils ------------------------- */
 function isJwtValidMaybe(token) {
@@ -142,7 +143,7 @@ export default function App() {
       const lng = i18n?.language || 'de'
       document.documentElement.lang = lng
       document.dir = lng.startsWith('ar') ? 'rtl' : 'ltr'
-    } catch {}
+    } catch { }
   }, [i18n?.language])
 
   // أثناء الإقلاع: حمّل توكن صالح إن وجد واضبط Authorization
@@ -252,206 +253,209 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-    <Router>
-      {/* ✅ مكوّن الجولة متاح على مستوى التطبيق كله */}
-      <SesameGuide />
+      <Router>
+        {/* ✅ مكوّن الجولة متاح على مستوى التطبيق كله */}
+        <SesameGuide />
 
-      {/* ✅ Suspense عام يغلّف كل المسارات. يمكنك استبدال fallback بـ Loader إن رغبت */}
-      <React.Suspense fallback={null}>
-        <Routes>
-          {/* 📌 الجذر: يقرر الوجهة تلقائيًا */}
-          <Route path="/" element={<RootRedirect />} />
+        {/* ✅ Suspense عام يغلّف كل المسارات. يمكنك استبدال fallback بـ Loader إن رغبت */}
+        <React.Suspense fallback={null}>
+          <Routes>
+            {/* 📌 الجذر: يقرر الوجهة تلقائيًا */}
+            <Route path="/" element={<RootRedirect />} />
 
-          {/* التسجيل: إذا كنت موثقًا نحولك لوجهتك، وإلا نعرض Register */}
-          <Route
-            path="/register"
-            element={
-              token ? (
-                <Navigate to={targetAfterAuth || '/menus'} replace />
-              ) : (
-                <Register onLogin={handleLogin} />
-              )
-            }
-          />
+            {/* التسجيل: إذا كنت موثقًا نحولك لوجهتك، وإلا نعرض Register */}
+            <Route
+              path="/register"
+              element={
+                token ? (
+                  <Navigate to={targetAfterAuth || '/menus'} replace />
+                ) : (
+                  <Register onLogin={handleLogin} />
+                )
+              }
+            />
 
-          {/* 👤 مسارات لوحة المستخدم (محميّة) */}
-          <Route
-            path="/account/profile"
-            element={
-              <PrivateRoute token={token}>
-                <>
-                  <UserNavbar onLogout={handleLogout} />
-                  <UserProfilePage />
-                </>
-              </PrivateRoute>
-            }
-          />
+            {/* 👤 مسارات لوحة المستخدم (محميّة) */}
+            <Route
+              path="/account/profile"
+              element={
+                <PrivateRoute token={token}>
+                  <>
+                    <UserNavbar onLogout={handleLogout} />
+                    <UserProfilePage />
+                  </>
+                </PrivateRoute>
+              }
+            />
 
-          <Route
-            path="/menus"
-            element={
-              <PrivateRoute token={token}>
-                <>
-                  <UserNavbar onLogout={handleLogout} />
-                  <MenusPage token={token} />
-                </>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/menus/:menuId"
-            element={
-              <PrivateRoute token={token}>
-                <>
-                  <UserNavbar onLogout={handleLogout} />
-                  <SectionPage />
-                </>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/sections/:sectionId/dishes"
-            element={
-              <PrivateRoute token={token}>
-                <>
-                  <UserNavbar onLogout={handleLogout} />
-                  <DishPage />
-                </>
-              </PrivateRoute>
-            }
-          />
+            <Route
+              path="/menus"
+              element={
+                <PrivateRoute token={token}>
+                  <>
+                    <UserNavbar onLogout={handleLogout} />
+                    <MenusPage token={token} />
+                  </>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/menus/:menuId"
+              element={
+                <PrivateRoute token={token}>
+                  <>
+                    <UserNavbar onLogout={handleLogout} />
+                    <SectionPage />
+                  </>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/sections/:sectionId/dishes"
+              element={
+                <PrivateRoute token={token}>
+                  <>
+                    <UserNavbar onLogout={handleLogout} />
+                    <DishPage />
+                  </>
+                </PrivateRoute>
+              }
+            />
 
-          {/* ⚙️ إعدادات نشر/عرض قائمة معيّنة */}
-          <Route
-            path="/menus/:menuId/public-settings"
-            element={
-              <PrivateRoute token={token}>
-                <>
-                  <UserNavbar onLogout={handleLogout} />
-                  <MenuPublicSettings />
-                </>
-              </PrivateRoute>
-            }
-          />
+            {/* ⚙️ إعدادات نشر/عرض قائمة معيّنة */}
+            <Route
+              path="/menus/:menuId/public-settings"
+              element={
+                <PrivateRoute token={token}>
+                  <>
+                    <UserNavbar onLogout={handleLogout} />
+                    <MenuPublicSettings />
+                  </>
+                </PrivateRoute>
+              }
+            />
 
-          {/* 📊 تقارير (كما في القديم: غير محمية—عدّلها إن أردت) */}
-          <Route path="/reports" element={<ReportsDashboard />} />
+            {/* 📊 تقارير (كما في القديم: غير محمية—عدّلها إن أردت) */}
+            <Route path="/reports" element={<ReportsDashboard />} />
 
-          {/* 🛡️ مسارات لوحة الأدمن */}
-          <Route
-            path="/admin/users"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminUsersPage />
-                </>
-              </AdminRoute>
-            }
-          />
+            {/* 🛡️ مسارات لوحة الأدمن */}
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminUsersPage />
+                  </>
+                </AdminRoute>
+              }
+            />
 
-          <Route
-            path="/admin/users/:userId/menus"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminUserMenusPage />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/users/:userId/details"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminUserDetailsPage />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/users/:userId/edit"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminEditUserPage />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/menus/:menuId/edit"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminMenuEditorPage />
-                </>
-              </AdminRoute>
-            }
-          />
+            <Route
+              path="/admin/users/:userId/menus"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminUserMenusPage />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users/:userId/details"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminUserDetailsPage />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users/:userId/edit"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminEditUserPage />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/menus/:menuId/edit"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminMenuEditorPage />
+                  </>
+                </AdminRoute>
+              }
+            />
 
-          {/* ✅ صفحات الأكواد الأربع (نفس الصفحة، تحدد النوع من المسار) */}
-          <Route
-            path="/admin/allergens"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                <AdminAllergensPage />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/additives"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminAllergensPage />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/lexemes"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminAllergensPage />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/ingredients"
-            element={
-              <AdminRoute token={token}>
-                <>
-                  <AdminNavbar onLogout={handleLogout} />
-                  <AdminAllergensPage />
-                </>
-              </AdminRoute>
-            }
-          />
+            {/* ✅ صفحات الأكواد الأربع (نفس الصفحة، تحدد النوع من المسار) */}
+            <Route
+              path="/admin/allergens"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminAllergensPage />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/additives"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminAllergensPage />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/lexemes"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminAllergensPage />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/ingredients"
+              element={
+                <AdminRoute token={token}>
+                  <>
+                    <AdminNavbar onLogout={handleLogout} />
+                    <AdminAllergensPage />
+                  </>
+                </AdminRoute>
+              }
+            />
 
-          {/* 🌐 صفحات العرض العامة */}
-          <Route path="/show/menu/:publicSlug" element={<PublicMenuPage />} />
+            {/* 🌐 صفحات العرض العامة */}
+            <Route path="/show/menu/:publicSlug" element={<PublicMenuPage />} />
 
-          {/* ❓ مسارات غير معروفة */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </React.Suspense>
+            {/* IBLADISH Landing Page (Public) */}
+            <Route path="/ibladish" element={<IbladishLandingPage />} />
 
-      {/* زر يدوي لتشغيل الجولة عند الحاجة — يختفي قبل التوثيق وخارج مسارات المستخدم */}
-      <StartTourButton token={token} />
-    </Router>
+            {/* ❓ مسارات غير معروفة */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </React.Suspense>
+
+        {/* زر يدوي لتشغيل الجولة عند الحاجة — يختفي قبل التوثيق وخارج مسارات المستخدم */}
+        <StartTourButton token={token} />
+      </Router>
     </QueryClientProvider>
   )
 }
