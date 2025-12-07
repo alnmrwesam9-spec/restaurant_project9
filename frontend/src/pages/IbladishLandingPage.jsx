@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import styles from './IbladishLandingPage.module.css'
 import LanguageSwitcher from '../components/LanguageSwitcher'
@@ -23,15 +23,24 @@ import {
 
 export default function IbladishLandingPage() {
     const { t, i18n } = useTranslation()
+    const navigate = useNavigate()
     const { lang } = useParams()
 
-    useEffect(() => {
-        if (lang && ['de', 'en', 'ar'].includes(lang) && i18n.language !== lang) {
-            i18n.changeLanguage(lang)
-        }
-    }, [lang, i18n])
+    const supportedLangs = ['de', 'en', 'ar']
+    const urlLang = lang && supportedLangs.includes(lang) ? lang : null
+    const activeLang = urlLang || (supportedLangs.includes(i18n.language) ? i18n.language : 'de')
+    const langPrefix = activeLang ? `/${activeLang}` : ''
+    const registerPath = `${langPrefix}/register`
 
-    const isRtl = i18n.language === 'ar'
+    useEffect(() => {
+        if (urlLang && i18n.language !== urlLang) {
+            i18n.changeLanguage(urlLang)
+        }
+    }, [urlLang, i18n])
+
+    const isRtl = activeLang === 'ar'
+
+    const handleStartNow = () => navigate(registerPath)
 
     return (
         <div className={styles.ibladishPage} dir={isRtl ? 'rtl' : 'ltr'}>
@@ -47,7 +56,9 @@ export default function IbladishLandingPage() {
                     </div>
                     <div className={styles.navActions} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <LanguageSwitcher />
-                        <button className={`${styles.btn} ${styles.btnPrimary}`}>{t('landing.nav.cta')}</button>
+                        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleStartNow}>
+                            {t('landing.nav.cta')}
+                        </button>
                     </div>
                 </div>
             </header>
@@ -61,7 +72,7 @@ export default function IbladishLandingPage() {
                             {t('landing.hero.subtitle')}
                         </p>
                         <div className={styles.heroCta}>
-                            <button className={`${styles.btn} ${styles.btnPrimary}`}>
+                            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleStartNow}>
                                 {t('landing.hero.cta_primary')}
                             </button>
                             <button className={`${styles.btn} ${styles.btnSecondary}`}>

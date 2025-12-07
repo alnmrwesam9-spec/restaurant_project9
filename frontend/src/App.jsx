@@ -1,22 +1,17 @@
 // frontend/src/App.jsx
 // --------------------------------------------------------------
-// Router setup (merged + enhanced):
-// - RootRedirect يحسم الوجهة من "/":
-//     unauthenticated  => LoginPage
-//     admin            => /admin/users
-//     owner/user       => /menus
-// - يحافظ على جميع مسارات المشروع القديمة
-// - يهيّئ Axios Authorization عند الإقلاع وبعد تسجيل الدخول
-// - onUnauthorized (401) ينظف الجلسة ويعيد إلى "/"
-// - يدعم مفاتيح تخزين متنوعة: access_token/access + refresh_token/refresh
-// - ✅ مدمج معه SesameGuide وزر تشغيل الجولة اليدوي StartTourButton
-// - ✅ زر الجولة يظهر فقط للمستخدم الموثّق وفي مسارات المستخدم (menus/sections/public-settings)
-// - ✅ تقليل حجم التحميل الأولي عبر Lazy + Suspense
+// Router setup:
+// - Landing page is the public default ("/" and "/:lang").
+// - Login lives at /login (and /:lang/login) and redirects authenticated users.
+// - Register respects auth redirect for signed-in users.
+// - Axios Authorization header stays in sync; 401 clears tokens then sends home.
+// - SesameGuide + StartTourButton remain available globally.
+// - All routes are lazy loaded under a Suspense boundary.
 // --------------------------------------------------------------
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import api, { setOnUnauthorized } from './services/axios'
 import { jwtDecode } from 'jwt-decode'
 import { useTour } from '@reactour/tour'
@@ -49,6 +44,8 @@ const PublicMenuPage = React.lazy(() => import('./pages/PublicMenuPage'))
 const AdminAllergensPage = React.lazy(() => import('./pages/AdminAllergensPage'))
 const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'))
 const IbladishLandingPage = React.lazy(() => import('./pages/IbladishLandingPage'))
+
+const SUPPORTED_LANGS = ['de', 'en', 'ar']
 
 /* ------------------------- JWT utils ------------------------- */
 function isJwtValidMaybe(token) {
@@ -217,7 +214,7 @@ export default function App() {
     }
   }
 
-  // 🎯 الوجهة بعد التوثيق
+  // 🎯 target path after authentication
   const targetAfterAuth = useMemo(() => {
     if (!token) return null
 
@@ -230,8 +227,8 @@ export default function App() {
     return role === 'admin' ? '/admin/users' : '/menus'
   }, [token])
 
-  // 🧭 RootRedirect: يستخدم حالة التطبيق + التخزين لتقرير الوجهة عند "/"
-  function RootRedirect() {
+  // 🧭 LoginEntry: drives the /login route and redirects authenticated users
+  function LoginEntry() {
     const storedToken =
       localStorage.getItem('access_token') ||
       localStorage.getItem('access') ||
@@ -251,6 +248,26 @@ export default function App() {
     return <Navigate to={goAdmin ? '/admin/users' : '/menus'} replace />
   }
 
+  function RegisterEntry() {
+    return token ? (
+      <Navigate to={targetAfterAuth || '/menus'} replace />
+    ) : (
+      <Register onLogin={handleLogin} />
+    )
+  }
+
+  function LangSync({ children }) {
+    const { lang } = useParams()
+
+    useEffect(() => {
+      if (lang && SUPPORTED_LANGS.includes(lang) && i18n?.language !== lang) {
+        i18n.changeLanguage(lang)
+      }
+    }, [lang, i18n])
+
+    return children
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
@@ -260,18 +277,34 @@ export default function App() {
         {/* ✅ Suspense عام يغلّف كل المسارات. يمكنك استبدال fallback بـ Loader إن رغبت */}
         <React.Suspense fallback={null}>
           <Routes>
-            {/* 📌 الجذر: يقرر الوجهة تلقائيًا */}
-            <Route path="/" element={<RootRedirect />} />
-
-            {/* التسجيل: إذا كنت موثقًا نحولك لوجهتك، وإلا نعرض Register */}
+            {/* 📌 Landing (default + i18n prefixes) */}
+            <Route path="/" element={<IbladishLandingPage />} />
             <Route
-              path="/register"
+              path="/:lang"
               element={
-                token ? (
-                  <Navigate to={targetAfterAuth || '/menus'} replace />
-                ) : (
-                  <Register onLogin={handleLogin} />
-                )
+                <LangSync>
+                  <IbladishLandingPage />
+                </LangSync>
+              }
+            />
+
+            {/* Auth entry points (login/register) with i18n prefixes */}
+            <Route path="/login" element={<LoginEntry />} />
+            <Route
+              path="/:lang/login"
+              element={
+                <LangSync>
+                  <LoginEntry />
+                </LangSync>
+              }
+            />
+            <Route path="/register" element={<RegisterEntry />} />
+            <Route
+              path="/:lang/register"
+              element={
+                <LangSync>
+                  <RegisterEntry />
+                </LangSync>
               }
             />
 
@@ -446,8 +479,15 @@ export default function App() {
             <Route path="/show/menu/:publicSlug" element={<PublicMenuPage />} />
 
             {/* IBLADISH Landing Page (Public) with i18n support */}
-            <Route path="/ibladish" element={<Navigate to="/de/ibladish" replace />} />
-            <Route path="/:lang/ibladish" element={<IbladishLandingPage />} />
+            <Route path="/ibladish" element={<Navigate to="/de" replace />} />
+            <Route
+              path="/:lang/ibladish"
+              element={
+                <LangSync>
+                  <IbladishLandingPage />
+                </LangSync>
+              }
+            />
 
             {/* ❓ مسارات غير معروفة */}
             <Route path="*" element={<Navigate to="/" replace />} />
