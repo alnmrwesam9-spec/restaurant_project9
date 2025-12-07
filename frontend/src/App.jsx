@@ -445,8 +445,9 @@ export default function App() {
             {/* 🌐 صفحات العرض العامة */}
             <Route path="/show/menu/:publicSlug" element={<PublicMenuPage />} />
 
-            {/* IBLADISH Landing Page (Public) */}
-            <Route path="/ibladish" element={<IbladishLandingPage />} />
+            {/* IBLADISH Landing Page (Public) with i18n support */}
+            <Route path="/ibladish" element={<Navigate to="/de/ibladish" replace />} />
+            <Route path="/:lang/ibladish" element={<IbladishLandingPage />} />
 
             {/* ❓ مسارات غير معروفة */}
             <Route path="*" element={<Navigate to="/" replace />} />

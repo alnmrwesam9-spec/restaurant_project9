@@ -515,5 +515,164 @@
         "sample_description": "Kurze Beschreibung hier...",
         "hero_image_recommendation": "Empfohlen: 1200x600px oder größer",
         "visibility": "Sichtbare Elemente"
+    },
+    "landing": {
+        "nav": {
+            "cta": "Los geht's"
+        },
+        "hero": {
+            "title": "Die Speisekarte, die sich selbst aktualisiert.",
+            "subtitle": "Mit IBLADISH verwaltest du deine gesamte Speisekarte an einem Ort – Änderungen sind sofort überall sichtbar, dank QR-Code & Link.",
+            "cta_primary": "Jetzt kostenlos starten →",
+            "cta_secondary": "Demo ansehen →",
+            "placeholder": "Dashboard Vorschau (Platzhalter)"
+        },
+        "marquee": {
+            "title": "Vertraut von Gastronomiebetrieben"
+        },
+        "problem": {
+            "title": "Problem: Was Gastronomen heute nervt",
+            "subtitle": "Veraltete Prozesse und Insellösungen kosten Zeit und Nerven.",
+            "cards": {
+                "1": "Preise ändern → neue Speisekarten drucken",
+                "2": "Allergene und Zusatzstoffe korrekt kennzeichnen",
+                "3": "Website fehlt oder ist veraltet",
+                "4": "QR-Codes zeigen PDF-Dateien, die nicht optimiert sind",
+                "5": "Zeitverlust durch Mehrfach-Änderungen"
+            }
+        },
+        "solution": {
+            "subtitle": "Die Lösung – IBLADISH",
+            "title": "Alles an einem Ort. Sofort überall aktualisiert.",
+            "list": {
+                "1": "Preise, Fotos, Beschreibung in Sekunden ändern",
+                "2": "Live-Update auf jedem Smartphone",
+                "3": "Eine digitale Speisekarte für Tische, Flyer, Website",
+                "4": "KI analysiert und erzeugt Allergen- & Zusatzstoffkennzeichnung automatisch"
+            },
+            "dashboard": "IBLADISH Dashboard"
+        },
+        "features": {
+            "title": "Hauptfunktionen",
+            "cards": {
+                "1": {
+                    "title": "Zentrale Speisekarten-Verwaltung",
+                    "desc1": "Eine Änderung → überall aktualisiert.",
+                    "desc2": "Kein PDF, keine doppelten Versionen, kein Chaos."
+                },
+                "2": {
+                    "title": "QR-Code & Link für Tischkarten & Flyer",
+                    "desc1": "Ein Code funktioniert für immer.",
+                    "desc2": "Egal wie oft du die Preise änderst."
+                },
+                "3": {
+                    "title": "KI-Allergen-Erkennung (einzigartig)",
+                    "desc1": "IBLADISH erkennt automatisch:",
+                    "list_items": {
+                        "1": "Allergene",
+                        "2": "Zusatzstoffe",
+                        "3": "Spuren von …"
+                    }
+                },
+                "4": {
+                    "title": "Für Google optimiert",
+                    "desc1": "Deine digitale Speisekarte wird als \"Digitale Menu-Page\" indexiert.",
+                    "desc2": "Mehr Sichtbarkeit, besser für Touristen."
+                },
+                "5": {
+                    "title": "Multi-Language ready (optional)",
+                    "desc1": "Deutsch – Arabisch – Englisch – Türkisch – etc."
+                }
+            }
+        },
+        "how_it_works": {
+            "title": "Wie funktioniert das?",
+            "subtitle": "Kurz & simpel erklärt",
+            "steps": {
+                "1": "Speisen anlegen",
+                "2": "QR-Code ausdrucken",
+                "3": "Preis ändern → sofort überall sichtbar",
+                "4": "Gäste scannen → perfekte mobile Speisekarte"
+            },
+            "footer": "Kein App-Download. Keine Installation."
+        },
+        "why": {
+            "title": "Warum IBLADISH?",
+            "table": {
+                "col_problem": "Problem",
+                "col_solution": "IBLADISH Lösung",
+                "rows": {
+                    "1": {
+                        "prob": "Teure Druckkosten bei Preisänderung",
+                        "sol": "0€ jedes Mal – QR bleibt gleich"
+                    },
+                    "2": {
+                        "prob": "Falsche Allergene",
+                        "sol": "KI erkennt automatisch"
+                    },
+                    "3": {
+                        "prob": "Keine Website",
+                        "sol": "Speisekarte = Mini-Website"
+                    },
+                    "4": {
+                        "prob": "Touristen verstehen Menü nicht",
+                        "sol": "Multi-Language"
+                    },
+                    "5": {
+                        "prob": "Unordentliche PDFs",
+                        "sol": "Moderne Web-App Speisekarte"
+                    }
+                }
+            }
+        },
+        "testimonials": {
+            "title": "Was unsere Kunden sagen",
+            "subtitle": "Gastronomen, die IBLADISH lieben",
+            "cards": {
+                "1": {
+                    "text": "\"Wir sparen jeden Tag Zeit. Die Allergene werden automatisch erkannt, das ist für uns die größte Erleichterung.\"",
+                    "author": "Thomas Bauer",
+                    "role": "Küchenchef, BurgerFactory"
+                },
+                "2": {
+                    "badge": "Success Story",
+                    "logo": "IBLADISH ➜ +30% Umsatz",
+                    "text": "\"Früher haben wir PDFs verschickt. Jetzt scannen die Gäste einfach den Code. Der Durchschnittsbon ist spürbar gestiegen.\"",
+                    "author": "Ahmed K.",
+                    "role": "Manager, City Bistro"
+                },
+                "3": {
+                    "text": "\"Einfach, schnell und sieht super aus. Unsere Gäste fragen oft, welches System wir nutzen. Absolute Empfehlung.\"",
+                    "author": "Sarah Lindner",
+                    "role": "Inhaberin, Café Soul"
+                },
+                "4": {
+                    "text": "\"Keine veralteten Preise mehr im Internet. Ein Klick und alles ist aktuell. Google-Integration ist top.\"",
+                    "author": "Markus Weber",
+                    "role": "Betreiber, 'Das Lokal'"
+                }
+            }
+        },
+        "pricing": {
+            "title": "Preise",
+            "subtitle": "Transparent. Ohne versteckte Gebühren.",
+            "free": {
+                "title": "Free",
+                "period": "/ Monat",
+                "features": "kommt bald",
+                "cta": "Bald verfügbar"
+            },
+            "premium": {
+                "badge": "Empfohlen",
+                "title": "Premium",
+                "period": "/ Monat",
+                "features": "kommt bald",
+                "cta": "Jetzt starten"
+            }
+        },
+        "footer": {
+            "title": "Bereit, deine Speisekarte zu modernisieren?",
+            "cta": "Jetzt kostenlos starten →"
+        }
     }
 }

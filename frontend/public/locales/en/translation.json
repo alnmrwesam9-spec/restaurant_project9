@@ -543,5 +543,164 @@
         "sample_description": "Short description will be here...",
         "hero_image_recommendation": "Recommended: 1200x600px or larger",
         "visibility": "Visible elements"
+    },
+    "landing": {
+        "nav": {
+            "cta": "Get Started"
+        },
+        "hero": {
+            "title": "The Menu That Updates Itself.",
+            "subtitle": "With IBLADISH, manage your entire menu in one place – changes are instantly visible everywhere via QR Code & Link.",
+            "cta_primary": "Start for Free →",
+            "cta_secondary": "View Demo →",
+            "placeholder": "Dashboard Preview (Placeholder)"
+        },
+        "marquee": {
+            "title": "Trusted by Gastronomy Businesses"
+        },
+        "problem": {
+            "title": "Problem: What Annoys Restaurateurs Today",
+            "subtitle": "Outdated processes and isolated solutions cost time and nerves.",
+            "cards": {
+                "1": "Change prices → print new menus",
+                "2": "Correctly label allergens and additives",
+                "3": "Website missing or outdated",
+                "4": "QR codes link to unoptimized PDF files",
+                "5": "Time lost due to multiple changes"
+            }
+        },
+        "solution": {
+            "subtitle": "The Solution – IBLADISH",
+            "title": "Everything in one place. Instantly updated everywhere.",
+            "list": {
+                "1": "Change prices, photos, descriptions in seconds",
+                "2": "Live update on every smartphone",
+                "3": "One digital menu for tables, flyers, website",
+                "4": "AI automatically analyzes and generates allergen & additive labeling"
+            },
+            "dashboard": "IBLADISH Dashboard"
+        },
+        "features": {
+            "title": "Main Features",
+            "cards": {
+                "1": {
+                    "title": "Central Menu Management",
+                    "desc1": "One change → updated everywhere.",
+                    "desc2": "No PDF, no duplicate versions, no chaos."
+                },
+                "2": {
+                    "title": "QR Code & Link for Table Cards & Flyers",
+                    "desc1": "One code works forever.",
+                    "desc2": "No matter how often you change prices."
+                },
+                "3": {
+                    "title": "AI Allergen Detection (Unique)",
+                    "desc1": "IBLADISH automatically detects:",
+                    "list_items": {
+                        "1": "Allergens",
+                        "2": "Additives",
+                        "3": "Traces of..."
+                    }
+                },
+                "4": {
+                    "title": "Optimized for Google",
+                    "desc1": "Your digital menu is indexed as a \"Digital Menu Page\".",
+                    "desc2": "More visibility, better for tourists."
+                },
+                "5": {
+                    "title": "Multi-Language Ready (Optional)",
+                    "desc1": "German – Arabic – English – Turkish – etc."
+                }
+            }
+        },
+        "how_it_works": {
+            "title": "How It Works?",
+            "subtitle": "Explained simply & briefly",
+            "steps": {
+                "1": "Create dishes",
+                "2": "Print QR Code",
+                "3": "Change price → instantly visible everywhere",
+                "4": "Guests scan → perfect mobile menu"
+            },
+            "footer": "No app download. No installation."
+        },
+        "why": {
+            "title": "Why IBLADISH?",
+            "table": {
+                "col_problem": "Problem",
+                "col_solution": "IBLADISH Solution",
+                "rows": {
+                    "1": {
+                        "prob": "Expensive printing costs on price changes",
+                        "sol": "0€ every time – QR stays the same"
+                    },
+                    "2": {
+                        "prob": "Incorrect allergens",
+                        "sol": "AI detects automatically"
+                    },
+                    "3": {
+                        "prob": "No website",
+                        "sol": "Menu = Mini-Website"
+                    },
+                    "4": {
+                        "prob": "Tourists don't understand menu",
+                        "sol": "Multi-Language"
+                    },
+                    "5": {
+                        "prob": "Messy PDFs",
+                        "sol": "Modern Web-App Menu"
+                    }
+                }
+            }
+        },
+        "testimonials": {
+            "title": "What Our Customers Say",
+            "subtitle": "Restaurateurs who love IBLADISH",
+            "cards": {
+                "1": {
+                    "text": "\"We save time every day. Allergens are detected automatically, that's the biggest relief for us.\"",
+                    "author": "Thomas Bauer",
+                    "role": "Head Chef, BurgerFactory"
+                },
+                "2": {
+                    "badge": "Success Story",
+                    "logo": "IBLADISH ➜ +30% Revenue",
+                    "text": "\"We used to send PDFs. Now guests just scan the code. The average check has noticeably increased.\"",
+                    "author": "Ahmed K.",
+                    "role": "Manager, City Bistro"
+                },
+                "3": {
+                    "text": "\"Simple, fast and looks great. Our guests often ask which system we use. Absolute recommendation.\"",
+                    "author": "Sarah Lindner",
+                    "role": "Owner, Café Soul"
+                },
+                "4": {
+                    "text": "\"No more outdated prices online. One click and everything is current. Google integration is top.\"",
+                    "author": "Markus Weber",
+                    "role": "Operator, 'Das Lokal'"
+                }
+            }
+        },
+        "pricing": {
+            "title": "Pricing",
+            "subtitle": "Transparent. No hidden fees.",
+            "free": {
+                "title": "Free",
+                "period": "/ month",
+                "features": "coming soon",
+                "cta": "Available Soon"
+            },
+            "premium": {
+                "badge": "Recommended",
+                "title": "Premium",
+                "period": "/ month",
+                "features": "coming soon",
+                "cta": "Start Now"
+            }
+        },
+        "footer": {
+            "title": "Ready to modernize your menu?",
+            "cta": "Start for Free Now →"
+        }
     }
 }
