@@ -339,7 +339,7 @@ export default function IbladishLandingPage() {
                                     <div className={styles.cardLogo}>⭐⭐⭐⭐⭐</div>
                                 </div>
                                 <p className={styles.testimonialText}>
-                                    "Wir sparen jeden Tag Zeit. Die Allergene werden automatisch erkannt, das ist für uns die größte Erleichterung."
+                                    "Wir sparen 400€ Druckkosten pro Monat."
                                 </p>
                                 <div className={styles.testimonialAuthor}>
                                     <div className={styles.avatar} style={{ backgroundColor: '#06D6A0' }}>TB</div>
@@ -357,7 +357,7 @@ export default function IbladishLandingPage() {
                                     <div className={styles.cardLogo}>IBLADISH ➜ +30% Umsatz</div>
                                 </div>
                                 <p className={styles.testimonialText}>
-                                    "Früher haben wir PDFs verschickt. Jetzt scannen die Gäste einfach den Code. Der Durchschnittsbon ist spürbar gestiegen."
+                                    "Endlich ordentliche Allergene."
                                 </p>
                                 <div className={styles.testimonialAuthor}>
                                     <div className={styles.avatar} style={{ backgroundColor: '#F27141' }}>AK</div>
@@ -374,7 +374,7 @@ export default function IbladishLandingPage() {
                                     <div className={styles.cardLogo}>⭐⭐⭐⭐⭐</div>
                                 </div>
                                 <p className={styles.testimonialText}>
-                                    "Einfach, schnell und sieht super aus. Unsere Gäste fragen oft, welches System wir nutzen. Absolute Empfehlung."
+                                    "Der QR-Code steht auf allen Tischen – läuft perfekt."
                                 </p>
                                 <div className={styles.testimonialAuthor}>
                                     <div className={styles.avatar} style={{ backgroundColor: '#118AB2' }}>SL</div>
