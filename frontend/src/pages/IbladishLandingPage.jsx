@@ -41,6 +41,14 @@ export default function IbladishLandingPage() {
     const isRtl = activeLang === 'ar'
 
     const handleStartNow = () => navigate(registerPath)
+    const handleSeeSolutions = () => {
+        const target = document.getElementById('solutions')
+        if (target?.scrollIntoView) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        } else {
+            navigate(`${langPrefix}/#solutions`)
+        }
+    }
 
     return (
         <div className={styles.ibladishPage} dir={isRtl ? 'rtl' : 'ltr'}>
@@ -147,11 +155,18 @@ export default function IbladishLandingPage() {
                             <p>{t('landing.problem.cards.5')}</p>
                         </div>
                     </div>
+                    <div className={styles.problemBridge}>
+                        <button type="button" className={styles.bridgeCta} onClick={handleSeeSolutions}>
+                            <span className={styles.bridgeDot} />
+                            <span className={styles.bridgeText}>{t('landing.solution.subtitle')}</span>
+                            <span className={styles.bridgeArrow} aria-hidden="true" />
+                        </button>
+                    </div>
                 </div>
             </section>
 
             {/* Solution Section (Creative Image) */}
-            <section className={styles.solutionSection}>
+            <section className={styles.solutionSection} id="solutions">
                 <div className={styles.container}>
                     <div className={styles.solutionContent}>
                         <div className={styles.solutionText}>

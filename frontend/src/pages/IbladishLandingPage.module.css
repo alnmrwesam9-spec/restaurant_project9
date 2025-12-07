@@ -368,7 +368,11 @@
 
 .problemSection {
     padding: var(--space-xl) 0;
-    background: var(--white);
+    background: radial-gradient(circle at 30% 20%, rgba(242, 113, 65, 0.12), transparent 32%),
+        radial-gradient(circle at 80% 10%, rgba(17, 24, 39, 0.1), transparent 38%),
+        var(--white);
+    position: relative;
+    overflow: hidden;
 }
 
 .problemGrid {
@@ -377,60 +381,155 @@
     gap: var(--space-md);
 }
 
-/* Option A: Light Red Background Card Style */
 .problemCard {
     text-align: start;
     padding: 2rem;
-    background-color: #fff5f5;
-    /* Light red background */
-    border: 1px solid #fed7d7;
-    /* Red border */
-    border-radius: var(--radius-lg);
-    transition: all 0.2s ease;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 245, 245, 0.8));
+    border: 1px solid rgba(242, 113, 65, 0.16);
+    border-radius: 20px;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+    backdrop-filter: blur(8px);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
     height: 100%;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    /* Left align content */
+    gap: 0.75rem;
+    opacity: 0;
+    transform: translateY(16px) scale(1.03);
+    animation: problemReveal 0.65s ease forwards;
+    position: relative;
+    isolation: isolate;
 }
 
+.problemCard:nth-child(1) { animation-delay: 0ms; }
+.problemCard:nth-child(2) { animation-delay: 100ms; }
+.problemCard:nth-child(3) { animation-delay: 200ms; }
+.problemCard:nth-child(4) { animation-delay: 300ms; }
+.problemCard:nth-child(5) { animation-delay: 400ms; }
+
 .problemCard:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-md);
-    border-color: #fc8181;
-    /* Darker red on hover */
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(242, 113, 65, 0.25) inset;
+    border-color: rgba(242, 113, 65, 0.32);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 245, 0.9));
 }
 
 .problemIcon {
     color: #c53030;
-    /* Strong red text */
     margin-bottom: 1.5rem;
-    /* Better spacing to text */
     display: flex;
     align-items: center;
     justify-content: center;
     width: 56px;
     height: 56px;
-    background: #ffffff;
-    border-radius: 12px;
-    /* Soft square or circle */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    /* Highlight icon */
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    animation: problemPulse 3.6s ease-in-out infinite;
+    position: relative;
 }
 
-/* Fix svg size inside icon wrapper */
 .problemIcon svg {
     font-size: 1.75rem;
 }
 
 .problemCard p {
     font-weight: 600;
-    /* Bolder text for readability */
     font-size: 1.125rem;
-    color: #742a2a;
-    /* Darker red-brown for contrast on light red */
+    color: #4f1d1d;
     margin: 0;
     line-height: 1.5;
+}
+
+/* Connector CTA to Solution Section */
+.problemBridge {
+    margin-top: var(--space-lg);
+    display: flex;
+    justify-content: center;
+}
+
+.bridgeCta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1.4rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #f27141 0%, #f28b65 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 12px 30px rgba(242, 113, 65, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.bridgeCta::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.3), transparent 45%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.bridgeCta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 38px rgba(242, 113, 65, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+}
+
+.bridgeCta:hover::after {
+    opacity: 1;
+}
+
+.bridgeDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ffffff;
+    opacity: 0.9;
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18);
+}
+
+.bridgeText {
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+}
+
+.bridgeArrow {
+    width: 10px;
+    height: 10px;
+    border-left: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(-45deg);
+    margin-inline-start: 2px;
+}
+@keyframes problemReveal {
+    0% {
+        opacity: 0;
+        transform: translateY(16px) scale(1.03);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes problemPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+    50% {
+        transform: scale(1.04);
+        box-shadow: 0 10px 26px rgba(242, 113, 65, 0.18);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
 }
 
 /* ========================================
