@@ -190,22 +190,26 @@
 .logoWrapper {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 12px;
-    height: 80px;
-    /* Consistently large height */
-    padding: 8px 0;
+    height: 64px;
+    /* Slightly reduced container height to ensure logo breathing room */
+    padding: 4px 0;
 }
 
-.logoPartText {
-    height: 100%;
+.mainLogo {
+    height: 140%;
+    /* Scale up significantly (overflows safety) or simple hard pixel value */
+    /* Let's use a fixed large height to make it 'big and professional' */
+    height: 52px;
+    /* The user asked to make it BIG. Let's try to maximize it within the navbar constraints */
     width: auto;
     object-fit: contain;
+    transition: transform 0.3s ease;
 }
 
-.logoPartIcon {
-    height: 100%;
-    width: auto;
-    object-fit: contain;
+.mainLogo:hover {
+    transform: scale(1.05);
 }
 
 /* ========================================
@@ -259,6 +263,20 @@
     align-items: center;
     justify-content: center;
     color: var(--neutral-400);
+}
+
+.heroImgAsset {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--neutral-200);
+    object-fit: cover;
+    /* Maintain float animation */
+    animation: float 6s ease-in-out infinite;
+    aspect-ratio: 16/10;
+    /* Optional: forces the same ratio if image varies */
 }
 
 /* ========================================

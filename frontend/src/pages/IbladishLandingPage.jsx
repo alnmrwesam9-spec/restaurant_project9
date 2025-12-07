@@ -39,18 +39,10 @@ export default function IbladishLandingPage() {
             <header className={styles.navHeader}>
                 <div className={styles.navContainer}>
                     <div className={styles.logoWrapper}>
-                        {/* Text/Logo Composite */}
                         <img
-                            src="/assets/logo.svg"
-                            alt="IBLADISH Logo"
-                            className={styles.logoPartText}
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                        <img
-                            src="/assets/icon.svg"
-                            alt="IBLADISH Icon"
-                            className={styles.logoPartIcon}
-                            onError={(e) => { e.target.style.display = 'none'; }}
+                            src="/assets/logo+icons.svg"
+                            alt="IBLADISH"
+                            className={styles.mainLogo}
                         />
                     </div>
                     <div className={styles.navActions} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -78,9 +70,11 @@ export default function IbladishLandingPage() {
                         </div>
                     </div>
                     <div className={styles.heroImage}>
-                        <div className={`${styles.placeholderImage} ${styles.heroPlaceholder}`}>
-                            <span>{t('landing.hero.placeholder')}</span>
-                        </div>
+                        <img
+                            src="/img/desktop-hero.png"
+                            alt="IBLADISH Dashboard"
+                            className={styles.heroImgAsset}
+                        />
                     </div>
                 </div>
             </section>
