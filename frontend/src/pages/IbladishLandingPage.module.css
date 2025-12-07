@@ -201,7 +201,7 @@
     height: 140%;
     /* Scale up significantly (overflows safety) or simple hard pixel value */
     /* Let's use a fixed large height to make it 'big and professional' */
-    height: 52px;
+    height: 130px;
     /* The user asked to make it BIG. Let's try to maximize it within the navbar constraints */
     width: auto;
     object-fit: contain;
