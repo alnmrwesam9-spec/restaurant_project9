@@ -529,6 +529,10 @@
     background: var(--neutral-50);
 }
 
+.featuresSection .sectionTitle {
+    margin-bottom: calc(var(--space-lg) + 1rem);
+}
+
 .featuresGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -609,7 +613,7 @@
    ======================================== */
 
 .solutionSection {
-    padding: var(--space-xl) 0;
+    padding: var(--space-xl) 0 var(--space-lg);
     background: var(--white);
 }
 
@@ -786,7 +790,7 @@
    ======================================== */
 
 .howItWorks {
-    padding: var(--space-xl) 0;
+    padding: var(--space-xl) 0 var(--space-lg);
     background: var(--white);
     /* Changed from dark to white for consistency */
     color: var(--neutral-900);
@@ -857,6 +861,10 @@
 .whySection {
     padding: var(--space-xl) 0;
     background: var(--white);
+}
+
+.whySection .sectionTitle {
+    margin-bottom: calc(var(--space-lg) + 1rem);
 }
 
 .comparisonTable {
