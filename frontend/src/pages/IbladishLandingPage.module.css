@@ -286,8 +286,8 @@
 .marqueeSection {
     width: 100%;
     background: #0C1320;
-    margin: 4rem 0;
-    padding: 3rem 0;
+    margin: var(--space-lg) 0 0;
+    padding: 2.5rem 0 2rem;
     overflow: hidden;
     position: relative;
     display: block;
@@ -367,39 +367,63 @@
    ======================================== */
 
 .problemSection {
-    padding: var(--space-xl) 0;
-    background: radial-gradient(circle at 30% 20%, rgba(242, 113, 65, 0.12), transparent 32%),
-        radial-gradient(circle at 80% 10%, rgba(17, 24, 39, 0.1), transparent 38%),
+    padding: var(--space-lg) 0 var(--space-xl);
+    background:
+        radial-gradient(circle at 50% 12%, rgba(242, 113, 65, 0.12), transparent 32%),
+        radial-gradient(circle at 85% 10%, rgba(17, 24, 39, 0.08), transparent 40%),
+        radial-gradient(circle at 15% 0%, rgba(242, 113, 65, 0.08), transparent 35%),
         var(--white);
     position: relative;
     overflow: hidden;
 }
 
+.problemSection::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 10%, rgba(242, 113, 65, 0.08), transparent 45%);
+    filter: blur(20px);
+    z-index: 0;
+    pointer-events: none;
+}
+
 .problemGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-md);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-top: var(--space-lg);
 }
 
 .problemCard {
-    text-align: start;
-    padding: 2rem;
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 245, 245, 0.8));
-    border: 1px solid rgba(242, 113, 65, 0.16);
-    border-radius: 20px;
-    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
-    backdrop-filter: blur(8px);
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-    height: 100%;
+    position: relative;
+    text-align: center;
+    padding: 2.25rem 2rem 1.75rem;
+    background: linear-gradient(160deg, #fffdfb 0%, #fff3ec 100%);
+    border: 1px solid rgba(242, 113, 65, 0.14);
+    border-radius: 22px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 220px;
     opacity: 0;
-    transform: translateY(16px) scale(1.03);
+    transform: translateY(16px);
     animation: problemReveal 0.65s ease forwards;
-    position: relative;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
     isolation: isolate;
+}
+
+.problemCard::before {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    background: radial-gradient(circle, rgba(242, 113, 65, 0.2), transparent 60%);
+    filter: blur(32px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    z-index: 0;
 }
 
 .problemCard:nth-child(1) { animation-delay: 0ms; }
@@ -408,38 +432,50 @@
 .problemCard:nth-child(4) { animation-delay: 300ms; }
 .problemCard:nth-child(5) { animation-delay: 400ms; }
 
+.problemCard:nth-child(5) {
+    grid-column: 2 / span 2;
+    justify-self: center;
+    max-width: 420px;
+}
+
 .problemCard:hover {
-    transform: translateY(-6px) scale(1.01);
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(242, 113, 65, 0.25) inset;
-    border-color: rgba(242, 113, 65, 0.32);
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 245, 0.9));
+    transform: translateY(-8px);
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(242, 113, 65, 0.2) inset;
+    border-color: rgba(242, 113, 65, 0.24);
+}
+
+.problemCard:hover::before {
+    opacity: 1;
 }
 
 .problemIcon {
-    color: #c53030;
-    margin-bottom: 1.5rem;
+    color: #d54b34;
+    position: absolute;
+    inset-inline-end: 1.25rem;
+    top: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    height: 56px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 14px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    animation: problemPulse 3.6s ease-in-out infinite;
-    position: relative;
+    width: 52px;
+    height: 52px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    z-index: 1;
 }
 
 .problemIcon svg {
-    font-size: 1.75rem;
+    font-size: 1.6rem;
 }
 
 .problemCard p {
-    font-weight: 600;
-    font-size: 1.125rem;
+    font-weight: 700;
+    font-size: 1.05rem;
     color: #4f1d1d;
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.6;
+    text-align: center;
+    max-width: 20ch;
 }
 
 .problemHint {
@@ -491,7 +527,7 @@
 @keyframes problemReveal {
     0% {
         opacity: 0;
-        transform: translateY(16px) scale(1.03);
+        transform: translateY(16px) scale(1.02);
     }
     100% {
         opacity: 1;
