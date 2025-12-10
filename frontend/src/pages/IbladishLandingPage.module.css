@@ -442,69 +442,51 @@
     line-height: 1.5;
 }
 
-/* Connector CTA to Solution Section */
-.problemBridge {
+.problemHint {
     margin-top: var(--space-lg);
     display: flex;
     justify-content: center;
 }
 
-.bridgeCta {
+.hintCta {
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
-    padding: 0.85rem 1.4rem;
+    gap: 0.5rem;
+    padding: 0.8rem 1.3rem;
     border-radius: 999px;
-    background: linear-gradient(90deg, #f27141 0%, #f28b65 100%);
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 12px 30px rgba(242, 113, 65, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+    background: rgba(17, 24, 39, 0.08);
+    color: var(--neutral-900);
+    border: 1px solid rgba(242, 113, 65, 0.25);
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-    position: relative;
-    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(6px);
 }
 
-.bridgeCta::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.3), transparent 45%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.bridgeCta:hover {
+.hintCta:hover {
     transform: translateY(-2px);
-    box-shadow: 0 16px 38px rgba(242, 113, 65, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+    background: rgba(242, 113, 65, 0.08);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
 }
 
-.bridgeCta:hover::after {
-    opacity: 1;
-}
-
-.bridgeDot {
-    width: 10px;
-    height: 10px;
+.hintArrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: #ffffff;
-    opacity: 0.9;
-    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18);
+    background: rgba(242, 113, 65, 0.14);
+    color: var(--neutral-900);
+    font-weight: 800;
+    font-size: 0.9rem;
+    animation: arrowBounce 2s ease-in-out infinite;
 }
 
-.bridgeText {
+.hintText {
     font-weight: 700;
     font-size: 0.95rem;
     letter-spacing: 0.01em;
-}
-
-.bridgeArrow {
-    width: 10px;
-    height: 10px;
-    border-left: 2px solid #fff;
-    border-bottom: 2px solid #fff;
-    transform: rotate(-45deg);
-    margin-inline-start: 2px;
 }
 @keyframes problemReveal {
     0% {
@@ -530,6 +512,12 @@
         transform: scale(1);
         box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
     }
+}
+
+@keyframes arrowBounce {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(4px); }
+    100% { transform: translateY(0); }
 }
 
 /* ========================================

@@ -155,11 +155,10 @@ export default function IbladishLandingPage() {
                             <p>{t('landing.problem.cards.5')}</p>
                         </div>
                     </div>
-                    <div className={styles.problemBridge}>
-                        <button type="button" className={styles.bridgeCta} onClick={handleSeeSolutions}>
-                            <span className={styles.bridgeDot} />
-                            <span className={styles.bridgeText}>{t('landing.solution.subtitle')}</span>
-                            <span className={styles.bridgeArrow} aria-hidden="true" />
+                    <div className={styles.problemHint}>
+                        <button type="button" className={styles.hintCta} onClick={handleSeeSolutions}>
+                            <span className={styles.hintArrow} aria-hidden="true">↓</span>
+                            <span className={styles.hintText}>{t('landing.solution.subtitle')}</span>
                         </button>
                     </div>
                 </div>
