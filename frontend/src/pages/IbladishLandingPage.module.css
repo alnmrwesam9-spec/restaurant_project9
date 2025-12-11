@@ -1008,43 +1008,84 @@
 }
 
 .comparisonTable {
-    overflow: hidden;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--neutral-200);
-    background: var(--white);
+    background: transparent;
+    overflow: visible;
 }
 
-.comparisonTable table {
+.compareCards {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
 }
 
-.comparisonTable th {
-    background: var(--neutral-50);
-    padding: 1.5rem 2rem;
-    text-align: start;
+.compareCard {
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(6px);
+    transition: all 0.5s ease-out;
+}
+
+.compareCard:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+.compareSide {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1.75rem;
     font-weight: 600;
-    color: var(--neutral-900);
-    border-bottom: 1px solid var(--neutral-200);
 }
 
-.comparisonTable td {
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid var(--neutral-200);
-    vertical-align: middle;
+.compareProblem {
+    background: linear-gradient(135deg, #feecec 0%, #fce4e0 50%, #f9d6cc 100%);
+    color: #d64545;
 }
 
-.comparisonTable tr:last-child td {
-    border-bottom: none;
+.compareSolution {
+    background: linear-gradient(135deg, #e8fff2 0%, #d9f8e6 50%, #c7f2d8 100%);
+    color: #195e2d;
 }
 
-/* Highlight "Solution" column background subtly if desired, or text */
-.comparisonTable td:last-child {
-    font-weight: 600;
-    color: var(--primary);
-    background: #fffaf8;
-    /* Subtle tint */
+.compareIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.compareIconProblem {
+    background: #f8c1b8;
+    color: #b82020;
+}
+
+.compareIconSolution {
+    background: #bceed1;
+    color: #195e2d;
+}
+
+.compareText {
+    display: inline-block;
+    line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+    .compareCard {
+        flex-direction: row;
+    }
+
+    .compareSide {
+        width: 50%;
+    }
 }
 
 /* ========================================

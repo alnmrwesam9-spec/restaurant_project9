@@ -319,36 +319,26 @@ export default function IbladishLandingPage() {
                 <div className={styles.container}>
                     <h2 className={styles.sectionTitle}>{t('landing.why.title')}</h2>
                     <div className={styles.comparisonTable}>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>{t('landing.why.table.col_problem')}</th>
-                                    <th>{t('landing.why.table.col_solution')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.1.prob')}</td>
-                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.1.sol')}</td>
-                                </tr>
-                                <tr>
-                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.2.prob')}</td>
-                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.2.sol')}</td>
-                                </tr>
-                                <tr>
-                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.3.prob')}</td>
-                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.3.sol')}</td>
-                                </tr>
-                                <tr>
-                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.4.prob')}</td>
-                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.4.sol')}</td>
-                                </tr>
-                                <tr>
-                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.5.prob')}</td>
-                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.5.sol')}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div className={styles.compareCards}>
+                            {[
+                                { prob: t('landing.why.table.rows.1.prob'), sol: t('landing.why.table.rows.1.sol') },
+                                { prob: t('landing.why.table.rows.2.prob'), sol: t('landing.why.table.rows.2.sol') },
+                                { prob: t('landing.why.table.rows.3.prob'), sol: t('landing.why.table.rows.3.sol') },
+                                { prob: t('landing.why.table.rows.4.prob'), sol: t('landing.why.table.rows.4.sol') },
+                                { prob: t('landing.why.table.rows.5.prob'), sol: t('landing.why.table.rows.5.sol') }
+                            ].map((row, idx) => (
+                                <div className={styles.compareCard} key={`compare-${idx}`}>
+                                    <div className={`${styles.compareSide} ${styles.compareProblem}`}>
+                                        <span className={`${styles.compareIcon} ${styles.compareIconProblem}`}>❌</span>
+                                        <span className={styles.compareText}>{row.prob}</span>
+                                    </div>
+                                    <div className={`${styles.compareSide} ${styles.compareSolution}`}>
+                                        <span className={`${styles.compareIcon} ${styles.compareIconSolution}`}>✔️</span>
+                                        <span className={styles.compareText}>{row.sol}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </section>
