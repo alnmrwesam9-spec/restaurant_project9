@@ -277,6 +277,22 @@
     padding: 4px 0;
 }
 
+.logoButton {
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.logoButton:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+    border-radius: 8px;
+}
+
 .mainLogo {
     height: 160%;
     /* Scale up significantly (overflows safety) or simple hard pixel value */
@@ -440,6 +456,14 @@
     background: rgba(255, 255, 255, 0.15);
     border-radius: 6px;
     flex-shrink: 0;
+}
+
+.marqueeLogoImg {
+    height: 44px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
 /* ========================================
@@ -1522,6 +1546,10 @@
         height: 64px;
     }
 
+    .logoButton {
+        display: inline-flex;
+    }
+
     .mainLogo {
         height: 110px;
     }
@@ -1534,6 +1562,10 @@
         gap: 0.35rem;
         max-height: none;
         overflow: visible;
+    }
+
+    .marqueeLogoImg {
+        height: 32px;
     }
 
     :global(.language-switcher) {

@@ -50,17 +50,31 @@ export default function IbladishLandingPage() {
         }
     }
 
+    const handleLogoClick = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    const brandLogos = [
+        { src: '/assets/secrol/secrol-logo-01.svg', alt: 'Brand partner 1' },
+        { src: '/assets/secrol/secrol-logo-02.svg', alt: 'Brand partner 2' },
+        { src: '/assets/secrol/secrol-logo-03.svg', alt: 'Brand partner 3' },
+        { src: '/assets/secrol/secrol-logo-04.svg', alt: 'Brand partner 4' },
+        { src: '/assets/secrol/secrol-logo-05.svg', alt: 'Brand partner 5' }
+    ]
+
     return (
         <div className={styles.ibladishPage} dir={isRtl ? 'rtl' : 'ltr'}>
             {/* Navbar with Logo */}
             <header className={styles.navHeader}>
                 <div className={styles.navContainer}>
                     <div className={styles.logoWrapper}>
-                        <img
-                            src="/assets/logo+icons.svg"
-                            alt="IBLADISH"
-                            className={styles.mainLogo}
-                        />
+                        <button type="button" className={styles.logoButton} onClick={handleLogoClick} aria-label="IBLADISH home">
+                            <img
+                                src="/assets/logo+icons.svg"
+                                alt="IBLADISH"
+                                className={styles.mainLogo}
+                            />
+                        </button>
                     </div>
                     <div className={styles.navActions} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <LanguageSwitcher />
@@ -103,25 +117,27 @@ export default function IbladishLandingPage() {
                 <div className={styles.marqueeHeader}>{t('landing.marquee.title')}</div>
                 <div className={styles.marqueeContainer}>
                     <div className={styles.marqueeTrack}>
-                        {/* Set 1 */}
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Restaurant A</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Gastro Pro</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />FoodPoint</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Bistro24</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />ChefTech</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />MenuMasters</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Urban Eats</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Green Bowl</div>
+                        {brandLogos.map((logo, idx) => (
+                            <div className={styles.marqueeLogo} key={`brand-${idx}`}>
+                                <img
+                                    src={logo.src}
+                                    alt={logo.alt}
+                                    className={styles.marqueeLogoImg}
+                                    loading="lazy"
+                                />
+                            </div>
+                        ))}
 
-                        {/* Set 2 (Duplicate for Loop) */}
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Restaurant A</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Gastro Pro</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />FoodPoint</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Bistro24</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />ChefTech</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />MenuMasters</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Urban Eats</div>
-                        <div className={styles.marqueeLogo}><div className={styles.marqueeLogoIcon} />Green Bowl</div>
+                        {brandLogos.map((logo, idx) => (
+                            <div className={styles.marqueeLogo} key={`brand-dup-${idx}`}>
+                                <img
+                                    src={logo.src}
+                                    alt={logo.alt}
+                                    className={styles.marqueeLogoImg}
+                                    loading="lazy"
+                                />
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
@@ -469,7 +485,7 @@ export default function IbladishLandingPage() {
             <section className={styles.footerCta}>
                 <div className={styles.container}>
                     <h2>{t('landing.footer.title')}</h2>
-                    <button className={`${styles.btn} ${styles.btnPrimary} ${styles.btnLarge}`}>
+                    <button className={`${styles.btn} ${styles.btnPrimary} ${styles.btnLarge}`} onClick={handleStartNow}>
                         {t('landing.footer.cta')}
                     </button>
                 </div>
