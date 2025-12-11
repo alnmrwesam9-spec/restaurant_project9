@@ -4,11 +4,11 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
+    gap: 0.5rem;
     width: 100%;
-    overflow: hidden;
+    overflow: visible;
     user-select: none;
-    margin-top: 2.5rem;
+    margin-top: 1rem;
     padding: 0 8px;
 }
 
@@ -16,8 +16,8 @@
     position: relative;
     width: 100%;
     max-width: 960px;
-    min-height: 260px;
-    overflow: hidden;
+    min-height: 240px;
+    overflow: visible;
 }
 
 .dashboard-card-layer {
@@ -103,6 +103,8 @@
     padding: 0.5rem 0.75rem;
     border-radius: 999px;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
 }
 
 .dashboard-cards-button {

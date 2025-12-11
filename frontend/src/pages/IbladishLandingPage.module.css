@@ -753,7 +753,7 @@
    ======================================== */
 
 .solutionSection {
-    padding: var(--space-xl) 0 var(--space-lg);
+    padding: var(--space-xl) 0 var(--space-md);
     background: var(--white);
 }
 

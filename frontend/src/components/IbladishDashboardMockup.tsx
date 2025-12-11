@@ -77,7 +77,7 @@ export default function IbladishDashboardMockup() {
     const goPrev = () => setActiveIndex((prev) => (prev - 1 + total) % total);
 
     return (
-        <div className="dashboard-cards-wrapper">
+        <div className="relative w-full flex flex-col items-center justify-center overflow-visible z-10 py-6 dashboard-cards-wrapper">
             <div className="dashboard-cards-track">
                 {cards.map((card, idx) => {
                     const slot = getSlot(idx);
