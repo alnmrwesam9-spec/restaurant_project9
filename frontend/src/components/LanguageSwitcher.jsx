@@ -16,18 +16,11 @@ export default function LanguageSwitcher({ className }) {
 
         i18n.changeLanguage(newLang);
 
-        // Update URL: /de/ibladish -> /ar/ibladish
-        // We assume the route structure is /:lang/...
-        // If we are on a route without :lang, we might need to be careful.
-        // But for Ibladish page, we know it is /:lang/ibladish
-
         const pathSegments = location.pathname.split('/').filter(Boolean);
 
-        // If the first segment is a language code, replace it
         if (['de', 'en', 'ar'].includes(pathSegments[0])) {
             pathSegments[0] = newLang;
         } else {
-            // If no lang prefix (shouldn't happen with our new route), prepend it
             pathSegments.unshift(newLang);
         }
 
@@ -36,34 +29,34 @@ export default function LanguageSwitcher({ className }) {
     };
 
     const languages = [
-        { code: 'de', label: 'DE', flag: '🇩🇪' },
-        { code: 'en', label: 'EN', flag: '🇺🇸' },
-        { code: 'ar', label: 'AR', flag: '🇸🇦' }
+        { code: 'de', label: 'DE' },
+        { code: 'en', label: 'EN' },
+        { code: 'ar', label: 'AR' }
     ];
 
+    const activeLabel = languages.find((lng) => lng.code === currentLang)?.label || currentLang.toUpperCase();
+
     return (
-        <div className={`language-switcher ${className || ''}`} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Language style={{ color: '#6b7280', fontSize: '1.2rem' }} />
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
+        <div className={`language-switcher ${className || ''}`}>
+            <button
+                type="button"
+                className="language-switcher__toggle"
+                aria-haspopup="listbox"
+                aria-label="Change language"
+            >
+                <Language className="language-switcher__toggle-icon" />
+                <span className="language-switcher__toggle-label">{activeLabel}</span>
+            </button>
+
+            <div className="language-switcher__list" role="listbox" aria-label="Select language">
                 {languages.map((lng) => (
                     <button
                         key={lng.code}
+                        type="button"
                         onClick={() => handleLanguageChange(lng.code)}
-                        style={{
-                            background: currentLang === lng.code ? '#F27141' : 'transparent',
-                            color: currentLang === lng.code ? '#fff' : '#6b7280',
-                            border: '1px solid',
-                            borderColor: currentLang === lng.code ? '#F27141' : '#e5e7eb',
-                            borderRadius: '6px',
-                            padding: '0.25rem 0.5rem',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            transition: 'all 0.2s'
-                        }}
+                        className={`language-switcher__option ${currentLang === lng.code ? 'is-active' : ''}`}
+                        role="option"
+                        aria-selected={currentLang === lng.code}
                     >
                         <span>{lng.label}</span>
                     </button>

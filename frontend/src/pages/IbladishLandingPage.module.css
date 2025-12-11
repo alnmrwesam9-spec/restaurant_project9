@@ -186,22 +186,102 @@
     padding: 0 var(--space-md);
 }
 
+.navActions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+/* Language Switcher (desktop + mobile dropdown) */
+:global(.language-switcher) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    font-family: inherit;
+}
+
+:global(.language-switcher__toggle) {
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--neutral-200);
+    background: var(--white);
+    color: var(--neutral-600);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+:global(.language-switcher__toggle:hover) {
+    border-color: var(--neutral-400);
+    box-shadow: var(--shadow-sm);
+}
+
+:global(.language-switcher__toggle-icon) {
+    color: var(--neutral-400);
+    font-size: 1rem !important;
+}
+
+:global(.language-switcher__toggle-label) {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+}
+
+:global(.language-switcher__list) {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+:global(.language-switcher__option) {
+    background: transparent;
+    color: var(--neutral-600);
+    border: 1px solid var(--neutral-200);
+    border-radius: 6px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+:global(.language-switcher__option:hover) {
+    border-color: var(--neutral-400);
+    color: var(--neutral-900);
+}
+
+:global(.language-switcher__option.is-active) {
+    background: var(--primary);
+    color: var(--white);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm), var(--shadow-glow);
+}
+
 /* Navbar Logo Fix */
 .logoWrapper {
     display: flex;
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
-    height: 64px;
+    height: 72px;
     /* Slightly reduced container height to ensure logo breathing room */
     padding: 4px 0;
 }
 
 .mainLogo {
-    height: 140%;
+    height: 160%;
     /* Scale up significantly (overflows safety) or simple hard pixel value */
     /* Let's use a fixed large height to make it 'big and professional' */
-    height: 130px;
+    height: 160px;
     /* The user asked to make it BIG. Let's try to maximize it within the navbar constraints */
     width: auto;
     object-fit: contain;
@@ -1426,6 +1506,180 @@
 
     .stepsGrid::before {
         display: none;
+    }
+
+    /* Navbar mobile tweaks */
+    .navHeader {
+        padding: 0.75rem 0;
+    }
+
+    .navContainer {
+        padding: 0 var(--space-sm);
+        gap: 0.75rem;
+    }
+
+    .logoWrapper {
+        height: 64px;
+    }
+
+    .mainLogo {
+        height: 110px;
+    }
+
+    .navActions {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.35rem;
+        max-height: none;
+        overflow: visible;
+    }
+
+    :global(.language-switcher) {
+        position: relative;
+    }
+
+    :global(.language-switcher__toggle) {
+        display: inline-flex;
+    }
+
+    :global(.language-switcher__list) {
+        display: none;
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        inset-inline-end: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.35rem;
+        background: var(--white);
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--neutral-200);
+        min-width: 140px;
+        z-index: 1001;
+    }
+
+    :global(.language-switcher:focus-within .language-switcher__list) {
+        display: flex;
+    }
+
+    :global(.language-switcher__option) {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    /* Horiz scroll for problem cards */
+    .problemGrid {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 82%;
+        overflow-x: auto;
+        padding: 0 0.5rem 1rem;
+        margin: 0 -0.5rem;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+    }
+
+    .problemGrid::-webkit-scrollbar {
+        display: none;
+    }
+
+    .problemCard {
+        scroll-snap-align: start;
+        min-width: 0;
+    }
+
+    .problemCard:nth-child(5) {
+        grid-column: auto;
+        justify-self: auto;
+        max-width: none;
+    }
+
+    /* Horiz scroll for features */
+    .featuresGrid {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 85%;
+        overflow-x: auto;
+        padding: 0 0.5rem 1rem;
+        margin: 0 -0.5rem;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+    }
+
+    .featuresGrid::-webkit-scrollbar {
+        display: none;
+    }
+
+    .featureCard {
+        scroll-snap-align: start;
+        min-width: 0;
+    }
+
+    .featuresSection .sectionTitle,
+    .problemSection .sectionTitle,
+    .howItWorks .sectionTitle,
+    .whySection .sectionTitle {
+        margin-bottom: var(--space-md);
+    }
+
+    /* Keep steps compact */
+    .stepCard {
+        padding: 1.75rem 1.25rem;
+    }
+
+    /* Table -> stacked cards */
+    .comparisonTable {
+        overflow: visible;
+    }
+
+    .comparisonTable table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        display: block;
+    }
+
+    .comparisonTable thead {
+        display: none;
+    }
+
+    .comparisonTable tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .comparisonTable tr {
+        display: grid;
+        grid-template-columns: 1fr;
+        padding: 1rem;
+        border: 1px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(160deg, #fffdfb 0%, #fff3ec 100%);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .comparisonTable td {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+        padding: 0.25rem 0;
+        border-bottom: none;
+    }
+
+    .comparisonTable td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        color: var(--neutral-600);
+        font-size: 0.95rem;
+    }
+
+    .comparisonTable td:last-child {
+        color: var(--primary);
+        background: transparent;
     }
 }
 

@@ -326,24 +326,24 @@ export default function IbladishLandingPage() {
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>{t('landing.why.table.rows.1.prob')}</td>
-                                    <td>{t('landing.why.table.rows.1.sol')}</td>
+                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.1.prob')}</td>
+                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.1.sol')}</td>
                                 </tr>
                                 <tr>
-                                    <td>{t('landing.why.table.rows.2.prob')}</td>
-                                    <td>{t('landing.why.table.rows.2.sol')}</td>
+                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.2.prob')}</td>
+                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.2.sol')}</td>
                                 </tr>
                                 <tr>
-                                    <td>{t('landing.why.table.rows.3.prob')}</td>
-                                    <td>{t('landing.why.table.rows.3.sol')}</td>
+                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.3.prob')}</td>
+                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.3.sol')}</td>
                                 </tr>
                                 <tr>
-                                    <td>{t('landing.why.table.rows.4.prob')}</td>
-                                    <td>{t('landing.why.table.rows.4.sol')}</td>
+                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.4.prob')}</td>
+                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.4.sol')}</td>
                                 </tr>
                                 <tr>
-                                    <td>{t('landing.why.table.rows.5.prob')}</td>
-                                    <td>{t('landing.why.table.rows.5.sol')}</td>
+                                    <td data-label={t('landing.why.table.col_problem')}>{t('landing.why.table.rows.5.prob')}</td>
+                                    <td data-label={t('landing.why.table.col_solution')}>{t('landing.why.table.rows.5.sol')}</td>
                                 </tr>
                             </tbody>
                         </table>
