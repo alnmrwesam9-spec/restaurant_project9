@@ -20,6 +20,7 @@ import {
     Language,
     FormatQuote
 } from '@mui/icons-material'
+import IbladishDashboardMockup from '../components/IbladishDashboardMockup'
 
 export default function IbladishLandingPage() {
     const { t, i18n } = useTranslation()
@@ -183,8 +184,8 @@ export default function IbladishLandingPage() {
             {/* Solution Section (Creative Image) */}
             <section className={styles.solutionSection} id="solutions">
                 <div className={styles.container}>
-                    <div className={styles.solutionContent}>
-                        <div className={styles.solutionText}>
+                    <div className="relative flex flex-col md:flex-row items-center md:items-start justify-between gap-10 md:gap-20 w-full">
+                        <div className="w-full md:flex-1 flex flex-col gap-6">
                             <span className={styles.solutionSubtitle}>{t('landing.solution.subtitle')}</span>
                             <h2 className={styles.sectionTitle} style={{ marginBottom: '1rem' }}>
                                 {t('landing.solution.title')}
@@ -209,23 +210,8 @@ export default function IbladishLandingPage() {
                             </ul>
                         </div>
                         {/* Creative Image Wrapper */}
-                        <div className={styles.creativeWrapper}>
-                            <div className={`${styles.creativeShape} ${styles.shapeOrange}`} />
-                            <div className={`${styles.creativeShape} ${styles.shapeBlue}`} />
-                            <div className={styles.creativeImageCard}>
-                                <div className={styles.mockBrowserHeader}>
-                                    <div className={`${styles.mockDot} ${styles.dotRed}`} />
-                                    <div className={`${styles.mockDot} ${styles.dotYellow}`} />
-                                    <div className={`${styles.mockDot} ${styles.dotGreen}`} />
-                                </div>
-                                <div className={styles.mockContent}>
-                                    <div className={styles.mockHero}>{t('landing.solution.dashboard')}</div>
-                                    <div className={styles.mockSkeletonBlock} style={{ width: '60%' }} />
-                                    <div className={styles.mockSkeletonBlock} style={{ width: '90%' }} />
-                                    <div className={styles.mockSkeletonBlock} style={{ width: '85%' }} />
-                                    <div className={styles.mockSkeletonBlock} style={{ width: '50%', marginTop: 'auto' }} />
-                                </div>
-                            </div>
+                        <div className="w-full md:w-[480px] lg:w-[520px] flex justify-center">
+                            <IbladishDashboardMockup />
                         </div>
                     </div>
                 </div>

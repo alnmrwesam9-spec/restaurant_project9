@@ -15,12 +15,12 @@ export default defineConfig({
   },
   plugins: [react()],
   esbuild: {
-    loader: 'jsx',
+    loader: 'tsx',
     include: /src\/.*\.[jt]sx?$/,
   },
   optimizeDeps: {
     esbuildOptions: {
-      loader: { '.js': 'jsx' },
+      loader: { '.js': 'jsx', '.ts': 'tsx', '.tsx': 'tsx' },
     },
   },
   server: {
